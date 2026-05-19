@@ -1,0 +1,860 @@
+# NetCheck / WebPath Project Plan
+
+## 1. Project Goal
+
+Build a CLI tool that analyzes a website or domain and explains what happens between your machine and the target.
+
+Example usage:
+
+```bash
+netcheck google.com
+netcheck https://facebook.com
+netcheck dns google.com
+netcheck route google.com
+```
+
+The tool should help answer questions like:
+
+- Does DNS resolution work?
+- Which IP addresses are returned?
+- Does IPv4 work?
+- Does IPv6 work?
+- Can I connect to port 80 or 443?
+- Is the TLS certificate valid?
+- What HTTP status do I get?
+- Is there a redirect?
+- Which CDN or ASN owns the IP?
+- What route does traffic take from my machine?
+- Are different DNS resolvers returning different results?
+
+---
+
+## 2. Recommended Language
+
+## Primary choice: Go
+
+Go is the best fit for this project because:
+
+| Reason | Why it matters |
+|---|---|
+| Single binary | Easy to run on macOS, Linux, Proxmox, and servers |
+| Strong networking support | DNS, TCP, HTTP, and TLS are well-supported |
+| Fast startup | Good for CLI tools |
+| Cross-platform | Can build for macOS, Linux, and Windows |
+| DevOps-friendly | Many major infrastructure tools are written in Go |
+| Easy deployment | No virtual environment or dependency mess |
+
+Recommended approach:
+
+```text
+Use Go from the beginning.
+```
+
+Python would be faster for a throwaway prototype, but Go is better for a serious CLI tool.
+
+---
+
+## 3. Project Name Ideas
+
+| Name | Feeling |
+|---|---|
+| `netcheck` | Simple and clear |
+| `webpath` | Shows the path from your machine to the website |
+| `routepeek` | Focuses on routing visibility |
+| `dnspath` | DNS-focused |
+| `linktrace` | Good for tracing links and routes |
+| `packetstory` | Fun, but less professional |
+
+Recommended name:
+
+```text
+netcheck
+```
+
+Alternative favorite:
+
+```text
+webpath
+```
+
+---
+
+## 4. MVP Scope
+
+The first version should stay small and useful.
+
+Command:
+
+```bash
+netcheck google.com
+```
+
+MVP checks:
+
+1. Parse the target.
+2. Normalize the URL.
+3. Resolve DNS records.
+4. Show A records.
+5. Show AAAA records.
+6. Test TCP connection to port 443.
+7. Check TLS certificate.
+8. Perform HTTP request.
+9. Follow redirects.
+10. Show basic timing summary.
+
+MVP should not include native traceroute yet.
+
+Reason:
+
+```text
+DNS + TCP + TLS + HTTP already gives a very useful first version.
+```
+
+---
+
+## 5. Example MVP Output
+
+```text
+NETCHECK REPORT
+Target: https://google.com
+Time: 2026-05-19 19:12
+
+DNS
+✓ A     142.250.184.206
+✓ AAAA  2a00:1450:400d:80e::200e
+DNS lookup time: 14ms
+
+TCP
+✓ 142.250.184.206:443 reachable
+TCP connect time: 21ms
+
+TLS
+✓ Certificate valid
+Issuer: Google Trust Services
+Expires: 2026-08-12
+Days remaining: 85
+
+HTTP
+✓ Status: 301 Moved Permanently
+Final URL: https://www.google.com/
+Redirects: 1
+Server: gws
+
+Summary
+✓ DNS works
+✓ TCP works
+✓ TLS works
+✓ HTTP works
+```
+
+---
+
+## 6. Feature Roadmap
+
+## Phase 1 — Basic URL Analyzer
+
+Command:
+
+```bash
+netcheck https://example.com
+```
+
+Features:
+
+| Feature | Description |
+|---|---|
+| URL parsing | Detect scheme, hostname, and port |
+| DNS lookup | Resolve A and AAAA records |
+| TCP check | Test connection to port 80 or 443 |
+| TLS check | Certificate issuer, expiry, validity, SANs |
+| HTTP request | Status code, headers, redirects |
+| Timing | DNS, TCP, TLS, and HTTP duration |
+
+Goal:
+
+```text
+Create a working tool that can diagnose basic website reachability.
+```
+
+---
+
+## Phase 2 — DNS Deep Test
+
+Command:
+
+```bash
+netcheck dns google.com
+```
+
+Features:
+
+| Feature | Description |
+|---|---|
+| System resolver test | Use the OS default resolver |
+| Cloudflare resolver | Test 1.1.1.1 |
+| Google resolver | Test 8.8.8.8 |
+| Quad9 resolver | Test 9.9.9.9 |
+| Custom resolver | Allow user-defined DNS servers |
+| Record types | A, AAAA, CNAME, MX, TXT, NS, SOA |
+| Result comparison | Show differences between resolvers |
+| DNS timing | Measure resolver response time |
+
+Example output:
+
+```text
+Resolver       A Record            Time
+System         142.250.184.206     18ms
+Cloudflare     142.250.184.206     12ms
+Google         142.250.184.206     21ms
+Quad9          142.250.184.206     24ms
+```
+
+Goal:
+
+```text
+Make DNS behavior visible and comparable.
+```
+
+---
+
+## Phase 3 — Route / Traceroute
+
+Command:
+
+```bash
+netcheck route google.com
+```
+
+Initial implementation:
+
+```text
+Call the system traceroute command.
+```
+
+Platform mapping:
+
+| Platform | Command |
+|---|---|
+| macOS | `traceroute` |
+| Linux | `traceroute` or `tracepath` |
+| Windows | `tracert` |
+
+Important note:
+
+```text
+Traceroute output is not always reliable because routers may block or deprioritize ICMP/UDP packets.
+```
+
+Goal:
+
+```text
+Show the approximate network path without overengineering native traceroute too early.
+```
+
+Later improvement:
+
+```text
+Implement native TCP traceroute in Go.
+```
+
+---
+
+## Phase 4 — ASN / IP Ownership
+
+Command:
+
+```bash
+netcheck ip 142.250.184.206
+```
+
+Features:
+
+| Feature | Description |
+|---|---|
+| ASN lookup | Show autonomous system number |
+| Organization | Show network owner |
+| Country | Show registered country |
+| Prefix | Show IP network range |
+| CDN detection | Identify Cloudflare, Google, Meta, Akamai, Fastly, etc. |
+
+Example output:
+
+```text
+IP: 142.250.184.206
+ASN: AS15169
+Org: Google LLC
+Country: US
+Network: 142.250.0.0/15
+```
+
+Possible sources:
+
+| Source | Notes |
+|---|---|
+| Team Cymru DNS | Good for ASN lookup |
+| RDAP | Modern replacement for whois |
+| ipinfo.io | Easy, but API-limited |
+| PeeringDB | More advanced network info |
+
+Recommended start:
+
+```text
+Use Team Cymru DNS + RDAP.
+```
+
+---
+
+## Phase 5 — Report Export
+
+Commands:
+
+```bash
+netcheck google.com --json
+netcheck google.com --markdown
+netcheck google.com --html
+```
+
+Formats:
+
+| Format | Use case |
+|---|---|
+| Human text | Normal CLI usage |
+| JSON | Automation and scripting |
+| Markdown | Documentation and notes |
+| HTML | Shareable report |
+| Prometheus metrics | Future monitoring integration |
+
+Goal:
+
+```text
+Make the tool useful both for humans and automation.
+```
+
+---
+
+## 7. Command Design
+
+Recommended commands:
+
+```bash
+netcheck google.com
+netcheck full google.com
+netcheck dns google.com
+netcheck http https://google.com
+netcheck tls google.com
+netcheck route google.com
+netcheck ip 142.250.184.206
+```
+
+Future commands:
+
+```bash
+netcheck compare google.com facebook.com
+netcheck monitor google.com --every 30s
+netcheck export google.com --format markdown
+netcheck doh google.com --resolver cloudflare
+netcheck dot google.com --resolver cloudflare
+```
+
+Default behavior:
+
+```bash
+netcheck google.com
+```
+
+Should run a smart full check that is useful but not too slow.
+
+---
+
+## 8. Suggested Repository Structure
+
+```text
+netcheck/
+├── cmd/
+│   ├── root.go
+│   ├── dns.go
+│   ├── http.go
+│   ├── tls.go
+│   ├── route.go
+│   └── full.go
+├── internal/
+│   ├── dnscheck/
+│   ├── httpcheck/
+│   ├── tlscheck/
+│   ├── routecheck/
+│   ├── ipinfo/
+│   ├── report/
+│   └── config/
+├── main.go
+├── go.mod
+├── go.sum
+├── README.md
+└── config.example.yaml
+```
+
+Why this structure works:
+
+| Directory | Purpose |
+|---|---|
+| `cmd/` | CLI command definitions |
+| `internal/dnscheck/` | DNS logic |
+| `internal/httpcheck/` | HTTP logic |
+| `internal/tlscheck/` | TLS logic |
+| `internal/routecheck/` | Traceroute logic |
+| `internal/ipinfo/` | ASN, RDAP, ownership lookup |
+| `internal/report/` | Text, JSON, Markdown, HTML output |
+| `internal/config/` | Config loading |
+
+---
+
+## 9. Recommended Go Libraries
+
+| Purpose | Library |
+|---|---|
+| CLI framework | `github.com/spf13/cobra` |
+| DNS queries | `github.com/miekg/dns` |
+| Config handling | `github.com/spf13/viper` |
+| Tables | `github.com/olekukonko/tablewriter` |
+| Colors | `github.com/fatih/color` |
+| HTTP | Go standard library |
+| TLS | Go standard library |
+| JSON | Go standard library |
+| OS commands | Go standard library |
+
+Keep dependencies limited in the MVP.
+
+MVP dependency recommendation:
+
+```text
+cobra only
+```
+
+Then add `miekg/dns` when building the DNS deep-test phase.
+
+---
+
+## 10. Config Design
+
+Config file path:
+
+```bash
+~/.config/netcheck/config.yaml
+```
+
+Example config:
+
+```yaml
+resolvers:
+  - name: cloudflare
+    address: 1.1.1.1
+  - name: google
+    address: 8.8.8.8
+  - name: quad9
+    address: 9.9.9.9
+
+timeout: 5s
+user_agent: netcheck/0.1
+follow_redirects: true
+max_redirects: 10
+prefer_ipv6: false
+```
+
+---
+
+## 11. Important Technical Considerations
+
+## DNS results are not universal
+
+DNS can return different IPs depending on:
+
+- Your location
+- Your ISP
+- Your DNS resolver
+- IPv4 vs IPv6
+- Anycast routing
+- CDN load balancing
+- DNS ECS behavior
+
+The tool should avoid saying:
+
+```text
+This is the real IP.
+```
+
+Better wording:
+
+```text
+These are the IPs returned by this resolver at this time.
+```
+
+---
+
+## Traceroute can be misleading
+
+Some routers:
+
+- Block ICMP
+- Rate-limit traceroute packets
+- Hide internal hops
+- Return no response
+- Route differently for TCP/UDP/ICMP
+
+The tool should explain:
+
+```text
+A missing hop does not always mean a broken route.
+```
+
+---
+
+## Browser behavior may differ from CLI behavior
+
+Browsers can use:
+
+- Cookies
+- HSTS cache
+- HTTP/3
+- QUIC
+- Extensions
+- Proxy settings
+- VPN settings
+- Apple Private Relay
+- DNS-over-HTTPS
+- Cached DNS
+
+The CLI result may not perfectly match Chrome or Safari.
+
+Future feature:
+
+```bash
+netcheck browser-like google.com
+```
+
+---
+
+## IPv6 should be first-class
+
+The tool should clearly show:
+
+```text
+IPv4 DNS: available
+IPv6 DNS: available
+IPv4 TCP: OK
+IPv6 TCP: failed
+```
+
+This is useful for debugging mobile networks, home ISPs, Cloudflare, and VPN setups.
+
+---
+
+## DNS-over-HTTPS and DNS-over-TLS
+
+Future commands:
+
+```bash
+netcheck doh google.com --resolver cloudflare
+netcheck dot google.com --resolver cloudflare
+```
+
+Useful resolver types:
+
+| Type | Example |
+|---|---|
+| Classic DNS UDP | `1.1.1.1:53` |
+| DNS over TCP | `1.1.1.1:53` |
+| DNS over TLS | `1.1.1.1:853` |
+| DNS over HTTPS | `https://cloudflare-dns.com/dns-query` |
+| NextDNS DoH | User-specific NextDNS endpoint |
+
+---
+
+## 12. Error Handling Strategy
+
+The tool should explain failures in plain language.
+
+Examples:
+
+```text
+DNS lookup failed.
+Possible reasons:
+- Domain does not exist
+- DNS resolver is unreachable
+- Network is offline
+- DNS filtering blocked the domain
+```
+
+```text
+TCP connection failed.
+Possible reasons:
+- Server is down
+- Port is blocked
+- Firewall is blocking traffic
+- IPv6 route is broken
+```
+
+```text
+TLS check failed.
+Possible reasons:
+- Certificate expired
+- Hostname mismatch
+- Self-signed certificate
+- TLS interception
+```
+
+---
+
+## 13. Testing Plan
+
+## Unit tests
+
+Test these components:
+
+- URL parser
+- Port detection
+- Output formatting
+- Config loading
+- DNS response parsing
+- HTTP redirect handling
+- TLS certificate parsing
+
+## Integration tests
+
+Use known stable targets:
+
+```text
+example.com
+cloudflare.com
+google.com
+```
+
+Use failure cases:
+
+```text
+nonexistent.invalid
+expired.badssl.com
+self-signed.badssl.com
+wrong.host.badssl.com
+```
+
+## Manual tests
+
+Test from:
+
+- Home network
+- Mobile hotspot
+- VPN on
+- VPN off
+- IPv6 enabled
+- IPv6 disabled
+- Cloudflare DNS
+- NextDNS
+- ISP DNS
+
+---
+
+## 14. Security and Privacy Considerations
+
+The tool should not send unnecessary data anywhere.
+
+Important choices:
+
+| Area | Recommendation |
+|---|---|
+| Telemetry | No telemetry by default |
+| API keys | Optional only |
+| Config | Store locally |
+| Reports | Generated locally |
+| Logs | Avoid storing queried domains unless user asks |
+| DNS tests | Be clear when using external resolvers |
+
+---
+
+## 15. Nice Future Features
+
+| Feature | Why it is useful |
+|---|---|
+| HTTP/3 / QUIC test | Browser-like modern web debugging |
+| Proxy test | Compare direct vs proxy route |
+| VPN detection | Show if traffic exits through VPN |
+| Cloudflare detection | Useful for CDN troubleshooting |
+| NextDNS profile test | Useful for your DNS setup |
+| Prometheus exporter | Homelab monitoring |
+| Web UI | Easier visualization |
+| TUI mode | Pretty terminal dashboard |
+| Historical comparison | Compare today vs yesterday |
+| Screenshot report | Shareable diagnostic report |
+
+---
+
+## 16. Suggested Version Plan
+
+## v0.1 — MVP
+
+Features:
+
+- URL parsing
+- DNS A/AAAA lookup with system resolver
+- TCP connection test
+- TLS certificate check
+- HTTP status and redirects
+- Basic timing summary
+- Human-readable CLI output
+
+## v0.2 — DNS Compare
+
+Features:
+
+- Multiple resolver support
+- Cloudflare, Google, Quad9 presets
+- A/AAAA/CNAME/MX/TXT/NS/SOA records
+- DNS timing table
+
+## v0.3 — Route
+
+Features:
+
+- System traceroute wrapper
+- Platform detection
+- Route output cleanup
+- Warning for unreliable/missing hops
+
+## v0.4 — IP Info
+
+Features:
+
+- ASN lookup
+- RDAP lookup
+- Organization detection
+- CDN detection
+
+## v0.5 — Export
+
+Features:
+
+- JSON output
+- Markdown output
+- HTML output
+
+## v1.0 — Stable CLI
+
+Features:
+
+- Config file
+- Good docs
+- Tests
+- GitHub Actions
+- Cross-platform builds
+- Release binaries
+
+---
+
+## 17. GitHub Actions Ideas
+
+Recommended CI checks:
+
+```text
+Go fmt
+Go vet
+Go test
+Staticcheck
+Build Linux binary
+Build macOS binary
+Build Windows binary
+Release artifact generation
+```
+
+Possible workflow files:
+
+```text
+.github/workflows/test.yml
+.github/workflows/build.yml
+.github/workflows/release.yml
+```
+
+---
+
+## 18. Learning Value
+
+This project teaches:
+
+- DNS resolution
+- A and AAAA records
+- TCP connection flow
+- TLS certificates
+- HTTP status codes
+- Redirects
+- CDN behavior
+- IPv4 vs IPv6
+- Traceroute limitations
+- ASN and BGP basics
+- CLI design
+- Go project structure
+- Cross-platform tooling
+- Testable DevOps-style code
+
+This is a very strong portfolio project because it combines networking, system tooling, and practical troubleshooting.
+
+---
+
+## 19. First Implementation Checklist
+
+Start with this checklist:
+
+```text
+[ ] Create Git repo
+[ ] Initialize Go module
+[ ] Add Cobra CLI
+[ ] Create root command
+[ ] Accept target argument
+[ ] Normalize URL
+[ ] Extract hostname
+[ ] Resolve A records
+[ ] Resolve AAAA records
+[ ] Test TCP 443
+[ ] Fetch TLS certificate
+[ ] Send HTTP GET request
+[ ] Follow redirects
+[ ] Print clean report
+[ ] Add simple errors
+[ ] Add README examples
+[ ] Add basic tests
+```
+
+---
+
+## 20. Recommended Starting Command
+
+```bash
+mkdir netcheck
+cd netcheck
+go mod init github.com/YOUR_USERNAME/netcheck
+go get github.com/spf13/cobra
+```
+
+Then create:
+
+```text
+main.go
+cmd/root.go
+internal/dnscheck/dns.go
+internal/httpcheck/http.go
+internal/tlscheck/tls.go
+internal/report/report.go
+```
+
+---
+
+## 21. Final Recommendation
+
+Build the first version in Go and keep it small.
+
+Best first goal:
+
+```text
+A clean CLI that takes one domain and shows DNS, TCP, TLS, HTTP, redirects, and timing.
+```
+
+Do not start with traceroute, DoH, BGP, or a web UI.
+
+Those are great later features, but the MVP should prove the core idea first.
+
