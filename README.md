@@ -119,6 +119,48 @@ A records
       142.251.20.101
 ```
 
+### Route (traceroute + per-hop ASN)
+
+```bash
+netcheck route google.com
+netcheck route --max-hops 20 1.1.1.1
+netcheck route --no-asn --no-resolve example.com
+```
+
+Wraps the system `traceroute` (`tracert` on Windows), streams hops as they arrive, and annotates each public IP with its origin ASN via Team Cymru's DNS service (no API key needed). Private and link-local hops are skipped for ASN.
+
+Flags:
+
+| Flag | Default | Description |
+|---|---|---|
+| `--max-hops` | `30` | Maximum number of hops |
+| `--probes` | `3` | Probes per hop |
+| `--wait` | `2` | Per-probe wait in seconds |
+| `--no-resolve` | `false` | Skip reverse DNS for each hop |
+| `--no-asn` | `false` | Skip Team Cymru ASN annotation |
+| `--timeout` | `60s` | Overall traceroute timeout |
+
+Sample output:
+
+```
+ROUTE
+Host:  google.com  (142.250.184.206)
+Time:  2026-05-20 14:02:11
+Tool:  /usr/sbin/traceroute [-m 30 -q 3 -w 2]
+
+  HOP  ADDRESS                                RTT                      ASN
+  1    10.0.0.1                               1.23ms  1.15ms  1.04ms
+  2    * * *                                  *   *   *
+  3    1.2.3.4                                10.2ms  9.8ms  10.5ms    AS7922 COMCAST-7922
+  ...
+  8    142.250.184.206                        18.1ms  17.9ms  18.0ms   AS15169 GOOGLE
+
+  Reached 142.250.184.206 in 8 hops
+  1 hop(s) timed out — routers commonly drop or rate-limit probes; missing hops do not always mean a broken route.
+```
+
+Requires the system `traceroute` (or `tracert`) on `PATH`. macOS ships it at `/usr/sbin/traceroute`; on Debian/Ubuntu install with `sudo apt install traceroute`.
+
 ## Roadmap
 
 See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full plan.
@@ -127,14 +169,14 @@ See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full 
 |---|---|---|
 | v0.1 | shipped | URL parsing, DNS, TCP, TLS, HTTP, redirects, httptrace timing |
 | v0.2 | shipped | DNS resolver compare, A/AAAA/CNAME/MX/TXT/NS/SOA, custom resolvers |
-| v0.3 | planned | Traceroute wrapper |
-| v0.4 | planned | ASN / IP ownership lookup |
+| v0.3 | shipped | Traceroute wrapper with per-hop ASN annotation (Team Cymru) |
+| v0.4 | planned | Standalone IP info command (RDAP, CDN detection) |
 | v0.5 | planned | JSON / Markdown / HTML output |
 | v1.0 | planned | Config file, cross-platform release builds |
 
 ## Caveats
 
 - **DNS results aren't universal.** GeoDNS, anycast, ECS, and CDN load-balancing all mean different resolvers (and different clients) legitimately get different IPs. `netcheck dns` makes that visible.
-- **Traceroute is not implemented yet.** Coming in v0.3.
+- **Traceroute is heuristic.** Routers can drop, rate-limit, or reorder ICMP/UDP probes. A missing hop does not always mean a broken route, and the path for TCP traffic may differ from what traceroute shows.
 - **Browser behavior may differ.** CLI doesn't use HSTS cache, HTTP/3, cookies, extensions, or VPN settings the way your browser does.
 - **macOS `/etc/resolv.conf`** points at internal loopback resolvers; `netcheck dns` uses just the first one for readability.

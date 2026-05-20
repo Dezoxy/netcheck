@@ -709,14 +709,15 @@ Features:
 - A/AAAA/CNAME/MX/TXT/NS/SOA records
 - DNS timing table
 
-## v0.3 — Route
+## v0.3 — Route (shipped)
 
 Features:
 
-- System traceroute wrapper
-- Platform detection
-- Route output cleanup
-- Warning for unreliable/missing hops
+- System traceroute wrapper (macOS/Linux `traceroute`, Windows `tracert`)
+- Platform detection and flag mapping
+- Streamed hop parsing with multi-probe RTTs
+- Per-hop Team Cymru ASN annotation (skipped on private/link-local IPs)
+- Warning when hops time out
 
 ## v0.4 — IP Info
 
