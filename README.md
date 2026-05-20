@@ -227,8 +227,14 @@ See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full 
 | v0.3 | shipped | Traceroute wrapper with per-hop ASN annotation (Team Cymru) |
 | v0.3.1 | shipped | Interactive menu mode with input normalization |
 | v0.4 | shipped | Standalone IP info command, RDAP abuse/registry lookup, CDN detection, DNS ASN hints |
-| v0.5 | planned | JSON / Markdown / HTML output |
-| v1.0 | planned | Config file, cross-platform release builds |
+| v0.4.1 | shipped | Planning update — locked v0.5 → v1.0 rollout, folder structure documented |
+| v0.4.2 | planned | Refactor flat `package main` into `cmd/` + `internal/` per the documented layout |
+| v0.5 | planned | `--output text\|json\|markdown\|html` on every command; versioned JSON schema |
+| v0.6 | planned | YAML config file (`~/.config/netcheck/config.yaml`) + DoH/DoT resolvers |
+| v0.7 | planned | Fill test coverage gaps, GitHub Actions CI, build matrix, status badge |
+| v0.8 | planned | `goreleaser` cross-platform release binaries, checksums, optional Homebrew tap |
+| v0.9 | planned | Release candidate — CLI surface freeze, doc pass, asciinema demo |
+| v1.0 | planned | Stability promise (no breaking changes in v1.x), final docs, optional man page |
 
 ## Caveats
 

@@ -368,44 +368,114 @@ Should run a smart full check that is useful but not too slow.
 
 ---
 
-## 8. Suggested Repository Structure
+## 8. Repository Structure
+
+### Current layout (as of v0.4)
+
+Everything sits at the repo root in `package main` — fine while the codebase was small enough to fit on a screen, but starting to push back as v0.4 added IPInfo/RDAP/CDN.
 
 ```text
 netcheck/
-├── cmd/
-│   ├── root.go
-│   ├── dns.go
-│   ├── http.go
-│   ├── tls.go
-│   ├── route.go
-│   └── full.go
-├── internal/
-│   ├── dnscheck/
-│   ├── httpcheck/
-│   ├── tlscheck/
-│   ├── routecheck/
-│   ├── ipinfo/
-│   ├── report/
-│   └── config/
-├── main.go
-├── go.mod
-├── go.sum
+├── main.go                # entry + flag dispatch + usage
+├── cmd_dns.go             # `netcheck dns` command wiring
+├── cmd_ip.go              # `netcheck ip` command wiring
+├── cmd_menu.go            # interactive menu loop
+├── cmd_route.go           # `netcheck route` command wiring
+├── checks.go              # parseTarget, lookupDNS, checkTCP, checkTLS, checkHTTP
+├── normalize.go           # normalizeHost (used by menu)
+├── dns_compare.go         # multi-resolver compare logic
+├── route.go               # traceroute exec + parser
+├── asn.go                 # Team Cymru DNS lookup + cache
+├── ipinfo.go              # IPInfo orchestration
+├── rdap.go                # RDAP HTTP client
+├── cdn.go                 # static CDN classification
+├── report.go              # text rendering
+├── cdn_test.go
+├── cmd_ip_test.go
+├── rdap_test.go
+├── bin/                   # build output (gitignored)
+├── Makefile
+├── go.mod, go.sum
 ├── README.md
-└── config.example.yaml
+└── netcheck_tool_project_plan.md
 ```
 
-Why this structure works:
+### Target layout (executed in v0.4.2)
 
-| Directory | Purpose |
+Split into `cmd/` (CLI surface) and `internal/` (reusable check primitives). Each `internal/` subpackage has a single responsibility and earns its own test file. The split is designed so v0.5 can drop in new output formats and v0.6 can drop in config loading without touching command code.
+
+```text
+netcheck/
+├── main.go                          # entry — calls cmd.Run()
+├── cmd/                             # package cmd — CLI surface
+│   ├── root.go                      # usage, version, dispatch
+│   ├── full.go                      # `netcheck <target>` (full check)
+│   ├── dns.go                       # `netcheck dns`
+│   ├── route.go                     # `netcheck route`
+│   ├── ip.go                        # `netcheck ip`
+│   └── menu.go                      # `netcheck menu`
+├── internal/
+│   ├── target/                      # URL/host normalization
+│   │   ├── target.go                # parseTarget
+│   │   ├── normalize.go             # normalizeHost
+│   │   └── *_test.go
+│   ├── check/                       # full-check primitives
+│   │   ├── dns.go                   # lookupDNS, DNSResult
+│   │   ├── tcp.go                   # checkTCP, TCPResult
+│   │   ├── tls.go                   # checkTLS, TLSResult
+│   │   ├── http.go                  # checkHTTP, HTTPResult
+│   │   └── *_test.go
+│   ├── dnscompare/                  # multi-resolver compare
+│   │   ├── compare.go
+│   │   ├── resolvers.go
+│   │   └── *_test.go
+│   ├── route/                       # traceroute wrapper + parser
+│   │   ├── route.go
+│   │   ├── parser.go
+│   │   └── *_test.go
+│   ├── ipinfo/                      # IP enrichment
+│   │   ├── ipinfo.go                # orchestration
+│   │   ├── asn.go                   # Team Cymru DNS
+│   │   ├── rdap.go                  # RDAP HTTP
+│   │   ├── cdn.go                   # static CDN classification
+│   │   └── *_test.go
+│   ├── report/                      # rendering
+│   │   ├── text.go                  # v0.4: human output
+│   │   ├── json.go                  # v0.5
+│   │   ├── markdown.go              # v0.5
+│   │   ├── html.go                  # v0.5
+│   │   └── *_test.go
+│   └── config/                      # v0.6
+│       ├── config.go
+│       └── *_test.go
+├── testdata/                        # parser fixtures, RDAP/Cymru samples
+├── bin/                             # build output (gitignored)
+├── .github/workflows/               # v0.7 (CI) + v0.8 (release)
+│   ├── ci.yml
+│   └── release.yml
+├── Makefile
+├── go.mod, go.sum
+├── README.md
+├── config.example.yaml              # v0.6
+└── netcheck_tool_project_plan.md
+```
+
+### Why this layout
+
+| Path | Purpose |
 |---|---|
-| `cmd/` | CLI command definitions |
-| `internal/dnscheck/` | DNS logic |
-| `internal/httpcheck/` | HTTP logic |
-| `internal/tlscheck/` | TLS logic |
-| `internal/routecheck/` | Traceroute logic |
-| `internal/ipinfo/` | ASN, RDAP, ownership lookup |
-| `internal/report/` | Text, JSON, Markdown, HTML output |
-| `internal/config/` | Config loading |
+| `cmd/` | Thin CLI command definitions — flag parsing, output dispatch. No check logic. |
+| `internal/target/` | URL parsing and host normalization. Used by every command. |
+| `internal/check/` | The four check primitives behind the `full` command (DNS, TCP, TLS, HTTP). |
+| `internal/dnscompare/` | Multi-resolver DNS comparison engine and verdict. |
+| `internal/route/` | Traceroute exec + output parser; platform-aware. |
+| `internal/ipinfo/` | ASN (Cymru), RDAP, CDN classification. Reusable as a library. |
+| `internal/report/` | All output formats — keeps text/JSON/MD/HTML in one place. |
+| `internal/config/` | Config-file loading and env-var overrides (v0.6). |
+| `testdata/` | Fixtures for parser tests (traceroute output, RDAP JSON, Cymru TXT). |
+| `.github/workflows/` | CI (v0.7) and release automation (v0.8). |
+
+`internal/` is enforced by Go itself — external code cannot import it, so we keep freedom to refactor the check primitives without breaking anyone.
 
 ---
 
@@ -690,9 +760,7 @@ Important choices:
 
 ## 16. Suggested Version Plan
 
-## v0.1 — MVP
-
-Features:
+## v0.1 — MVP (shipped)
 
 - URL parsing
 - DNS A/AAAA lookup with system resolver
@@ -702,18 +770,14 @@ Features:
 - Basic timing summary
 - Human-readable CLI output
 
-## v0.2 — DNS Compare
-
-Features:
+## v0.2 — DNS Compare (shipped)
 
 - Multiple resolver support
 - Cloudflare, Google, Quad9 presets
 - A/AAAA/CNAME/MX/TXT/NS/SOA records
-- DNS timing table
+- DNS timing table and verdict
 
 ## v0.3 — Route (shipped)
-
-Features:
 
 - System traceroute wrapper (macOS/Linux `traceroute`, Windows `tracert`)
 - Platform detection and flag mapping
@@ -721,33 +785,99 @@ Features:
 - Per-hop Team Cymru ASN annotation (skipped on private/link-local IPs)
 - Warning when hops time out
 
-## v0.4 — IP Info
+## v0.3.1 — Menu (shipped)
 
-Features:
+- Interactive menu (`netcheck menu` or bare `netcheck` on a TTY)
+- Input normalization (scheme/path/query/port/quote stripping)
+- Build output moved to `./bin/`
 
-- ASN lookup
-- RDAP lookup
-- Organization detection
-- CDN detection
+## v0.4 — IP Info (shipped)
+
+- `netcheck ip <ip|host>` subcommand
+- Team Cymru ASN lookup (extended from route)
+- RDAP query via `rdap.org` bootstrap (org, abuse contact, registry, prefix)
+- Static CDN classification (ASN map + PTR suffix patterns) with confidence
+- DNS section of `full` check now shows per-IP ASN + CDN hint
+- First unit tests (cdn, rdap, ip)
+
+## v0.4.1 — Planning update
+
+- Project plan updated with locked v0.4 → v1.0 rollout
+- Folder structure (section 8) updated to reflect v0.4 file inventory and target layout
+- Docs only — no code changes
+- Version constant bumped so the planning snapshot has a git tag
+
+## v0.4.2 — Folder structure refactor
+
+- Move source from flat root into `cmd/` + `internal/` per section 8
+- Split `checks.go` into `internal/check/{dns,tcp,tls,http}.go`
+- Promote `parseTarget` / `normalizeHost` into `internal/target/`
+- Split `report.go` so v0.5 can drop in `json.go` / `markdown.go` / `html.go` cleanly
+- Keep CLI surface unchanged — refactor is internal-only
+- Add `testdata/` for parser fixtures
 
 ## v0.5 — Export
 
-Features:
+- `--output text|json|markdown|html` on all commands (default `text`)
+- Versioned JSON schema (`"netcheck_version": "0.5.0"`)
+- Markdown export renders the same schema as headings + tables
+- HTML export via `html/template` for the "shareable report" case
+- Menu option: "export last result to file"
+- Skipped (separate features later): YAML, Prometheus metrics
 
-- JSON output
-- Markdown output
-- HTML output
+## v0.6 — Config file + DoH/DoT
 
-## v1.0 — Stable CLI
+- `~/.config/netcheck/config.yaml` per section 10
+- Override-able defaults: `timeout`, `user_agent`, `follow_redirects`, `max_redirects`, `prefer_ipv6`, `resolvers`
+- `NETCHECK_*` env var fallbacks for ops/CI contexts
+- `--config /path/to/file` for explicit paths
+- DoH and DoT resolver types (`netcheck doh ...`, `netcheck dot ...`) — slot here because config introduces resolver presets they reuse
+- `config.example.yaml` ships in repo
 
-Features:
+## v0.7 — Tests + CI
 
-- Config file
-- Good docs
-- Tests
-- GitHub Actions
-- Cross-platform builds
-- Release binaries
+- Unit tests for the gaps: `route` parser, `target` (parseTarget + normalizeHost), `dnscompare` verdict logic, full-check assembly, IPv6/port/scheme edge cases
+- GitHub Actions: `make verify` + `go test ./...` on push/PR
+- Build matrix: linux/darwin/windows × amd64/arm64
+- README status badge
+- Coverage reporting (codecov or Makefile target)
+- Add `staticcheck` and `golangci-lint` to CI
+
+## v0.8 — Release automation
+
+- `goreleaser` config — tag triggers cross-platform binary release
+- Signed checksums attached to GitHub releases
+- Optional Homebrew tap (`brew install dezoxy/tap/netcheck`)
+- Optional SBOM in releases
+- Replaces today's hand-written release notes
+
+## v0.9 — Release candidate
+
+- Whatever pain points have surfaced from real-world use of v0.5–v0.8
+- CLI surface freeze: final pass on flag names, exit codes, output formats
+- Doc pass: rewrite README for v1.0, add an asciinema demo
+- Decide which "future features" still earn their slot, drop the rest
+- Bug-fix-only patch releases (v0.9.1, v0.9.2…) as needed
+
+## v1.0 — Stable
+
+- **Backward-compatibility promise**: no breaking flag/output changes within v1.x
+- README badges, demo asciinema/gif, optional `netcheck.1` man page
+- Optional GitHub Pages landing page
+- Announce on the usual channels
+
+## v1.1+ — Deferred features
+
+Explicitly kept out of the v1.0 arc so the foundation stays tight:
+
+- HTTP/3 / QUIC test
+- Prometheus exporter
+- TUI mode
+- Historical comparison (today vs. yesterday)
+- Proxy / VPN detection
+- Browser-like mode (HSTS cache, cookies, HTTP/3, extensions)
+- Native TCP traceroute (avoids needing system `traceroute`)
+- Web UI
 
 ---
 
