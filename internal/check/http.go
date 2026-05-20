@@ -18,6 +18,19 @@ type HTTPHop struct {
 	Status int
 }
 
+// userAgent is the User-Agent header sent by the HTTP check.
+// main.go wires the canonical "netcheck/<version>" (or the config override)
+// via SetUserAgent at startup.
+var userAgent = "netcheck"
+
+// SetUserAgent sets the User-Agent string used by HTTP checks.
+// Safe to call once at startup before any check runs.
+func SetUserAgent(s string) {
+	if s != "" {
+		userAgent = s
+	}
+}
+
 // HTTPResult captures status, redirect chain, server info, and detailed timing
 // for an HTTP GET against the target.
 type HTTPResult struct {
@@ -76,7 +89,7 @@ func HTTP(ctx context.Context, t *target.Target, insecure bool) HTTPResult {
 	if err != nil {
 		return HTTPResult{Err: err}
 	}
-	req.Header.Set("User-Agent", "netcheck/0.1")
+	req.Header.Set("User-Agent", userAgent)
 
 	start := time.Now()
 	resp, err := client.Do(req)

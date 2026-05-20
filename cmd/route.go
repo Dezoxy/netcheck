@@ -17,6 +17,7 @@ import (
 // RunRoute executes the `netcheck route <host>` traceroute-with-ASN command.
 func RunRoute(args []string) {
 	fs := flag.NewFlagSet("netcheck route", flag.ExitOnError)
+	configPath := addConfigFlag(fs)
 	maxHops := fs.Int("max-hops", 30, "maximum number of hops")
 	probes := fs.Int("probes", 3, "probes per hop")
 	wait := fs.Int("wait", 2, "per-probe wait in seconds")
@@ -38,6 +39,7 @@ func RunRoute(args []string) {
 		fs.Usage()
 		os.Exit(2)
 	}
+	applyConfigOverride(*configPath)
 	host := fs.Arg(0)
 
 	format, err := ParseFormat(*outputFlag)

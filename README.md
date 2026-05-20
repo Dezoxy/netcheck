@@ -16,6 +16,36 @@ Requires Go 1.22+. The CLI keeps Go dependencies light; `netcheck dns` uses [`mi
 
 ## Usage
 
+### Config file
+
+Optional YAML config at `~/.config/netcheck/config.yaml` overrides built-in defaults. Missing files and missing keys are fine — netcheck always works without a config.
+
+```bash
+mkdir -p ~/.config/netcheck
+cp config.example.yaml ~/.config/netcheck/config.yaml
+netcheck dns cloudflare.com    # uses any resolvers defined in config
+```
+
+Search order: `--config <path>` → `NETCHECK_CONFIG` env → `$XDG_CONFIG_HOME/netcheck/config.yaml` → `~/.config/netcheck/config.yaml`.
+
+Env vars: `NETCHECK_TIMEOUT` (Go duration like `5s`), `NETCHECK_USER_AGENT`. Both override the config file when set.
+
+See [config.example.yaml](config.example.yaml) for the full schema.
+
+### DNS-over-TLS and DNS-over-HTTPS
+
+The `dns` command accepts non-UDP resolvers via URL-style `--resolver`:
+
+```bash
+netcheck dns --resolver tls://1.1.1.1 cloudflare.com           # DoT (port 853)
+netcheck dns --resolver dot://9.9.9.9 cloudflare.com           # DoT (alias)
+netcheck dns --resolver https://cloudflare-dns.com/dns-query cloudflare.com   # DoH
+netcheck dns --resolver doh://dns.google/dns-query cloudflare.com             # DoH (alias)
+netcheck dns --resolver tcp://1.1.1.1 cloudflare.com           # force TCP
+```
+
+Or define them once in the config file (`type: dot` / `type: doh` / `type: tcp`) and they apply to every `netcheck dns` invocation. Use `--no-config-resolvers` to skip config-defined resolvers for one run.
+
 ### Output formats
 
 Every command accepts `--output text|json|markdown|html` (default `text`):
@@ -245,7 +275,7 @@ See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for
 | v0.4.1 | shipped | Planning update — locked v0.5 → v1.0 rollout, folder structure documented |
 | v0.4.2 | shipped | Refactored flat `package main` into `cmd/` + `internal/` per the documented layout |
 | v0.5 | shipped | `--output text\|json\|markdown\|html` on every command; versioned JSON schema (`netcheck_version: "0.5.0"`) |
-| v0.6 | planned | YAML config file (`~/.config/netcheck/config.yaml`) + DoH/DoT resolvers |
+| v0.6 | shipped | YAML config file (`~/.config/netcheck/config.yaml`), `NETCHECK_*` env vars, DoT + DoH resolver types |
 | v0.7 | planned | Fill test coverage gaps, GitHub Actions CI, build matrix, status badge |
 | v0.8 | planned | `goreleaser` cross-platform release binaries, checksums, optional Homebrew tap |
 | v0.9 | planned | Release candidate — CLI surface freeze, doc pass, asciinema demo |

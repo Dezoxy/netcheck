@@ -20,7 +20,8 @@ import (
 // RunIP executes the `netcheck ip <ip|host>` command.
 func RunIP(args []string) {
 	fs := flag.NewFlagSet("netcheck ip", flag.ExitOnError)
-	timeout := fs.Duration("timeout", 10*time.Second, "overall IP info timeout")
+	configPath := addConfigFlag(fs)
+	timeout := fs.Duration("timeout", loadedConfig.Timeout, "overall IP info timeout")
 	outputFlag := addOutputFlag(fs)
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck ip [flags] <ip|host>")
@@ -35,6 +36,7 @@ func RunIP(args []string) {
 		fs.Usage()
 		os.Exit(2)
 	}
+	applyConfigOverride(*configPath)
 
 	format, err := ParseFormat(*outputFlag)
 	if err != nil {
