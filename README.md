@@ -199,6 +199,7 @@ See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full 
 | v0.1 | shipped | URL parsing, DNS, TCP, TLS, HTTP, redirects, httptrace timing |
 | v0.2 | shipped | DNS resolver compare, A/AAAA/CNAME/MX/TXT/NS/SOA, custom resolvers |
 | v0.3 | shipped | Traceroute wrapper with per-hop ASN annotation (Team Cymru) |
+| v0.3.1 | shipped | Interactive menu mode with input normalization |
 | v0.4 | planned | Standalone IP info command (RDAP, CDN detection) |
 | v0.5 | planned | JSON / Markdown / HTML output |
 | v1.0 | planned | Config file, cross-platform release builds |
