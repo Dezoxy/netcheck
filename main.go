@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const version = "0.3.1"
+const version = "0.4.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -30,6 +30,8 @@ func main() {
 		runDNS(os.Args[2:])
 	case "route":
 		runRoute(os.Args[2:])
+	case "ip":
+		runIP(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 	case "-v", "--version", "version":
@@ -47,6 +49,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck <target>              full check (DNS, TCP, TLS, HTTP)")
 	fmt.Fprintln(os.Stderr, "  netcheck dns <host>            compare DNS resolvers")
 	fmt.Fprintln(os.Stderr, "  netcheck route <host>          trace the network path with per-hop ASN")
+	fmt.Fprintln(os.Stderr, "  netcheck ip <ip|host>          show IP ownership, RDAP, reverse DNS, and CDN hints")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
 	fmt.Fprintln(os.Stderr)
@@ -58,6 +61,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver 1.0.0.1 --resolver 8.8.4.4 google.com")
 	fmt.Fprintln(os.Stderr, "  netcheck route google.com")
 	fmt.Fprintln(os.Stderr, "  netcheck route --no-asn --max-hops 20 1.1.1.1")
+	fmt.Fprintln(os.Stderr, "  netcheck ip cloudflare.com")
+	fmt.Fprintln(os.Stderr, "  netcheck ip 8.8.8.8")
 }
 
 func runFull(args []string) {
@@ -91,6 +96,10 @@ func runFull(args []string) {
 	cancel()
 
 	if report.DNS.Err == nil {
+		c, cf := context.WithTimeout(context.Background(), *timeout)
+		annotateDNS(c, &report.DNS, defaultASNCache)
+		cf()
+
 		if len(report.DNS.A) > 0 {
 			c, cf := context.WithTimeout(context.Background(), *timeout)
 			r := checkTCP(c, report.DNS.A[0], target.Port)

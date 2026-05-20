@@ -12,10 +12,11 @@ import (
 // ASNInfo is the parsed answer from Team Cymru's origin.asn.cymru.com service.
 // See https://www.team-cymru.com/ip-asn-mapping for the data format.
 type ASNInfo struct {
-	ASN     string // e.g. "15169"
-	Prefix  string // e.g. "8.8.8.0/24"
-	Country string // e.g. "US"
-	Org     string // e.g. "GOOGLE, US" (best-effort second lookup)
+	ASN      string // e.g. "15169"
+	Prefix   string // e.g. "8.8.8.0/24"
+	Country  string // e.g. "US"
+	Registry string // e.g. "arin"
+	Org      string // e.g. "GOOGLE, US" (best-effort second lookup)
 }
 
 type asnCache struct {
@@ -67,13 +68,14 @@ func lookupCymru(ctx context.Context, ipStr string) *ASNInfo {
 	}
 	// Format: "ASN | Prefix | Country | Registry | Allocated"
 	parts := splitPipes(txts[0])
-	if len(parts) < 3 {
+	if len(parts) < 4 {
 		return nil
 	}
 	info := &ASNInfo{
-		ASN:     parts[0],
-		Prefix:  parts[1],
-		Country: parts[2],
+		ASN:      parts[0],
+		Prefix:   parts[1],
+		Country:  parts[2],
+		Registry: strings.ToLower(parts[3]),
 	}
 
 	// Best-effort org lookup. AS<N>.asn.cymru.com -> "ASN | CC | Registry | Allocated | Org"

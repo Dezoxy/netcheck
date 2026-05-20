@@ -54,6 +54,10 @@ func runMenu(args []string) {
 			if err := menuRoute(in, out); err != nil {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
+		case "4":
+			if err := menuIP(in, out); err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
@@ -70,6 +74,7 @@ func printMenu(w io.Writer) {
 	fmt.Fprintln(w, "  1) Full check (DNS, TCP, TLS, HTTP)")
 	fmt.Fprintln(w, "  2) DNS compare across resolvers")
 	fmt.Fprintln(w, "  3) Route (traceroute + per-hop ASN)")
+	fmt.Fprintln(w, "  4) IP / ASN info")
 	fmt.Fprintln(w, "  q) Quit")
 	fmt.Fprintln(w)
 }
@@ -106,6 +111,10 @@ func menuFull(in *bufio.Reader, out io.Writer) error {
 	cancel()
 
 	if report.DNS.Err == nil {
+		c, cf := context.WithTimeout(context.Background(), timeout)
+		annotateDNS(c, &report.DNS, defaultASNCache)
+		cf()
+
 		if len(report.DNS.A) > 0 {
 			c, cf := context.WithTimeout(context.Background(), timeout)
 			r := checkTCP(c, report.DNS.A[0], target.Port)
@@ -183,6 +192,16 @@ func menuRoute(in *bufio.Reader, out io.Writer) error {
 	// from the slice we pass — defaults match what the CLI gives.
 	runRoute([]string{host})
 	return nil
+}
+
+// menuIP prompts for an IP or host and shows ownership/RDAP/CDN details.
+func menuIP(in *bufio.Reader, out io.Writer) error {
+	raw, err := readLine(in, "IP or host: ")
+	if err != nil {
+		return err
+	}
+	fmt.Fprintln(out)
+	return runIPInfo(out, raw, 10*time.Second)
 }
 
 // stdinIsTTY reports whether stdin is connected to a terminal. We use this to

@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"time"
 )
 
@@ -71,18 +72,29 @@ func renderDNS(w io.Writer, d *DNSResult) {
 		fmt.Fprintf(w, "  %s no records returned\n", mark(false))
 	}
 	for _, ip := range d.A {
-		fmt.Fprintf(w, "  %s A     %s\n", mark(true), ip)
+		fmt.Fprintf(w, "  %s A     %s%s\n", mark(true), ip, dnsInfoSuffixFor(d, ip))
 	}
 	if len(d.A) == 0 {
 		fmt.Fprintln(w, "    -  A     (none)")
 	}
 	for _, ip := range d.AAAA {
-		fmt.Fprintf(w, "  %s AAAA  %s\n", mark(true), ip)
+		fmt.Fprintf(w, "  %s AAAA  %s%s\n", mark(true), ip, dnsInfoSuffixFor(d, ip))
 	}
 	if len(d.AAAA) == 0 {
 		fmt.Fprintln(w, "    -  AAAA  (none)")
 	}
 	fmt.Fprintf(w, "  lookup time: %s\n\n", ms(d.Took))
+}
+
+func dnsInfoSuffixFor(d *DNSResult, ip net.IP) string {
+	if d == nil || d.IPInfo == nil {
+		return ""
+	}
+	info, ok := d.IPInfo[normalizeIP(ip).String()]
+	if !ok {
+		return ""
+	}
+	return dnsInfoSuffix(&info)
 }
 
 func renderTCP(w io.Writer, v4, v6 *TCPResult) {

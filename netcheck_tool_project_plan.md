@@ -261,6 +261,8 @@ Implement native TCP traceroute in Go.
 
 ## Phase 4 — ASN / IP Ownership
 
+Status: shipped in v0.4.
+
 Command:
 
 ```bash
@@ -858,4 +860,3 @@ A clean CLI that takes one domain and shows DNS, TCP, TLS, HTTP, redirects, and 
 Do not start with traceroute, DoH, BGP, or a web UI.
 
 Those are great later features, but the MVP should prove the core idea first.
-

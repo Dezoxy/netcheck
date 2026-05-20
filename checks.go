@@ -53,10 +53,11 @@ func parseTarget(s string) (*Target, error) {
 }
 
 type DNSResult struct {
-	A    []net.IP
-	AAAA []net.IP
-	Err  error
-	Took time.Duration
+	A      []net.IP
+	AAAA   []net.IP
+	IPInfo map[string]DNSIPInfo
+	Err    error
+	Took   time.Duration
 }
 
 func lookupDNS(ctx context.Context, host string) DNSResult {

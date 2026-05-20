@@ -1,6 +1,6 @@
 # netcheck
 
-A CLI tool that analyzes what happens between your machine and a target website or domain — DNS, TCP, TLS, HTTP, redirects, timing, and per-resolver DNS comparison.
+A CLI tool that analyzes what happens between your machine and a target website or domain — DNS, TCP, TLS, HTTP, redirects, timing, IP ownership, CDN hints, traceroute, and per-resolver DNS comparison.
 
 ## Install
 
@@ -12,7 +12,7 @@ make build              # produces ./bin/netcheck
 make install            # installs into $GOBIN (~/go/bin) via `go install`
 ```
 
-Requires Go 1.22+. The full check has no external dependencies; `netcheck dns` uses [`miekg/dns`](https://github.com/miekg/dns). Run `make help` to see all targets.
+Requires Go 1.22+. The CLI keeps Go dependencies light; `netcheck dns` uses [`miekg/dns`](https://github.com/miekg/dns), while ASN/IP ownership data comes from public Team Cymru DNS and RDAP lookups. Run `make help` to see all targets.
 
 ## Usage
 
@@ -26,11 +26,12 @@ netcheck menu       # always opens the menu, even when piped
 ```
 
 ```
-netcheck 0.3.0 — interactive menu
+netcheck 0.4.0 — interactive menu
 
   1) Full check (DNS, TCP, TLS, HTTP)
   2) DNS compare across resolvers
   3) Route (traceroute + per-hop ASN)
+  4) IP / ASN info
   q) Quit
 
 Choose: 2
@@ -60,8 +61,8 @@ Target: https://google.com
 Time:   2026-05-19 22:17:23
 
 DNS
-  [OK] A     142.251.143.238
-  [OK] AAAA  2a00:1450:400d:813::200e
+  [OK] A     142.251.143.238  AS15169 GOOGLE (CDN: Google)
+  [OK] AAAA  2a00:1450:400d:813::200e  AS15169 GOOGLE (CDN: Google)
   lookup time: 68ms
 
 TCP
@@ -190,6 +191,31 @@ Tool:  /usr/sbin/traceroute [-m 30 -q 3 -w 2]
 
 Requires the system `traceroute` (or `tracert`) on `PATH`. macOS ships it at `/usr/sbin/traceroute`; on Debian/Ubuntu install with `sudo apt install traceroute`.
 
+### IP / ASN info
+
+```bash
+netcheck ip 142.250.184.206
+netcheck ip cloudflare.com
+netcheck ip --timeout 5s 8.8.8.8
+```
+
+Shows reverse DNS, origin ASN, prefix, country, registry, RDAP abuse contact, and static CDN classification. Hostnames are resolved to all A/AAAA records and each address is shown separately.
+
+Sample output:
+
+```
+IP INFO
+Target:   142.250.184.206
+Time:     2026-05-20 15:38:19
+Reverse:  fra24s11-in-f14.1e100.net
+ASN:      AS15169 GOOGLE (Google LLC)
+Country:  US
+Prefix:   142.250.184.0/24
+Registry: arin
+CDN:      Google (high confidence - ASN match + 1e100.net PTR)
+Abuse:    network-abuse@google.com
+```
+
 ## Roadmap
 
 See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full plan.
@@ -200,7 +226,7 @@ See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full 
 | v0.2 | shipped | DNS resolver compare, A/AAAA/CNAME/MX/TXT/NS/SOA, custom resolvers |
 | v0.3 | shipped | Traceroute wrapper with per-hop ASN annotation (Team Cymru) |
 | v0.3.1 | shipped | Interactive menu mode with input normalization |
-| v0.4 | planned | Standalone IP info command (RDAP, CDN detection) |
+| v0.4 | shipped | Standalone IP info command, RDAP abuse/registry lookup, CDN detection, DNS ASN hints |
 | v0.5 | planned | JSON / Markdown / HTML output |
 | v1.0 | planned | Config file, cross-platform release builds |
 
