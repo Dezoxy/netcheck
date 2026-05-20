@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"netcheck/internal/ipinfo"
+	"netcheck/internal/report"
 	"netcheck/internal/route"
 )
 
@@ -22,6 +23,7 @@ func RunRoute(args []string) {
 	noResolve := fs.Bool("no-resolve", false, "skip reverse DNS for each hop")
 	noASN := fs.Bool("no-asn", false, "skip Team Cymru ASN lookup per hop")
 	timeout := fs.Duration("timeout", 60*time.Second, "overall traceroute timeout")
+	outputFlag := addOutputFlag(fs)
 
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck route [flags] <host>")
@@ -37,6 +39,12 @@ func RunRoute(args []string) {
 		os.Exit(2)
 	}
 	host := fs.Arg(0)
+
+	format, err := ParseFormat(*outputFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
 
 	bin, err := route.Find()
 	if err != nil {
@@ -61,21 +69,22 @@ func RunRoute(args []string) {
 	destIP := route.ResolveTarget(resCtx, host)
 	resCancel()
 
-	fmt.Printf("ROUTE\nHost:  %s", host)
-	if destIP != "" {
-		fmt.Printf("  (%s)", destIP)
+	startedAt := time.Now()
+	toolArgs := cmdArgs[:len(cmdArgs)-1] // drop the host
+
+	// In text mode we print the header immediately so the user gets feedback
+	// while traceroute is still running. Structured formats buffer everything
+	// and emit at the end.
+	if format == FormatText {
+		fmt.Printf("ROUTE\nHost:  %s", host)
+		if destIP != "" {
+			fmt.Printf("  (%s)", destIP)
+		}
+		fmt.Printf("\nTime:  %s\n", startedAt.Format("2006-01-02 15:04:05"))
+		fmt.Printf("Tool:  %s %v\n\n", bin, toolArgs)
 	}
-	fmt.Printf("\nTime:  %s\n", time.Now().Format("2006-01-02 15:04:05"))
-	fmt.Printf("Tool:  %s %v\n\n", bin, cmdArgs[:len(cmdArgs)-1])
 
 	hopsCh, errCh := route.Stream(ctx, bin, cmdArgs)
-
-	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	headerCols := []string{"  HOP", "ADDRESS", "RTT"}
-	if !*noASN {
-		headerCols = append(headerCols, "ASN")
-	}
-	fmt.Fprintln(tw, joinTabs(headerCols))
 
 	asnC := ipinfo.NewASNCache()
 	// Buffer hops so we can render them in order, but kick off ASN lookups in
@@ -84,7 +93,6 @@ func RunRoute(args []string) {
 		collected []*route.Hop
 		asnWG     sync.WaitGroup
 	)
-
 	for hop := range hopsCh {
 		collected = append(collected, hop)
 		if *noASN {
@@ -104,12 +112,44 @@ func RunRoute(args []string) {
 	}
 	asnWG.Wait()
 
-	// Render the table now that everything is in.
+	// The ASN cache is what powers route JSON/MD/HTML output. When --no-asn is
+	// set, hand a nil cache through so the renderers omit the column.
+	var renderASN *ipinfo.ASNCache
+	if !*noASN {
+		renderASN = asnC
+	}
+
+	switch format {
+	case FormatJSON:
+		if err := report.WriteJSON(os.Stdout, report.ToRouteJSON(host, destIP, bin, toolArgs, startedAt, collected, renderASN)); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+	case FormatMarkdown:
+		report.RenderRouteMD(os.Stdout, report.ToRouteJSON(host, destIP, bin, toolArgs, startedAt, collected, renderASN))
+	case FormatHTML:
+		report.RenderRouteHTML(os.Stdout, report.ToRouteJSON(host, destIP, bin, toolArgs, startedAt, collected, renderASN))
+	default:
+		renderRouteText(os.Stdout, collected, asnC, destIP, *probes, *noASN)
+	}
+}
+
+// renderRouteText draws the tab-aligned hop table for the text format. Stays
+// in cmd/ because it needs the live ASNCache for per-hop lookups (the report
+// package only sees the projected ASNJSON).
+func renderRouteText(w *os.File, hops []*route.Hop, asnC *ipinfo.ASNCache, destIP string, probes int, noASN bool) {
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	headerCols := []string{"  HOP", "ADDRESS", "RTT"}
+	if !noASN {
+		headerCols = append(headerCols, "ASN")
+	}
+	fmt.Fprintln(tw, joinTabs(headerCols))
+
 	timeouts := 0
 	reached := false
-	for _, h := range collected {
-		row := []string{fmt.Sprintf("  %d", h.N), route.HopSummary(h), route.RTTSummary(h, *probes)}
-		if !*noASN {
+	for _, h := range hops {
+		row := []string{fmt.Sprintf("  %d", h.N), route.HopSummary(h), route.RTTSummary(h, probes)}
+		if !noASN {
 			row = append(row, asnLabel(h, asnC))
 		}
 		fmt.Fprintln(tw, joinTabs(row))
@@ -126,16 +166,17 @@ func RunRoute(args []string) {
 	}
 	tw.Flush()
 
-	fmt.Println()
-	if reached {
-		fmt.Printf("  Reached %s in %d hops\n", destIP, len(collected))
-	} else if len(collected) > 0 {
-		fmt.Printf("  Stopped after %d hops (destination not confirmed)\n", len(collected))
-	} else {
-		fmt.Println("  No hops returned")
+	fmt.Fprintln(w)
+	switch {
+	case reached:
+		fmt.Fprintf(w, "  Reached %s in %d hops\n", destIP, len(hops))
+	case len(hops) > 0:
+		fmt.Fprintf(w, "  Stopped after %d hops (destination not confirmed)\n", len(hops))
+	default:
+		fmt.Fprintln(w, "  No hops returned")
 	}
 	if timeouts > 0 {
-		fmt.Printf("  %d hop(s) timed out — routers commonly drop or rate-limit probes; missing hops do not always mean a broken route.\n", timeouts)
+		fmt.Fprintf(w, "  %d hop(s) timed out — routers commonly drop or rate-limit probes; missing hops do not always mean a broken route.\n", timeouts)
 	}
 }
 

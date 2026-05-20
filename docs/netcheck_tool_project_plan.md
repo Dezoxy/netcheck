@@ -786,13 +786,17 @@ Important choices:
 - Keep CLI surface unchanged — refactor is internal-only
 - Add `testdata/` for parser fixtures
 
-## v0.5 — Export
+## v0.5 — Export (shipped)
 
-- `--output text|json|markdown|html` on all commands (default `text`)
-- Versioned JSON schema (`"netcheck_version": "0.5.0"`)
-- Markdown export renders the same schema as headings + tables
-- HTML export via `html/template` for the "shareable report" case
-- Menu option: "export last result to file"
+- `--output text|json|markdown|html` on all four commands (default `text`)
+- Versioned JSON schema with `netcheck_version` + `kind` discriminator (`"full"`, `"dns"`, `"route"`, `"ip"`)
+- Markdown renders with GitHub-flavored tables and inline code spans
+- HTML is single-file self-contained with inline CSS (no external requests)
+- Conversion functions live in `internal/report/jsonschema.go` so internal
+  types can evolve without breaking the wire schema
+- Text format is unchanged from earlier versions — existing automation that
+  reads stdout keeps working
+- Menu still uses text only; "export last result to file" deferred to v0.5.1
 - Skipped (separate features later): YAML, Prometheus metrics
 
 ## v0.6 — Config file + DoH/DoT

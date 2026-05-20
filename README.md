@@ -16,6 +16,21 @@ Requires Go 1.22+. The CLI keeps Go dependencies light; `netcheck dns` uses [`mi
 
 ## Usage
 
+### Output formats
+
+Every command accepts `--output text|json|markdown|html` (default `text`):
+
+```bash
+netcheck google.com --output json | jq '.dns.a'
+netcheck dns cloudflare.com --output markdown > report.md
+netcheck ip 1.1.1.1 --output html > /tmp/report.html && open /tmp/report.html
+netcheck route google.com --output json | jq '.hops[] | select(.timeout)'
+```
+
+JSON output is versioned (`"netcheck_version": "0.5.0"`) and tagged with a `kind` field (`"full"`, `"dns"`, `"route"`, `"ip"`) so downstream consumers can detect both the schema version and the source command. Breaking schema changes bump the version; additive optional fields don't.
+
+The text format is the default and remains unchanged from earlier versions — existing automation that reads stdout keeps working.
+
 ### Interactive menu
 
 Run with no arguments on a terminal and netcheck drops into an interactive menu:
@@ -218,7 +233,7 @@ Abuse:    network-abuse@google.com
 
 ## Roadmap
 
-See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full plan.
+See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for the full plan.
 
 | Version | Status | Features |
 |---|---|---|
@@ -229,7 +244,7 @@ See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full 
 | v0.4 | shipped | Standalone IP info command, RDAP abuse/registry lookup, CDN detection, DNS ASN hints |
 | v0.4.1 | shipped | Planning update — locked v0.5 → v1.0 rollout, folder structure documented |
 | v0.4.2 | shipped | Refactored flat `package main` into `cmd/` + `internal/` per the documented layout |
-| v0.5 | planned | `--output text\|json\|markdown\|html` on every command; versioned JSON schema |
+| v0.5 | shipped | `--output text\|json\|markdown\|html` on every command; versioned JSON schema (`netcheck_version: "0.5.0"`) |
 | v0.6 | planned | YAML config file (`~/.config/netcheck/config.yaml`) + DoH/DoT resolvers |
 | v0.7 | planned | Fill test coverage gaps, GitHub Actions CI, build matrix, status badge |
 | v0.8 | planned | `goreleaser` cross-platform release binaries, checksums, optional Homebrew tap |
