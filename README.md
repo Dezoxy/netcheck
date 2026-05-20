@@ -16,6 +16,33 @@ Requires Go 1.22+. The full check has no external dependencies; `netcheck dns` u
 
 ## Usage
 
+### Interactive menu
+
+Run with no arguments on a terminal and netcheck drops into an interactive menu:
+
+```bash
+netcheck            # opens menu when stdin is a TTY
+netcheck menu       # always opens the menu, even when piped
+```
+
+```
+netcheck 0.3.0 — interactive menu
+
+  1) Full check (DNS, TCP, TLS, HTTP)
+  2) DNS compare across resolvers
+  3) Route (traceroute + per-hop ASN)
+  q) Quit
+
+Choose: 2
+Host: https://Google.com/search?q=hi
+  → normalized to: google.com
+...
+```
+
+Input is normalized before each check: surrounding whitespace and quotes are stripped, schemes/paths/queries/ports are removed for `dns` and `route`, and the full-check parser auto-prefixes `https://` when missing. After a check finishes, press Enter to return to the menu; type `q` to quit.
+
+When stdin is **not** a terminal (e.g. piped from a script), bare `netcheck` keeps its old behavior and prints usage — so existing automation doesn't accidentally hang waiting for menu input.
+
 ### Full check (DNS, TCP, TLS, HTTP)
 
 ```bash
@@ -172,6 +199,7 @@ See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full 
 | v0.1 | shipped | URL parsing, DNS, TCP, TLS, HTTP, redirects, httptrace timing |
 | v0.2 | shipped | DNS resolver compare, A/AAAA/CNAME/MX/TXT/NS/SOA, custom resolvers |
 | v0.3 | shipped | Traceroute wrapper with per-hop ASN annotation (Team Cymru) |
+| v0.3.1 | shipped | Interactive menu mode with input normalization |
 | v0.4 | planned | Standalone IP info command (RDAP, CDN detection) |
 | v0.5 | planned | JSON / Markdown / HTML output |
 | v1.0 | planned | Config file, cross-platform release builds |

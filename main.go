@@ -8,15 +8,24 @@ import (
 	"time"
 )
 
-const version = "0.3.0"
+const version = "0.3.1"
 
 func main() {
 	if len(os.Args) < 2 {
+		// Bare `netcheck` on an interactive terminal drops into the menu.
+		// Otherwise (piped / scripted) keep the original behavior so we don't
+		// silently hang waiting for input.
+		if stdinIsTTY() {
+			runMenu(nil)
+			return
+		}
 		usage()
 		os.Exit(2)
 	}
 
 	switch os.Args[1] {
+	case "menu":
+		runMenu(os.Args[2:])
 	case "dns":
 		runDNS(os.Args[2:])
 	case "route":
@@ -33,6 +42,8 @@ func main() {
 func usage() {
 	fmt.Fprintf(os.Stderr, "netcheck %s\n\n", version)
 	fmt.Fprintln(os.Stderr, "usage:")
+	fmt.Fprintln(os.Stderr, "  netcheck                       interactive menu (when run on a terminal)")
+	fmt.Fprintln(os.Stderr, "  netcheck menu                  interactive menu (explicit)")
 	fmt.Fprintln(os.Stderr, "  netcheck <target>              full check (DNS, TCP, TLS, HTTP)")
 	fmt.Fprintln(os.Stderr, "  netcheck dns <host>            compare DNS resolvers")
 	fmt.Fprintln(os.Stderr, "  netcheck route <host>          trace the network path with per-hop ASN")
