@@ -14,7 +14,7 @@ import (
 
 // Version is the canonical netcheck version string, surfaced via `--version`
 // and wired into the RDAP User-Agent at startup.
-const Version = "0.4.2"
+const Version = "0.5.0"
 
 // Run dispatches an os.Args invocation. Bare `netcheck` on an interactive
 // terminal drops into the menu; otherwise the first positional is treated as

@@ -21,6 +21,7 @@ import (
 func RunIP(args []string) {
 	fs := flag.NewFlagSet("netcheck ip", flag.ExitOnError)
 	timeout := fs.Duration("timeout", 10*time.Second, "overall IP info timeout")
+	outputFlag := addOutputFlag(fs)
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck ip [flags] <ip|host>")
 		fmt.Fprintln(os.Stderr)
@@ -35,23 +36,35 @@ func RunIP(args []string) {
 		os.Exit(2)
 	}
 
-	if err := RunIPInfo(os.Stdout, fs.Arg(0), *timeout); err != nil {
+	format, err := ParseFormat(*outputFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
+
+	if err := RunIPInfoFormat(os.Stdout, fs.Arg(0), *timeout, format); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-// RunIPInfo is the menu/CLI entry point that resolves input → IPs → enrichment → render.
+// RunIPInfo is the legacy text-only entry point kept for callers (notably the
+// menu) that haven't been threaded through with a format yet.
 func RunIPInfo(w io.Writer, raw string, timeout time.Duration) error {
+	return RunIPInfoFormat(w, raw, timeout, FormatText)
+}
+
+// RunIPInfoFormat resolves input → IPs → enrichment → render in the requested format.
+func RunIPInfoFormat(w io.Writer, raw string, timeout time.Duration, format Format) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	start := time.Now()
+	startedAt := time.Now()
 	label, ips, fromHost, err := ResolveIPInput(ctx, raw)
 	if err != nil {
 		return err
 	}
-	resolveTook := time.Since(start)
+	resolveTook := time.Since(startedAt)
 
 	details := make([]ipinfo.IPDetails, len(ips))
 	var wg sync.WaitGroup
@@ -65,7 +78,16 @@ func RunIPInfo(w io.Writer, raw string, timeout time.Duration) error {
 	}
 	wg.Wait()
 
-	report.RenderIPInfo(w, label, details, fromHost, resolveTook)
+	switch format {
+	case FormatJSON:
+		return report.WriteJSON(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
+	case FormatMarkdown:
+		report.RenderIPInfoMD(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
+	case FormatHTML:
+		report.RenderIPInfoHTML(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
+	default:
+		report.RenderIPInfo(w, label, details, fromHost, resolveTook)
+	}
 	return nil
 }
 

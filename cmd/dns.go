@@ -27,6 +27,7 @@ func RunDNS(args []string) {
 	fs.Var(&extra, "resolver", "additional resolver host[:port] (repeatable)")
 	skipSystem := fs.Bool("no-system", false, "skip the system resolver")
 	skipDefaults := fs.Bool("no-defaults", false, "skip built-in resolvers (Cloudflare/Google/Quad9)")
+	outputFlag := addOutputFlag(fs)
 
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck dns [flags] <host>")
@@ -42,6 +43,12 @@ func RunDNS(args []string) {
 		os.Exit(2)
 	}
 	host := fs.Arg(0)
+
+	format, err := ParseFormat(*outputFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
 
 	types, err := dnscompare.ParseTypes(*typesFlag)
 	if err != nil {
@@ -65,20 +72,38 @@ func RunDNS(args []string) {
 		os.Exit(2)
 	}
 
-	fmt.Printf("DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, time.Now().Format("2006-01-02 15:04:05"))
+	startedAt := time.Now()
 
 	anyError := false
+	collected := make([]dnscompare.Result, 0, len(types))
 	for _, qt := range types {
 		ctx, cancel := context.WithTimeout(context.Background(), *timeout*2)
 		result := dnscompare.Compare(ctx, resolvers, host, qt, *timeout)
 		cancel()
-		report.RenderDNSCompare(os.Stdout, &result)
+		collected = append(collected, result)
 		// Disagreement is expected for CDN-fronted hosts (GeoDNS), so only
 		// hard-fail on transport/rcode errors. The verdict still surfaces splits.
 		for _, r := range result.Results {
 			if r.Err != nil {
 				anyError = true
 			}
+		}
+	}
+
+	switch format {
+	case FormatJSON:
+		if err := report.WriteJSON(os.Stdout, report.ToDNSCompareJSON(host, startedAt, collected)); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+	case FormatMarkdown:
+		report.RenderDNSCompareMD(os.Stdout, report.ToDNSCompareJSON(host, startedAt, collected))
+	case FormatHTML:
+		report.RenderDNSCompareHTML(os.Stdout, report.ToDNSCompareJSON(host, startedAt, collected))
+	default:
+		fmt.Printf("DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, startedAt.Format("2006-01-02 15:04:05"))
+		for i := range collected {
+			report.RenderDNSCompare(os.Stdout, &collected[i])
 		}
 	}
 
