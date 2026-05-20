@@ -164,4 +164,3 @@ func joinTabs(cols []string) string {
 	}
 	return out
 }
-
