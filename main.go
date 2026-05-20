@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -19,6 +19,8 @@ func main() {
 	switch os.Args[1] {
 	case "dns":
 		runDNS(os.Args[2:])
+	case "route":
+		runRoute(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 	case "-v", "--version", "version":
@@ -33,6 +35,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  netcheck <target>              full check (DNS, TCP, TLS, HTTP)")
 	fmt.Fprintln(os.Stderr, "  netcheck dns <host>            compare DNS resolvers")
+	fmt.Fprintln(os.Stderr, "  netcheck route <host>          trace the network path with per-hop ASN")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
 	fmt.Fprintln(os.Stderr)
@@ -42,6 +45,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck dns google.com")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --type MX,TXT cloudflare.com")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver 1.0.0.1 --resolver 8.8.4.4 google.com")
+	fmt.Fprintln(os.Stderr, "  netcheck route google.com")
+	fmt.Fprintln(os.Stderr, "  netcheck route --no-asn --max-hops 20 1.1.1.1")
 }
 
 func runFull(args []string) {
