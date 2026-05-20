@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -8,9 +8,13 @@ import (
 	"sync"
 	"text/tabwriter"
 	"time"
+
+	"netcheck/internal/ipinfo"
+	"netcheck/internal/route"
 )
 
-func runRoute(args []string) {
+// RunRoute executes the `netcheck route <host>` traceroute-with-ASN command.
+func RunRoute(args []string) {
 	fs := flag.NewFlagSet("netcheck route", flag.ExitOnError)
 	maxHops := fs.Int("max-hops", 30, "maximum number of hops")
 	probes := fs.Int("probes", 3, "probes per hop")
@@ -34,27 +38,27 @@ func runRoute(args []string) {
 	}
 	host := fs.Arg(0)
 
-	bin, err := findTraceroute()
+	bin, err := route.Find()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		fmt.Fprintln(os.Stderr, installHint())
+		fmt.Fprintln(os.Stderr, route.InstallHint())
 		os.Exit(2)
 	}
 
-	opts := RouteOptions{
+	opts := route.Options{
 		MaxHops:   *maxHops,
 		Probes:    *probes,
 		WaitSec:   *wait,
 		NoResolve: *noResolve,
 	}
-	cmdArgs := buildArgs(opts, host)
+	cmdArgs := route.BuildArgs(opts, host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
 	// Best-effort target IP for the header (independent of traceroute's own resolution).
 	resCtx, resCancel := context.WithTimeout(ctx, 3*time.Second)
-	destIP := resolveTarget(resCtx, host)
+	destIP := route.ResolveTarget(resCtx, host)
 	resCancel()
 
 	fmt.Printf("ROUTE\nHost:  %s", host)
@@ -64,7 +68,7 @@ func runRoute(args []string) {
 	fmt.Printf("\nTime:  %s\n", time.Now().Format("2006-01-02 15:04:05"))
 	fmt.Printf("Tool:  %s %v\n\n", bin, cmdArgs[:len(cmdArgs)-1])
 
-	hopsCh, errCh := streamTraceroute(ctx, bin, cmdArgs)
+	hopsCh, errCh := route.Stream(ctx, bin, cmdArgs)
 
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	headerCols := []string{"  HOP", "ADDRESS", "RTT"}
@@ -73,11 +77,11 @@ func runRoute(args []string) {
 	}
 	fmt.Fprintln(tw, joinTabs(headerCols))
 
-	asnC := newASNCache()
+	asnC := ipinfo.NewASNCache()
 	// Buffer hops so we can render them in order, but kick off ASN lookups in
 	// parallel as hops arrive — by the time we print, lookups are usually done.
 	var (
-		collected []*Hop
+		collected []*route.Hop
 		asnWG     sync.WaitGroup
 	)
 
@@ -104,7 +108,7 @@ func runRoute(args []string) {
 	timeouts := 0
 	reached := false
 	for _, h := range collected {
-		row := []string{fmt.Sprintf("  %d", h.N), hopSummary(h), rttSummary(h, *probes)}
+		row := []string{fmt.Sprintf("  %d", h.N), route.HopSummary(h), route.RTTSummary(h, *probes)}
 		if !*noASN {
 			row = append(row, asnLabel(h, asnC))
 		}
@@ -135,7 +139,7 @@ func runRoute(args []string) {
 	}
 }
 
-func asnLabel(h *Hop, c *asnCache) string {
+func asnLabel(h *route.Hop, c *ipinfo.ASNCache) string {
 	if h.Timeout {
 		return ""
 	}

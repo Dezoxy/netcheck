@@ -1,4 +1,4 @@
-package main
+package ipinfo
 
 import (
 	"encoding/json"
@@ -75,5 +75,21 @@ func TestParseRDAPInfoNestedAbuse(t *testing.T) {
 	}
 	if got.AbuseEmail != "abuse@example.net" {
 		t.Fatalf("AbuseEmail = %q", got.AbuseEmail)
+	}
+}
+
+func TestFormatASNDetailsIncludesRDAPOrg(t *testing.T) {
+	got := FormatASNDetails(&ASNInfo{ASN: "15169", Org: "GOOGLE, US"}, &RDAPInfo{Name: "Google LLC"})
+	want := "AS15169 GOOGLE (Google LLC)"
+	if got != want {
+		t.Fatalf("FormatASNDetails = %q, want %q", got, want)
+	}
+}
+
+func TestFormatASNDetailsTrimsCymruLegalSuffix(t *testing.T) {
+	got := FormatASNDetails(&ASNInfo{ASN: "13335", Org: "CLOUDFLARENET - Cloudflare, Inc., US"}, &RDAPInfo{Name: "Cloudflare, Inc."})
+	want := "AS13335 CLOUDFLARENET (Cloudflare, Inc.)"
+	if got != want {
+		t.Fatalf("FormatASNDetails = %q, want %q", got, want)
 	}
 }

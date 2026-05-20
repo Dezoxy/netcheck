@@ -1,4 +1,4 @@
-package main
+package ipinfo
 
 import (
 	"context"
@@ -19,18 +19,23 @@ type ASNInfo struct {
 	Org      string // e.g. "GOOGLE, US" (best-effort second lookup)
 }
 
-type asnCache struct {
+// ASNCache is a process-local cache of Cymru lookups (including misses).
+type ASNCache struct {
 	mu sync.Mutex
 	m  map[string]*ASNInfo // key: IP string; nil value = "lookup failed, don't retry"
 }
 
-func newASNCache() *asnCache {
-	return &asnCache{m: map[string]*ASNInfo{}}
+// NewASNCache returns an empty cache.
+func NewASNCache() *ASNCache {
+	return &ASNCache{m: map[string]*ASNInfo{}}
 }
+
+// DefaultASNCache is the process-wide cache used by the CLI.
+var DefaultASNCache = NewASNCache()
 
 // Lookup returns ASN info for an IP, caching results (including misses).
 // Private and link-local IPs return nil with no error.
-func (c *asnCache) Lookup(ctx context.Context, ipStr string) *ASNInfo {
+func (c *ASNCache) Lookup(ctx context.Context, ipStr string) *ASNInfo {
 	c.mu.Lock()
 	if v, ok := c.m[ipStr]; ok {
 		c.mu.Unlock()
@@ -49,7 +54,7 @@ func (c *asnCache) Lookup(ctx context.Context, ipStr string) *ASNInfo {
 // lookupCymru does the actual DNS work. Returns nil on private IP or failure.
 func lookupCymru(ctx context.Context, ipStr string) *ASNInfo {
 	ip := net.ParseIP(ipStr)
-	if ip == nil || isPrivateOrSpecial(ip) {
+	if ip == nil || IsPrivateOrSpecial(ip) {
 		return nil
 	}
 
@@ -117,10 +122,10 @@ func cymruQueryName(ip net.IP) string {
 	return strings.Join(nibbles, ".") + ".origin6.asn.cymru.com"
 }
 
-// isPrivateOrSpecial reports whether the IP is private, loopback, link-local,
+// IsPrivateOrSpecial reports whether the IP is private, loopback, link-local,
 // or otherwise non-routable on the public internet — these never have a useful
 // ASN, so skipping them keeps the route output clean.
-func isPrivateOrSpecial(ip net.IP) bool {
+func IsPrivateOrSpecial(ip net.IP) bool {
 	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
 		ip.IsUnspecified() || ip.IsMulticast() {
 		return true

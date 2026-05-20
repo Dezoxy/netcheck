@@ -1,9 +1,9 @@
-package main
+package ipinfo
 
 import "testing"
 
 func TestClassifyCDNASNAndPTR(t *testing.T) {
-	got := classifyCDN(&ASNInfo{ASN: "15169"}, []string{"fra16s48-in-f14.1e100.net"})
+	got := ClassifyCDN(&ASNInfo{ASN: "15169"}, []string{"fra16s48-in-f14.1e100.net"})
 	if got.Provider != "Google" {
 		t.Fatalf("Provider = %q, want Google", got.Provider)
 	}
@@ -16,7 +16,7 @@ func TestClassifyCDNASNAndPTR(t *testing.T) {
 }
 
 func TestClassifyCDNASNOnly(t *testing.T) {
-	got := classifyCDN(&ASNInfo{ASN: "AS13335"}, nil)
+	got := ClassifyCDN(&ASNInfo{ASN: "AS13335"}, nil)
 	if got.Provider != "Cloudflare" {
 		t.Fatalf("Provider = %q, want Cloudflare", got.Provider)
 	}
@@ -26,7 +26,7 @@ func TestClassifyCDNASNOnly(t *testing.T) {
 }
 
 func TestClassifyCDNPTROnly(t *testing.T) {
-	got := classifyCDN(nil, []string{"server-1-2-3-4.cloudfront.net."})
+	got := ClassifyCDN(nil, []string{"server-1-2-3-4.cloudfront.net."})
 	if got.Provider != "AWS" {
 		t.Fatalf("Provider = %q, want AWS", got.Provider)
 	}

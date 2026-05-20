@@ -1,4 +1,4 @@
-package main
+package ipinfo
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// RDAPInfo is the subset of an RDAP IP response that we surface in CLI output.
 type RDAPInfo struct {
 	Name       string
 	Registry   string
@@ -19,20 +20,38 @@ type RDAPInfo struct {
 	AbuseEmail string
 }
 
-type rdapCache struct {
+// RDAPCache is a process-local cache of RDAP lookups (including misses).
+type RDAPCache struct {
 	mu     sync.Mutex
 	m      map[string]*RDAPInfo
 	client *http.Client
 }
 
-func newRDAPCache() *rdapCache {
-	return &rdapCache{
+// NewRDAPCache returns an empty cache with a fresh HTTP client.
+func NewRDAPCache() *RDAPCache {
+	return &RDAPCache{
 		m:      map[string]*RDAPInfo{},
 		client: &http.Client{Timeout: 6 * time.Second},
 	}
 }
 
-func (c *rdapCache) Lookup(ctx context.Context, ipStr string) *RDAPInfo {
+// DefaultRDAPCache is the process-wide cache used by the CLI.
+var DefaultRDAPCache = NewRDAPCache()
+
+// userAgent is the User-Agent header sent on RDAP requests.
+// main.go wires in the canonical "netcheck/<version>" via SetUserAgent at startup.
+var userAgent = "netcheck"
+
+// SetUserAgent sets the User-Agent string used on outbound RDAP requests.
+// Safe to call once at startup before any lookup runs.
+func SetUserAgent(s string) {
+	if s != "" {
+		userAgent = s
+	}
+}
+
+// Lookup returns RDAP info for an IP, caching results (including misses).
+func (c *RDAPCache) Lookup(ctx context.Context, ipStr string) *RDAPInfo {
 	c.mu.Lock()
 	if v, ok := c.m[ipStr]; ok {
 		c.mu.Unlock()
@@ -70,7 +89,7 @@ type rdapLink struct {
 
 func lookupRDAP(ctx context.Context, client *http.Client, ipStr string) *RDAPInfo {
 	ip := net.ParseIP(ipStr)
-	if ip == nil || isPrivateOrSpecial(ip) {
+	if ip == nil || IsPrivateOrSpecial(ip) {
 		return nil
 	}
 
@@ -82,7 +101,7 @@ func lookupRDAP(ctx context.Context, client *http.Client, ipStr string) *RDAPInf
 		return nil
 	}
 	req.Header.Set("Accept", "application/rdap+json, application/json")
-	req.Header.Set("User-Agent", "netcheck/"+version)
+	req.Header.Set("User-Agent", userAgent)
 
 	resp, err := client.Do(req)
 	if err != nil {

@@ -370,37 +370,7 @@ Should run a smart full check that is useful but not too slow.
 
 ## 8. Repository Structure
 
-### Current layout (as of v0.4)
-
-Everything sits at the repo root in `package main` — fine while the codebase was small enough to fit on a screen, but starting to push back as v0.4 added IPInfo/RDAP/CDN.
-
-```text
-netcheck/
-├── main.go                # entry + flag dispatch + usage
-├── cmd_dns.go             # `netcheck dns` command wiring
-├── cmd_ip.go              # `netcheck ip` command wiring
-├── cmd_menu.go            # interactive menu loop
-├── cmd_route.go           # `netcheck route` command wiring
-├── checks.go              # parseTarget, lookupDNS, checkTCP, checkTLS, checkHTTP
-├── normalize.go           # normalizeHost (used by menu)
-├── dns_compare.go         # multi-resolver compare logic
-├── route.go               # traceroute exec + parser
-├── asn.go                 # Team Cymru DNS lookup + cache
-├── ipinfo.go              # IPInfo orchestration
-├── rdap.go                # RDAP HTTP client
-├── cdn.go                 # static CDN classification
-├── report.go              # text rendering
-├── cdn_test.go
-├── cmd_ip_test.go
-├── rdap_test.go
-├── bin/                   # build output (gitignored)
-├── Makefile
-├── go.mod, go.sum
-├── README.md
-└── netcheck_tool_project_plan.md
-```
-
-### Target layout (executed in v0.4.2)
+### Current layout (as of v0.4.2)
 
 Split into `cmd/` (CLI surface) and `internal/` (reusable check primitives). Each `internal/` subpackage has a single responsibility and earns its own test file. The split is designed so v0.5 can drop in new output formats and v0.6 can drop in config loading without touching command code.
 
