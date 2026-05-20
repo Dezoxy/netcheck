@@ -1,4 +1,4 @@
-package main
+package target
 
 import (
 	"errors"
@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-// normalizeHost strips scheme, path, query, port, surrounding whitespace, and
+// NormalizeHost strips scheme, path, query, port, surrounding whitespace, and
 // surrounding quotes from user input, leaving just the hostname. Used by the
 // host-only commands (dns, route) where a full URL would be wrong.
-func normalizeHost(input string) (string, error) {
+func NormalizeHost(input string) (string, error) {
 	s := strings.TrimSpace(input)
 	s = strings.Trim(s, `"'`)
 	if s == "" {

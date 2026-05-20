@@ -228,7 +228,7 @@ See [netcheck_tool_project_plan.md](netcheck_tool_project_plan.md) for the full 
 | v0.3.1 | shipped | Interactive menu mode with input normalization |
 | v0.4 | shipped | Standalone IP info command, RDAP abuse/registry lookup, CDN detection, DNS ASN hints |
 | v0.4.1 | shipped | Planning update — locked v0.5 → v1.0 rollout, folder structure documented |
-| v0.4.2 | planned | Refactor flat `package main` into `cmd/` + `internal/` per the documented layout |
+| v0.4.2 | shipped | Refactored flat `package main` into `cmd/` + `internal/` per the documented layout |
 | v0.5 | planned | `--output text\|json\|markdown\|html` on every command; versioned JSON schema |
 | v0.6 | planned | YAML config file (`~/.config/netcheck/config.yaml`) + DoH/DoT resolvers |
 | v0.7 | planned | Fill test coverage gaps, GitHub Actions CI, build matrix, status badge |

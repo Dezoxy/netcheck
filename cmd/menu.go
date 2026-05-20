@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"bufio"
@@ -8,18 +8,23 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"netcheck/internal/check"
+	"netcheck/internal/dnscompare"
+	"netcheck/internal/report"
+	"netcheck/internal/target"
 )
 
-// runMenu drops into an interactive loop where the user picks an action and
+// RunMenu drops into an interactive loop where the user picks an action and
 // types a target. It keeps running until the user quits.
-func runMenu(args []string) {
+func RunMenu(args []string) {
 	// Args are accepted but ignored — menu is interactive only.
 	_ = args
 
 	in := bufio.NewReader(os.Stdin)
 	out := os.Stdout
 
-	fmt.Fprintf(out, "netcheck %s — interactive menu\n", version)
+	fmt.Fprintf(out, "netcheck %s — interactive menu\n", Version)
 
 	for {
 		printMenu(out)
@@ -94,51 +99,51 @@ func menuFull(in *bufio.Reader, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	target, err := parseTarget(strings.TrimSpace(raw))
+	t, err := target.Parse(strings.TrimSpace(raw))
 	if err != nil {
 		return fmt.Errorf("could not parse target: %w", err)
 	}
-	if target.Raw != strings.TrimSpace(raw) {
-		fmt.Fprintf(out, "  → normalized to: %s\n", target.Raw)
+	if t.Raw != strings.TrimSpace(raw) {
+		fmt.Fprintf(out, "  → normalized to: %s\n", t.Raw)
 	}
 	fmt.Fprintln(out)
 
 	const timeout = 10 * time.Second
-	report := Report{Target: target, StartedAt: time.Now()}
+	r := report.Report{Target: t, StartedAt: time.Now()}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	report.DNS = lookupDNS(ctx, target.Host)
+	r.DNS = check.LookupDNS(ctx, t.Host)
 	cancel()
 
-	if report.DNS.Err == nil {
+	if r.DNS.Err == nil {
 		c, cf := context.WithTimeout(context.Background(), timeout)
-		annotateDNS(c, &report.DNS, defaultASNCache)
+		annotateDNS(c, &r.DNS, nil)
 		cf()
 
-		if len(report.DNS.A) > 0 {
+		if len(r.DNS.A) > 0 {
 			c, cf := context.WithTimeout(context.Background(), timeout)
-			r := checkTCP(c, report.DNS.A[0], target.Port)
-			report.TCPv4 = &r
+			res := check.TCP(c, r.DNS.A[0], t.Port)
+			r.TCPv4 = &res
 			cf()
 		}
-		if len(report.DNS.AAAA) > 0 {
+		if len(r.DNS.AAAA) > 0 {
 			c, cf := context.WithTimeout(context.Background(), timeout)
-			r := checkTCP(c, report.DNS.AAAA[0], target.Port)
-			report.TCPv6 = &r
+			res := check.TCP(c, r.DNS.AAAA[0], t.Port)
+			r.TCPv6 = &res
 			cf()
 		}
 	}
-	if target.Scheme == "https" {
+	if t.Scheme == "https" {
 		c, cf := context.WithTimeout(context.Background(), timeout)
-		r := checkTLS(c, target.Host, target.Port, false)
-		report.TLS = &r
+		res := check.TLS(c, t.Host, t.Port, false)
+		r.TLS = &res
 		cf()
 	}
 	c, cf := context.WithTimeout(context.Background(), timeout*3)
-	report.HTTP = checkHTTP(c, target, false)
+	r.HTTP = check.HTTP(c, t, false)
 	cf()
 
-	render(out, &report)
+	report.Render(out, &r)
 	return nil
 }
 
@@ -148,7 +153,7 @@ func menuDNS(in *bufio.Reader, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	host, err := normalizeHost(raw)
+	host, err := target.NormalizeHost(raw)
 	if err != nil {
 		return err
 	}
@@ -157,18 +162,18 @@ func menuDNS(in *bufio.Reader, out io.Writer) error {
 	}
 	fmt.Fprintln(out)
 
-	var resolvers []Resolver
-	resolvers = append(resolvers, systemResolvers()...)
-	resolvers = append(resolvers, defaultResolvers...)
+	var resolvers []dnscompare.Resolver
+	resolvers = append(resolvers, dnscompare.SystemResolvers()...)
+	resolvers = append(resolvers, dnscompare.DefaultResolvers...)
 
 	fmt.Fprintf(out, "DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, time.Now().Format("2006-01-02 15:04:05"))
 
 	const timeout = 5 * time.Second
 	for _, qt := range []string{"A", "AAAA"} {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout*2)
-		result := compareResolvers(ctx, resolvers, host, qt, timeout)
+		result := dnscompare.Compare(ctx, resolvers, host, qt, timeout)
 		cancel()
-		renderDNSCompare(out, &result)
+		report.RenderDNSCompare(out, &result)
 	}
 	return nil
 }
@@ -179,7 +184,7 @@ func menuRoute(in *bufio.Reader, out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	host, err := normalizeHost(raw)
+	host, err := target.NormalizeHost(raw)
 	if err != nil {
 		return err
 	}
@@ -190,7 +195,7 @@ func menuRoute(in *bufio.Reader, out io.Writer) error {
 
 	// Delegate to the existing route command runner. It reads its own flags
 	// from the slice we pass — defaults match what the CLI gives.
-	runRoute([]string{host})
+	RunRoute([]string{host})
 	return nil
 }
 
@@ -201,7 +206,7 @@ func menuIP(in *bufio.Reader, out io.Writer) error {
 		return err
 	}
 	fmt.Fprintln(out)
-	return runIPInfo(out, raw, 10*time.Second)
+	return RunIPInfo(out, raw, 10*time.Second)
 }
 
 // stdinIsTTY reports whether stdin is connected to a terminal. We use this to

@@ -1,10 +1,8 @@
-package main
+package dnscompare
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -13,81 +11,36 @@ import (
 	"github.com/miekg/dns"
 )
 
-type Resolver struct {
-	Name    string
-	Address string // host:port
-}
-
-var defaultResolvers = []Resolver{
-	{Name: "Cloudflare", Address: "1.1.1.1:53"},
-	{Name: "Google", Address: "8.8.8.8:53"},
-	{Name: "Quad9", Address: "9.9.9.9:53"},
-}
-
-func systemResolvers() []Resolver {
-	cfg, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil || len(cfg.Servers) == 0 {
-		return nil
-	}
-	port := cfg.Port
-	if port == "" {
-		port = "53"
-	}
-	// macOS often lists multiple internal loopback resolvers that return the
-	// same answers; use the first one to keep the table readable.
-	return []Resolver{{Name: "System", Address: net.JoinHostPort(cfg.Servers[0], port)}}
-}
-
-func ensurePort(addr string) string {
-	if _, _, err := net.SplitHostPort(addr); err == nil {
-		return addr
-	}
-	if strings.Count(addr, ":") >= 2 {
-		return "[" + addr + "]:53"
-	}
-	return addr + ":53"
-}
-
-var qtypeByName = map[string]uint16{
-	"A":     dns.TypeA,
-	"AAAA":  dns.TypeAAAA,
-	"CNAME": dns.TypeCNAME,
-	"MX":    dns.TypeMX,
-	"TXT":   dns.TypeTXT,
-	"NS":    dns.TypeNS,
-	"SOA":   dns.TypeSOA,
-}
-
-var qtypeOrder = []string{"A", "AAAA", "CNAME", "MX", "TXT", "NS", "SOA"}
-
-func parseTypes(s string) ([]string, error) {
-	parts := strings.Split(s, ",")
-	var out []string
-	seen := map[string]bool{}
-	for _, p := range parts {
-		t := strings.ToUpper(strings.TrimSpace(p))
-		if t == "" {
-			continue
-		}
-		if _, ok := qtypeByName[t]; !ok {
-			return nil, fmt.Errorf("unsupported record type: %s", t)
-		}
-		if !seen[t] {
-			seen[t] = true
-			out = append(out, t)
-		}
-	}
-	if len(out) == 0 {
-		return nil, errors.New("no record types specified")
-	}
-	return out, nil
-}
-
+// ResolverResult is one resolver's answer to a query.
 type ResolverResult struct {
 	Resolver Resolver
 	Records  []string
 	Err      error
 	Took     time.Duration
+}
+
+// Result groups the answers from a Compare call.
+type Result struct {
+	Host    string
+	QType   string
+	Results []ResolverResult
+}
+
+// Compare queries every resolver in parallel for host/qtype and returns the
+// per-resolver results. Failures are captured in ResolverResult.Err — Compare
+// itself does not return an error.
+func Compare(ctx context.Context, resolvers []Resolver, host, qtype string, timeout time.Duration) Result {
+	results := make([]ResolverResult, len(resolvers))
+	var wg sync.WaitGroup
+	for i, r := range resolvers {
+		wg.Add(1)
+		go func(i int, r Resolver) {
+			defer wg.Done()
+			results[i] = queryResolver(ctx, r, host, qtype, timeout)
+		}(i, r)
+	}
+	wg.Wait()
+	return Result{Host: host, QType: qtype, Results: results}
 }
 
 func queryResolver(ctx context.Context, r Resolver, host string, qtypeName string, timeout time.Duration) ResolverResult {
@@ -145,39 +98,21 @@ func recordValue(rr dns.RR) string {
 	return rr.String()
 }
 
-type DNSCompareResult struct {
-	Host    string
-	QType   string
-	Results []ResolverResult
-}
-
-func compareResolvers(ctx context.Context, resolvers []Resolver, host, qtype string, timeout time.Duration) DNSCompareResult {
-	results := make([]ResolverResult, len(resolvers))
-	var wg sync.WaitGroup
-	for i, r := range resolvers {
-		wg.Add(1)
-		go func(i int, r Resolver) {
-			defer wg.Done()
-			results[i] = queryResolver(ctx, r, host, qtype, timeout)
-		}(i, r)
-	}
-	wg.Wait()
-	return DNSCompareResult{Host: host, QType: qtype, Results: results}
-}
-
 // Verdict reports whether successful resolvers returned identical answer sets,
-// and groups them by distinct answer set. Failed resolvers are ignored for the verdict.
+// and groups them by distinct answer set. Failed resolvers are ignored.
 type Verdict struct {
 	Agree  bool
 	Groups []VerdictGroup
 }
 
+// VerdictGroup is one distinct answer set and the resolvers that returned it.
 type VerdictGroup struct {
 	Records   []string
 	Resolvers []string
 }
 
-func (d *DNSCompareResult) Verdict() Verdict {
+// Verdict produces the agree/disagree breakdown for a Result.
+func (d *Result) Verdict() Verdict {
 	groups := map[string]*VerdictGroup{}
 	var order []string
 	for _, r := range d.Results {

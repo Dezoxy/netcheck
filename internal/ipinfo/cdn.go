@@ -1,11 +1,12 @@
-package main
+package ipinfo
 
 import "strings"
 
+// CDNMatch describes the result of CDN classification for an IP.
 type CDNMatch struct {
 	Provider   string
-	Confidence string
-	Reason     string
+	Confidence string // "high", "medium", or ""
+	Reason     string // short human-readable explanation
 }
 
 var cdnByASN = map[string]string{
@@ -55,10 +56,11 @@ var cdnByPTR = []ptrCDNPattern{
 	{Suffix: ".cdn77.org", Provider: "CDN77", Label: "cdn77.org PTR"},
 }
 
-func classifyCDN(asn *ASNInfo, ptrs []string) CDNMatch {
+// ClassifyCDN combines ASN and PTR signals into a single CDN guess with confidence.
+func ClassifyCDN(asn *ASNInfo, ptrs []string) CDNMatch {
 	asnProvider := ""
 	if asn != nil {
-		asnProvider = cdnByASN[normalizeASN(asn.ASN)]
+		asnProvider = cdnByASN[NormalizeASN(asn.ASN)]
 	}
 	ptrProvider, ptrReason := cdnProviderFromPTR(ptrs)
 
@@ -92,7 +94,8 @@ func classifyCDN(asn *ASNInfo, ptrs []string) CDNMatch {
 	}
 }
 
-func normalizeASN(asn string) string {
+// NormalizeASN strips an optional "AS" prefix and returns the numeric tail.
+func NormalizeASN(asn string) string {
 	asn = strings.TrimSpace(strings.ToUpper(asn))
 	asn = strings.TrimPrefix(asn, "AS")
 	return asn
