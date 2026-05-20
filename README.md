@@ -7,10 +7,12 @@ A CLI tool that analyzes what happens between your machine and a target website 
 ```bash
 git clone https://github.com/Dezoxy/netcheck.git
 cd netcheck
-go build -o netcheck .
+make build              # produces ./bin/netcheck
+# or, to put it on your PATH:
+make install            # installs into $GOBIN (~/go/bin) via `go install`
 ```
 
-Requires Go 1.22+. The full check has no external dependencies; `netcheck dns` uses [`miekg/dns`](https://github.com/miekg/dns).
+Requires Go 1.22+. The full check has no external dependencies; `netcheck dns` uses [`miekg/dns`](https://github.com/miekg/dns). Run `make help` to see all targets.
 
 ## Usage
 
