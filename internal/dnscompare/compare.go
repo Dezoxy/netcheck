@@ -1,8 +1,11 @@
 package dnscompare
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
@@ -51,12 +54,27 @@ func queryResolver(ctx context.Context, r Resolver, host string, qtypeName strin
 	m.SetEdns0(4096, false)
 
 	start := time.Now()
-	c := &dns.Client{Timeout: timeout}
-	in, _, err := c.ExchangeContext(ctx, m, r.Address)
-	if err == nil && in != nil && in.Truncated {
-		// Response didn't fit in UDP — retry over TCP.
-		cTCP := &dns.Client{Timeout: timeout, Net: "tcp"}
-		in, _, err = cTCP.ExchangeContext(ctx, m, r.Address)
+	var (
+		in  *dns.Msg
+		err error
+	)
+	switch r.Type {
+	case TypeDoH:
+		in, err = queryDoH(ctx, r.Address, m, timeout)
+	case TypeDoT:
+		c := &dns.Client{Timeout: timeout, Net: "tcp-tls"}
+		in, _, err = c.ExchangeContext(ctx, m, r.Address)
+	case TypeTCP:
+		c := &dns.Client{Timeout: timeout, Net: "tcp"}
+		in, _, err = c.ExchangeContext(ctx, m, r.Address)
+	default: // UDP
+		c := &dns.Client{Timeout: timeout}
+		in, _, err = c.ExchangeContext(ctx, m, r.Address)
+		if err == nil && in != nil && in.Truncated {
+			// Response didn't fit in UDP — retry over TCP.
+			cTCP := &dns.Client{Timeout: timeout, Net: "tcp"}
+			in, _, err = cTCP.ExchangeContext(ctx, m, r.Address)
+		}
 	}
 	took := time.Since(start)
 
@@ -76,6 +94,43 @@ func queryResolver(ctx context.Context, r Resolver, host string, qtypeName strin
 	}
 	sort.Strings(res.Records)
 	return res
+}
+
+// queryDoH performs a DNS-over-HTTPS query using the wire-format POST method
+// from RFC 8484. Address is the full URL of the dns-query endpoint.
+func queryDoH(ctx context.Context, urlStr string, m *dns.Msg, timeout time.Duration) (*dns.Msg, error) {
+	wire, err := m.Pack()
+	if err != nil {
+		return nil, fmt.Errorf("packing DNS query: %w", err)
+	}
+	c, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(c, "POST", urlStr, bytes.NewReader(wire))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/dns-message")
+	req.Header.Set("Accept", "application/dns-message")
+
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, urlStr)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if err != nil {
+		return nil, err
+	}
+	in := new(dns.Msg)
+	if err := in.Unpack(body); err != nil {
+		return nil, fmt.Errorf("unpacking DoH response: %w", err)
+	}
+	return in, nil
 }
 
 func recordValue(rr dns.RR) string {

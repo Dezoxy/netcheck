@@ -3,18 +3,71 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"sync"
 
 	"netcheck/internal/check"
+	"netcheck/internal/config"
 	"netcheck/internal/ipinfo"
 )
 
 // Version is the canonical netcheck version string, surfaced via `--version`
-// and wired into the RDAP User-Agent at startup.
-const Version = "0.5.0"
+// and wired into the RDAP/HTTP User-Agent at startup.
+const Version = "0.6.0"
+
+// loadedConfig is the merged config (file + env + defaults) used by every
+// subcommand to seed flag defaults. Populated by LoadConfig (called from main).
+var loadedConfig = config.Defaults()
+
+// LoadConfig loads the config from the default search path or NETCHECK_CONFIG
+// and stashes it for subcommand flag defaults. main.go calls this once at
+// startup before Run. Errors are non-fatal — a missing file is fine; a parse
+// error is logged to stderr and we fall back to defaults.
+func LoadConfig() *config.Config {
+	cfg, err := config.Load("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v (using defaults)\n", err)
+	}
+	loadedConfig = cfg
+	return cfg
+}
+
+// LoadedConfig returns the active config. Used by main.go to wire User-Agents
+// into the leaf packages.
+func LoadedConfig() *config.Config { return loadedConfig }
+
+// addConfigFlag registers `--config` on the given flagset. Each subcommand
+// uses this to allow per-invocation config overrides.
+func addConfigFlag(fs *flag.FlagSet) *string {
+	return fs.String("config", "", "path to config file (overrides default search and NETCHECK_CONFIG)")
+}
+
+// applyConfigOverride re-loads config from the explicit --config path (if any)
+// and updates loadedConfig. Call this after fs.Parse but before reading any
+// other defaults from loadedConfig.
+func applyConfigOverride(configPath string) {
+	if configPath == "" {
+		return
+	}
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v (using defaults)\n", err)
+		return
+	}
+	loadedConfig = cfg
+}
+
+// UserAgent returns the User-Agent string the leaf packages should use.
+// Prefers config override, falls back to "netcheck/<version>".
+func UserAgent() string {
+	if loadedConfig != nil && loadedConfig.UserAgent != "" {
+		return loadedConfig.UserAgent
+	}
+	return "netcheck/" + Version
+}
 
 // Run dispatches an os.Args invocation. Bare `netcheck` on an interactive
 // terminal drops into the menu; otherwise the first positional is treated as
@@ -69,6 +122,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck route --no-asn --max-hops 20 1.1.1.1")
 	fmt.Fprintln(os.Stderr, "  netcheck ip cloudflare.com")
 	fmt.Fprintln(os.Stderr, "  netcheck ip 8.8.8.8")
+	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver tls://1.1.1.1 cloudflare.com   # DoT")
+	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver https://cloudflare-dns.com/dns-query cloudflare.com   # DoH")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Every subcommand also accepts --output text|json|markdown|html and --config <path>.")
+	fmt.Fprintln(os.Stderr, "Config search: --config flag → NETCHECK_CONFIG env → ~/.config/netcheck/config.yaml")
 }
 
 // annotateDNS enriches a check.DNSResult with per-IP ASN/PTR/CDN info.

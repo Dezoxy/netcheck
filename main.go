@@ -7,11 +7,21 @@ package main
 
 import (
 	"netcheck/cmd"
+	"netcheck/internal/check"
 	"netcheck/internal/ipinfo"
 )
 
 func main() {
-	// Wire the canonical User-Agent into the RDAP client before any lookups run.
-	ipinfo.SetUserAgent("netcheck/" + cmd.Version)
+	// Load config (default-search + env) before anything else so subcommand
+	// flag defaults can pull from it.
+	cmd.LoadConfig()
+
+	// Wire the canonical User-Agent into both leaf packages before any lookup
+	// or HTTP request runs. config.UserAgent wins if set; otherwise we send
+	// "netcheck/<version>".
+	ua := cmd.UserAgent()
+	ipinfo.SetUserAgent(ua)
+	check.SetUserAgent(ua)
+
 	cmd.Run()
 }

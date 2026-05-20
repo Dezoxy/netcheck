@@ -15,7 +15,8 @@ import (
 // RunFull executes the `netcheck <target>` end-to-end check.
 func RunFull(args []string) {
 	fs := flag.NewFlagSet("netcheck", flag.ExitOnError)
-	timeout := fs.Duration("timeout", 10*time.Second, "per-check timeout")
+	configPath := addConfigFlag(fs)
+	timeout := fs.Duration("timeout", loadedConfig.Timeout, "per-check timeout")
 	insecure := fs.Bool("insecure", false, "skip TLS verification")
 	outputFlag := addOutputFlag(fs)
 	fs.Usage = func() {
@@ -31,6 +32,7 @@ func RunFull(args []string) {
 		fs.Usage()
 		os.Exit(2)
 	}
+	applyConfigOverride(*configPath)
 
 	format, err := ParseFormat(*outputFlag)
 	if err != nil {

@@ -799,14 +799,18 @@ Important choices:
 - Menu still uses text only; "export last result to file" deferred to v0.5.1
 - Skipped (separate features later): YAML, Prometheus metrics
 
-## v0.6 — Config file + DoH/DoT
+## v0.6 — Config file + DoH/DoT (shipped)
 
 - `~/.config/netcheck/config.yaml` per section 10
 - Override-able defaults: `timeout`, `user_agent`, `follow_redirects`, `max_redirects`, `prefer_ipv6`, `resolvers`
-- `NETCHECK_*` env var fallbacks for ops/CI contexts
-- `--config /path/to/file` for explicit paths
-- DoH and DoT resolver types (`netcheck doh ...`, `netcheck dot ...`) — slot here because config introduces resolver presets they reuse
+- Env vars: `NETCHECK_CONFIG`, `NETCHECK_TIMEOUT`, `NETCHECK_USER_AGENT` (the last two override config-file values)
+- `--config /path/to/file` flag on every subcommand for ad-hoc overrides
+- Resolver types delivered as `--resolver` URL syntax (`udp://`, `tcp://`, `tls://`, `dot://`, `https://`, `doh://`) rather than separate `netcheck doh`/`netcheck dot` subcommands — fewer commands, same functionality
+- DoT via miekg/dns `tcp-tls` net; DoH via RFC 8484 wire-format POST
+- Config-defined resolvers added to every `netcheck dns` run; `--no-config-resolvers` skips them
+- User-Agent now consistently applied across both check.HTTP (was hardcoded `netcheck/0.1` before) and ipinfo.RDAP
 - `config.example.yaml` ships in repo
+- New dependency: `gopkg.in/yaml.v3` (BSD-licensed, small)
 
 ## v0.7 — Tests + CI
 

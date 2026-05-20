@@ -1,0 +1,41 @@
+# netcheck config — drop this at ~/.config/netcheck/config.yaml
+# (or point NETCHECK_CONFIG at it, or pass --config /path/to/this.yaml).
+# Every key is optional; missing keys fall back to the compiled-in defaults.
+
+# Per-check timeout. Override per-invocation with --timeout 3s.
+# Env var: NETCHECK_TIMEOUT=5s
+timeout: 10s
+
+# User-Agent sent on HTTP and RDAP requests.
+# Default is "netcheck/<version>" — only set this if you want something custom.
+# Env var: NETCHECK_USER_AGENT
+# user_agent: my-internal-monitor/1.0
+
+# HTTP redirect behavior for the full check.
+follow_redirects: true
+max_redirects: 10
+
+# Whether to prefer IPv6 over IPv4 when both are available (no effect on
+# checks that run both families, like TCP).
+prefer_ipv6: false
+
+# Extra DNS resolvers added to every `netcheck dns` invocation.
+# Use --no-config-resolvers to skip these for a single run.
+#
+# Type defaults to "udp". Other options:
+#   tcp:  DNS over TCP (port 53 default)
+#   dot:  DNS over TLS (port 853 default)
+#   doh:  DNS over HTTPS — address can be a full URL or just a hostname
+#         (the latter is rewritten to https://<host>/dns-query)
+resolvers:
+  - name: cloudflare-doh
+    address: https://cloudflare-dns.com/dns-query
+    type: doh
+
+  - name: quad9-dot
+    address: 9.9.9.9
+    type: dot
+
+  - name: nextdns-example
+    address: https://dns.nextdns.io/abcdef
+    type: doh
