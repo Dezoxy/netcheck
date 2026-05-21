@@ -51,6 +51,10 @@ jobs:
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
+    # Gate cross-compile on tests passing. Avoids burning 6× CI minutes when
+    # the code already fails locally, and makes the failure flow read
+    # sequentially: tests first, then platform-specific build problems.
+    needs: test
     strategy:
       fail-fast: false
       matrix:
