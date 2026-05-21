@@ -1,143 +1,15 @@
 # netcheck
 
-[![CI](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml)
+[![CI](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/Dezoxy/netcheck?sort=semver)](https://github.com/Dezoxy/netcheck/releases/latest) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-A CLI tool that analyzes what happens between your machine and a target website or domain — DNS, TCP, TLS, HTTP, redirects, timing, IP ownership, CDN hints, traceroute, and per-resolver DNS comparison.
-
-## Install
-
-### Pre-built binary (no Go toolchain required)
-
-Grab the archive for your platform from the [latest release](https://github.com/Dezoxy/netcheck/releases/latest):
-
-```bash
-# macOS Apple Silicon (M1/M2/M3/M4)
-curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_$(curl -s https://api.github.com/repos/Dezoxy/netcheck/releases/latest | grep tag_name | cut -d\" -f4 | sed s/^v//)_darwin_arm64.tar.gz | tar xz
-sudo mv netcheck /usr/local/bin/
-
-# Linux amd64
-curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_<VERSION>_linux_amd64.tar.gz | tar xz
-sudo mv netcheck /usr/local/bin/
-```
-
-Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`, `windows_arm64`.
-
-Each archive also bundles `README.md`, `LICENSE`, and `config.example.yaml`. SHA256 checksums are in `checksums.txt` on the release page.
-
-### From source
-
-```bash
-git clone https://github.com/Dezoxy/netcheck.git
-cd netcheck
-make build              # produces ./bin/netcheck (version stamped from git describe)
-# or, to put it on your PATH:
-make install            # installs into $GOBIN (~/go/bin) via `go install`
-```
-
-Requires Go 1.22+. The CLI keeps Go dependencies light; `netcheck dns` uses [`miekg/dns`](https://github.com/miekg/dns), while ASN/IP ownership data comes from public Team Cymru DNS and RDAP lookups. Run `make help` to see all targets.
-
-## Usage
-
-### Config file
-
-Optional YAML config at `~/.config/netcheck/config.yaml` overrides built-in defaults. Missing files and missing keys are fine — netcheck always works without a config.
-
-```bash
-mkdir -p ~/.config/netcheck
-cp config.example.yaml ~/.config/netcheck/config.yaml
-netcheck dns cloudflare.com    # uses any resolvers defined in config
-```
-
-Search order: `--config <path>` → `NETCHECK_CONFIG` env → `$XDG_CONFIG_HOME/netcheck/config.yaml` → `~/.config/netcheck/config.yaml`.
-
-Env vars: `NETCHECK_TIMEOUT` (Go duration like `5s`), `NETCHECK_USER_AGENT`. Both override the config file when set.
-
-See [config.example.yaml](config.example.yaml) for the full schema.
-
-Run `netcheck config show` to see what config netcheck is actually using — the loaded source file (or "defaults — no config file loaded"), the resolved values after env overrides, and the list of config-defined resolvers. `--output json` works too:
-
-```bash
-netcheck config show
-netcheck config show --output json | jq '.resolvers'
-netcheck config --config /path/to/other.yaml show   # try a different config without moving files
-```
-
-### DNS-over-TLS and DNS-over-HTTPS
-
-The `dns` command accepts non-UDP resolvers via URL-style `--resolver`:
-
-```bash
-netcheck dns --resolver tls://1.1.1.1 cloudflare.com           # DoT (port 853)
-netcheck dns --resolver dot://9.9.9.9 cloudflare.com           # DoT (alias)
-netcheck dns --resolver https://cloudflare-dns.com/dns-query cloudflare.com   # DoH
-netcheck dns --resolver doh://dns.google/dns-query cloudflare.com             # DoH (alias)
-netcheck dns --resolver tcp://1.1.1.1 cloudflare.com           # force TCP
-```
-
-Or define them once in the config file (`type: dot` / `type: doh` / `type: tcp`) and they apply to every `netcheck dns` invocation. Use `--no-config-resolvers` to skip config-defined resolvers for one run.
-
-### Output formats
-
-Every command accepts `--output text|json|markdown|html` (default `text`) and `--out <file>` (write to a file instead of stdout — parent directories are created automatically):
-
-```bash
-netcheck --output json google.com | jq '.dns.a'
-netcheck dns --output markdown cloudflare.com > report.md
-netcheck ip --output html --out /tmp/report.html 1.1.1.1 && open /tmp/report.html
-netcheck route --output json google.com | jq '.hops[] | select(.timeout)'
-```
-
-> Flags must come before the positional argument: `netcheck dns --output json cloudflare.com`, not `netcheck dns cloudflare.com --output json`.
-
-JSON output is versioned (`"netcheck_version": "0.5.0"`) and tagged with a `kind` field (`"full"`, `"dns"`, `"route"`, `"ip"`) so downstream consumers can detect both the schema version and the source command. Breaking schema changes bump the version; additive optional fields don't.
-
-The text format is the default and remains unchanged from earlier versions — existing automation that reads stdout keeps working.
-
-### Interactive menu
-
-Run with no arguments on a terminal and netcheck drops into an interactive menu:
-
-```bash
-netcheck            # opens menu when stdin is a TTY
-netcheck menu       # always opens the menu, even when piped
-```
+> A single command that explains what actually happens between your machine and a URL — DNS, TCP, TLS, HTTP, redirects, timing, IP ownership, CDN, traceroute, and resolver disagreements.
 
 ```
-netcheck 0.4.0 — interactive menu
+$ netcheck google.com
 
-  1) Full check (DNS, TCP, TLS, HTTP)
-  2) DNS compare across resolvers
-  3) Route (traceroute + per-hop ASN)
-  4) IP / ASN info
-  q) Quit
-
-Choose: 2
-Host: https://Google.com/search?q=hi
-  → normalized to: google.com
-...
-```
-
-Input is normalized before each check: surrounding whitespace and quotes are stripped, schemes/paths/queries/ports are removed for `dns` and `route`, and the full-check parser auto-prefixes `https://` when missing. After a check finishes, press Enter to return to the menu; type `q` to quit.
-
-When stdin is **not** a terminal (e.g. piped from a script), bare `netcheck` keeps its old behavior and prints usage — so existing automation doesn't accidentally hang waiting for menu input.
-
-**Saving results.** After each menu action completes, netcheck offers to save the result in any of the four output formats (text, JSON, markdown, HTML). When running from the source checkout (i.e. `./bin/netcheck`), it saves silently into the binary's `bin/` directory with an auto-named file like `netcheck-ip-1.1.1.1-20260521-081414.json`. When installed on PATH (e.g. via `go install` or `cp /usr/local/bin/`), it prompts for a save directory and suggests `~/Documents`.
-
-### Full check (DNS, TCP, TLS, HTTP)
-
-```bash
-netcheck google.com
-netcheck https://example.com
-netcheck --insecure https://expired.badssl.com
-netcheck --timeout 5s example.com
-```
-
-Sample output:
-
-```
 NETCHECK REPORT
 Target: https://google.com
-Time:   2026-05-19 22:17:23
+Time:   2026-05-21 22:17:23
 
 DNS
   [OK] A     142.251.143.238  AS15169 GOOGLE (CDN: Google)
@@ -154,174 +26,187 @@ TLS
     Issuer:    WR2
     Protocol:  TLS 1.3 (cipher TLS_AES_128_GCM_SHA256)
     Expires:   2026-07-13 (54 days)
-    Chain:     3 cert(s)
-    SANs:      [*.google.com *.appengine.google.com ...] (+132 more)
-  handshake time: 53ms
 
 HTTP
   [OK] Status:    200
-    Protocol:  HTTP/1.1
-    Server:    gws
     Final URL: https://www.google.com/
     Redirects: 1
-      1. 301  https://google.com
-  Timing (first request):
-    DNS:     6ms
-    Connect: 17ms
-    TLS:     40ms
-    TTFB:    328ms
-    Total:   774ms
+  Timing:  DNS 6ms · Connect 17ms · TLS 40ms · TTFB 328ms · Total 774ms
 
 Summary
-  [OK] DNS
-  [OK] TCP
-  [OK] TLS
-  [OK] HTTP
+  [OK] DNS  [OK] TCP  [OK] TLS  [OK] HTTP
 ```
 
-Exit code `1` if any check fails (DNS, TCP, TLS, HTTP).
+## Install
 
-### DNS resolver compare
+**Pre-built binary** — download the archive for your platform from the [latest release](https://github.com/Dezoxy/netcheck/releases/latest), or curl one-liner:
+
+```bash
+# macOS Apple Silicon
+curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.0.0_darwin_arm64.tar.gz | tar xz
+sudo mv netcheck /usr/local/bin/
+
+# Linux amd64
+curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.0.0_linux_amd64.tar.gz | tar xz
+sudo mv netcheck /usr/local/bin/
+
+# Windows: download netcheck_1.0.0_windows_amd64.zip, unzip, run netcheck.exe
+```
+
+Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`, `windows_arm64`. Each archive bundles `README.md`, `LICENSE`, and `config.example.yaml`. SHA256s in `checksums.txt`.
+
+**From source** (requires Go 1.22+):
+
+```bash
+git clone https://github.com/Dezoxy/netcheck.git
+cd netcheck
+make build      # → ./bin/netcheck
+make install    # → $GOBIN (usually ~/go/bin)
+```
+
+## What it does
+
+netcheck has four checks plus an interactive menu. Run any of them from a terminal; pipe the output through `jq`; or just run `netcheck` with no arguments to get the menu.
+
+| Command | Asks |
+|---|---|
+| `netcheck <target>` | Can I reach this URL? What's the full path — DNS, TCP, TLS, HTTP, redirects, timing? Who owns the IP? |
+| `netcheck dns <host>` | Do Cloudflare, Google, Quad9, my system resolver, and any DoH/DoT resolver agree on this hostname's IPs? |
+| `netcheck route <host>` | What's the network path to this host, and who owns each hop? |
+| `netcheck ip <ip\|host>` | Who owns this IP? What's its ASN, reverse DNS, RDAP record, CDN affiliation? |
+| `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
+| `netcheck config show` | What config is netcheck actually using right now? |
+
+Every command accepts `--output text|json|markdown|html` (default `text`) and `--out <file>` (write to file with `Saved to <abs-path>` echoed to stderr). The text format is byte-stable across `v1.x`; the JSON schema is versioned (`"netcheck_version"` field) and stable per [STABILITY.md](STABILITY.md).
+
+## Examples
+
+### Quick full check
+
+```bash
+netcheck google.com
+netcheck https://expired.badssl.com           # see the TLS section flag this
+netcheck --insecure https://self-signed.badssl.com    # inspect without verifying
+```
+
+### Compare DNS resolvers
 
 ```bash
 netcheck dns google.com
 netcheck dns --type MX,TXT cloudflare.com
-netcheck dns --resolver 1.0.0.1 --resolver 8.8.4.4 example.com
-netcheck dns --no-defaults --resolver 1.1.1.1 cloudflare.com
+netcheck dns --resolver tls://1.1.1.1 cloudflare.com                       # DoT
+netcheck dns --resolver doh://dns.google/dns-query cloudflare.com          # DoH
+netcheck dns --no-defaults --resolver 1.0.0.1 google.com                   # pinned single resolver
 ```
 
-Queries System, Cloudflare (`1.1.1.1`), Google (`8.8.8.8`), and Quad9 (`9.9.9.9`) in parallel and shows whether they agree.
-
-Flags:
-
-| Flag | Default | Description |
-|---|---|---|
-| `--type` | `A,AAAA` | Comma-separated record types: A, AAAA, CNAME, MX, TXT, NS, SOA |
-| `--resolver` | — | Additional resolver `host[:port]` (repeatable) |
-| `--timeout` | `5s` | Per-query timeout |
-| `--no-system` | `false` | Skip the system resolver |
-| `--no-defaults` | `false` | Skip built-in resolvers |
-
-Exit code `1` if any resolver returns a transport error or non-`NOERROR` rcode. Resolvers returning different answers (common for GeoDNS) is **not** treated as failure — the verdict line surfaces the split.
-
-Sample output:
-
-```
-DNS COMPARE
-Host:  google.com
-Time:  2026-05-19 22:24:10
-
-A records
-  RESOLVER    ADDRESS       TIME  ANSWER
-  System      127.0.2.2:53  29ms  142.251.38.206
-  Cloudflare  1.1.1.1:53    11ms  142.251.38.206
-  Google      8.8.8.8:53    19ms  192.178.25.174
-  Quad9       9.9.9.9:53    17ms  142.251.20.100
-                                  142.251.20.101
-  Verdict: resolvers disagree (3 distinct answer sets)
-    Set 1 (System, Cloudflare):
-      142.251.38.206
-    Set 2 (Google):
-      192.178.25.174
-    Set 3 (Quad9):
-      142.251.20.100
-      142.251.20.101
-```
-
-### Route (traceroute + per-hop ASN)
+### Trace the path
 
 ```bash
 netcheck route google.com
-netcheck route --max-hops 20 1.1.1.1
-netcheck route --no-asn --no-resolve example.com
+netcheck route --max-hops 20 --no-asn 1.1.1.1
 ```
 
-Wraps the system `traceroute` (`tracert` on Windows), streams hops as they arrive, and annotates each public IP with its origin ASN via Team Cymru's DNS service (no API key needed). Private and link-local hops are skipped for ASN.
-
-Flags:
-
-| Flag | Default | Description |
-|---|---|---|
-| `--max-hops` | `30` | Maximum number of hops |
-| `--probes` | `3` | Probes per hop |
-| `--wait` | `2` | Per-probe wait in seconds |
-| `--no-resolve` | `false` | Skip reverse DNS for each hop |
-| `--no-asn` | `false` | Skip Team Cymru ASN annotation |
-| `--timeout` | `60s` | Overall traceroute timeout |
-
-Sample output:
-
-```
-ROUTE
-Host:  google.com  (142.250.184.206)
-Time:  2026-05-20 14:02:11
-Tool:  /usr/sbin/traceroute [-m 30 -q 3 -w 2]
-
-  HOP  ADDRESS                                RTT                      ASN
-  1    10.0.0.1                               1.23ms  1.15ms  1.04ms
-  2    * * *                                  *   *   *
-  3    1.2.3.4                                10.2ms  9.8ms  10.5ms    AS7922 COMCAST-7922
-  ...
-  8    142.250.184.206                        18.1ms  17.9ms  18.0ms   AS15169 GOOGLE
-
-  Reached 142.250.184.206 in 8 hops
-  1 hop(s) timed out — routers commonly drop or rate-limit probes; missing hops do not always mean a broken route.
-```
-
-Requires the system `traceroute` (or `tracert`) on `PATH`. macOS ships it at `/usr/sbin/traceroute`; on Debian/Ubuntu install with `sudo apt install traceroute`.
-
-### IP / ASN info
+### IP ownership
 
 ```bash
-netcheck ip 142.250.184.206
-netcheck ip cloudflare.com
-netcheck ip --timeout 5s 8.8.8.8
+netcheck ip 1.1.1.1
+netcheck ip cloudflare.com    # resolves the host and reports each IP
 ```
 
-Shows reverse DNS, origin ASN, prefix, country, registry, RDAP abuse contact, and static CDN classification. Hostnames are resolved to all A/AAAA records and each address is shown separately.
+### Pipe into other tools
 
-Sample output:
+```bash
+# What's the redirect chain?
+netcheck --output json google.com | jq '.http.hops'
 
+# Which hops timed out on a traceroute?
+netcheck route --output json google.com | jq '.hops[] | select(.timeout)'
+
+# Save a shareable HTML report
+netcheck ip --output html --out /tmp/report.html 1.1.1.1 && open /tmp/report.html
+
+# Send a Markdown summary in a ticket
+netcheck dns --output markdown cloudflare.com | pbcopy
 ```
-IP INFO
-Target:   142.250.184.206
-Time:     2026-05-20 15:38:19
-Reverse:  fra24s11-in-f14.1e100.net
-ASN:      AS15169 GOOGLE (Google LLC)
-Country:  US
-Prefix:   142.250.184.0/24
-Registry: arin
-CDN:      Google (high confidence - ASN match + 1e100.net PTR)
-Abuse:    network-abuse@google.com
+
+> Flags come before the positional argument: `netcheck dns --output json cloudflare.com`, not `netcheck dns cloudflare.com --output json`.
+
+## Config file
+
+Optional YAML at `~/.config/netcheck/config.yaml`. Every key is optional — missing files and missing keys fall back to compiled-in defaults.
+
+```yaml
+timeout: 10s
+user_agent: my-internal-monitor/1.0
+follow_redirects: true
+max_redirects: 10
+prefer_ipv6: false
+
+resolvers:
+  - name: cloudflare-doh
+    address: https://cloudflare-dns.com/dns-query
+    type: doh
+  - name: quad9-dot
+    address: 9.9.9.9
+    type: dot
 ```
 
-## Roadmap
+**Search order:** `--config <path>` flag → `NETCHECK_CONFIG` env → `$XDG_CONFIG_HOME/netcheck/config.yaml` → `~/.config/netcheck/config.yaml`.
 
-See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for the full plan.
+**Env overrides:** `NETCHECK_TIMEOUT` and `NETCHECK_USER_AGENT` win over the file when set — handy for CI/ops.
 
-| Version | Status | Features |
-|---|---|---|
-| v0.1 | shipped | URL parsing, DNS, TCP, TLS, HTTP, redirects, httptrace timing |
-| v0.2 | shipped | DNS resolver compare, A/AAAA/CNAME/MX/TXT/NS/SOA, custom resolvers |
-| v0.3 | shipped | Traceroute wrapper with per-hop ASN annotation (Team Cymru) |
-| v0.3.1 | shipped | Interactive menu mode with input normalization |
-| v0.4 | shipped | Standalone IP info command, RDAP abuse/registry lookup, CDN detection, DNS ASN hints |
-| v0.4.1 | shipped | Planning update — locked v0.5 → v1.0 rollout, folder structure documented |
-| v0.4.2 | shipped | Refactored flat `package main` into `cmd/` + `internal/` per the documented layout |
-| v0.5 | shipped | `--output text\|json\|markdown\|html` on every command; versioned JSON schema (`netcheck_version: "0.5.0"`) |
-| v0.6 | shipped | YAML config file (`~/.config/netcheck/config.yaml`), `NETCHECK_*` env vars, DoT + DoH resolver types |
-| v0.6.1 | shipped | Menu offers to save each result as text/json/markdown/html; auto-detects working-dir vs installed |
-| v0.7 | shipped | Unit tests for target/route-parser/dnscompare-verdict/cmd-output, GitHub Actions CI, cross-platform build matrix, status badge |
-| v0.7.1 | shipped | Opt CI into Node 24 ahead of GitHub Actions deprecation |
-| v0.8 | shipped | `goreleaser` release automation — tag → 6 cross-platform binaries with SHA256 checksums attached to the GitHub release |
-| v0.8.1 | shipped | Gate releases on `go test -race ./...` via goreleaser before-hook |
-| v0.9 | shipped | `netcheck config show`, `--out <file>` flag, route exit-code fix, Windows version-info, staticcheck in CI, expanded test coverage |
-| v0.9 | planned | Release candidate — CLI surface freeze, doc pass, asciinema demo |
-| v1.0 | planned | Stability promise (no breaking changes in v1.x), final docs, optional man page |
+Run `netcheck config show` to see what's actually loaded. See [config.example.yaml](config.example.yaml) for the full schema.
 
 ## Caveats
 
-- **DNS results aren't universal.** GeoDNS, anycast, ECS, and CDN load-balancing all mean different resolvers (and different clients) legitimately get different IPs. `netcheck dns` makes that visible.
-- **Traceroute is heuristic.** Routers can drop, rate-limit, or reorder ICMP/UDP probes. A missing hop does not always mean a broken route, and the path for TCP traffic may differ from what traceroute shows.
-- **Browser behavior may differ.** CLI doesn't use HSTS cache, HTTP/3, cookies, extensions, or VPN settings the way your browser does.
-- **macOS `/etc/resolv.conf`** points at internal loopback resolvers; `netcheck dns` uses just the first one for readability.
+- **DNS results aren't universal.** GeoDNS, anycast, ECS, and CDN load-balancing all mean different resolvers (and different clients) legitimately get different IPs for the same hostname. `netcheck dns` makes that visible — disagreement isn't an error.
+- **Traceroute is heuristic.** Routers can drop, rate-limit, or reorder ICMP/UDP probes. A missing hop doesn't always mean a broken route, and the path for TCP traffic may differ from what traceroute shows.
+- **Browser behavior may differ.** netcheck doesn't use HSTS cache, HTTP/3, cookies, browser extensions, or VPN settings. It tells you what a fresh `curl` would see, not what your Chrome will do.
+- **macOS `/etc/resolv.conf`** points at internal loopback resolvers; `netcheck dns` uses just the first one for table readability.
+
+## Stability
+
+`v1.0.0` commits to backward compatibility for the entire `v1.x` series: CLI flags, exit codes, JSON schema, and config file keys are frozen. See [STABILITY.md](STABILITY.md) for the full contract.
+
+If you're using netcheck in a script, pin the major version (`v1.x.y`) and `--output json` against the schema version in the output.
+
+## Contributing
+
+PRs welcome. The codebase is small (~3000 lines), unit-tested where the logic isn't network-bound, and uses `make verify` / `make coverage` for local checks. CI runs `gofmt`, `go vet`, `staticcheck`, `go test -race`, and a cross-platform build matrix on every PR.
+
+```bash
+make verify     # gofmt + vet + build + version
+make coverage   # tests with per-function coverage summary
+```
+
+See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for architecture notes.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+---
+
+<details>
+<summary>Roadmap and project history</summary>
+
+The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes and feature plans live in [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
+
+| Version | Status | Highlights |
+|---|---|---|
+| v0.1 | shipped | URL parsing, DNS, TCP, TLS, HTTP, redirects, httptrace timing |
+| v0.2 | shipped | DNS resolver compare across A/AAAA/CNAME/MX/TXT/NS/SOA |
+| v0.3 | shipped | Traceroute wrapper with per-hop ASN annotation |
+| v0.3.1 | shipped | Interactive menu mode |
+| v0.4 | shipped | IP info command with RDAP and CDN detection |
+| v0.4.1–0.4.2 | shipped | Roadmap snapshot + `cmd/` + `internal/` refactor |
+| v0.5 | shipped | `--output json\|markdown\|html` on every command |
+| v0.6 | shipped | YAML config file + DoT/DoH resolver types |
+| v0.6.1 | shipped | Menu offers to save results in any format |
+| v0.7 | shipped | Tests, GitHub Actions CI, cross-platform build matrix |
+| v0.8 | shipped | `goreleaser` release automation |
+| v0.9 | shipped | `config show`, `--out` flag, Windows version-info, staticcheck |
+| **v1.0** | **shipped** | **Stability promise** |
+| v1.1+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
+
+</details>

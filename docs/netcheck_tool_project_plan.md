@@ -883,12 +883,30 @@ Polish pass to prepare for the v1.0 API freeze.
 - Big README rewrite — happens with v1.0
 - /etc/netcheck/config.yaml system-wide path — niche, easy add later
 
-## v1.0 — Stable
+## v1.0 — Stable (shipped)
 
-- **Backward-compatibility promise**: no breaking flag/output changes within v1.x
-- README badges, demo asciinema/gif, optional `netcheck.1` man page
-- Optional GitHub Pages landing page
-- Announce on the usual channels
+The "stop adding things and ship what you have" release.
+
+**Stability commitment (documented in `STABILITY.md`):**
+- CLI flags, subcommands, and exit codes are frozen for the v1.x series
+- JSON schema is versioned (`netcheck_version`) and stable per version
+- Config file schema (`~/.config/netcheck/config.yaml`) is stable
+- `NETCHECK_*` env vars are stable
+- Deprecation policy: removing anything takes one full minor release of warning
+
+**Documentation:**
+- `STABILITY.md` — the full backward-compatibility contract
+- `CHANGELOG.md` — Keep-a-Changelog format snapshot of v0.1 → v1.0
+- `README.md` — rewritten for first-time visitors: stronger pitch, demo above the install section, roadmap moved to a collapsible at the bottom
+- Release badge added next to the CI badge
+
+**Deferred (post-v1.0):**
+- asciinema cast in README — needs interactive recording; will land in v1.0.1
+  with a real terminal capture rather than a synthesized one
+- `netcheck.1` man page — defer until someone asks; CLI is well-documented
+  via `--help` and the README
+- GitHub Pages landing page — over-investment for a CLI; README is enough
+- Announcement (HN / r/golang / etc.) — separate from the PR; ship first
 
 ## v1.1+ — Deferred features
 
