@@ -1,0 +1,12 @@
+A records
+  RESOLVER    ADDRESS     TIME    ANSWER
+  Cloudflare  1.1.1.1:53  12ms    1.1.1.1
+  Google      8.8.8.8:53  18ms    1.1.1.1
+  Quad9       9.9.9.9:53  14ms    2.2.2.2
+  Failing     0.0.0.0:53  5000ms  [FAIL] timeout
+  Verdict: resolvers disagree (2 distinct answer sets)
+    Set 1 (Cloudflare, Google):
+      1.1.1.1
+    Set 2 (Quad9):
+      2.2.2.2
+

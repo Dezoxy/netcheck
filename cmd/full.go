@@ -13,8 +13,10 @@ import (
 )
 
 // RunFull executes the `netcheck <target>` end-to-end check.
-func RunFull(args []string) {
-	fs := flag.NewFlagSet("netcheck", flag.ExitOnError)
+// Returns a process exit code (0 success, 1 check failed, 2 bad invocation).
+func RunFull(args []string) int {
+	fs := flag.NewFlagSet("netcheck", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
 	configPath := addConfigFlag(fs)
 	timeout := fs.Duration("timeout", loadedConfig.Timeout, "per-check timeout")
 	insecure := fs.Bool("insecure", false, "skip TLS verification")
@@ -27,24 +29,24 @@ func RunFull(args []string) {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
-		os.Exit(2)
+		return 2
 	}
 	if fs.NArg() != 1 {
 		fs.Usage()
-		os.Exit(2)
+		return 2
 	}
 	applyConfigOverride(*configPath)
 
 	format, err := ParseFormat(*outputFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	t, err := target.Parse(fs.Arg(0))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	r := report.Report{Target: t, StartedAt: time.Now()}
@@ -86,7 +88,7 @@ func RunFull(args []string) {
 	w, closer, err := openOut(*outFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer closer()
 
@@ -94,7 +96,7 @@ func RunFull(args []string) {
 	case FormatJSON:
 		if err := report.WriteJSON(w, report.ToFullJSON(&r)); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	case FormatMarkdown:
 		report.RenderFullMD(w, &r)
@@ -105,6 +107,7 @@ func RunFull(args []string) {
 	}
 
 	if !r.OK() {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

@@ -40,7 +40,13 @@ func Find() (string, error) {
 
 // BuildArgs maps Options to the platform-appropriate flag set.
 func BuildArgs(opts Options, host string) []string {
-	if runtime.GOOS == "windows" {
+	return buildArgsFor(runtime.GOOS, opts, host)
+}
+
+// buildArgsFor is the testable form of BuildArgs — takes goos as a parameter
+// so tests can exercise both branches from a single platform.
+func buildArgsFor(goos string, opts Options, host string) []string {
+	if goos == "windows" {
 		// tracert: -d no-resolve, -h max-hops, -w timeout(ms)
 		args := []string{}
 		if opts.NoResolve {
@@ -74,8 +80,10 @@ func BuildArgs(opts Options, host string) []string {
 }
 
 // InstallHint returns a platform-appropriate hint when traceroute is missing.
-func InstallHint() string {
-	switch runtime.GOOS {
+func InstallHint() string { return installHintFor(runtime.GOOS) }
+
+func installHintFor(goos string) string {
+	switch goos {
 	case "darwin":
 		return "macOS normally ships /usr/sbin/traceroute. Check $PATH or run /usr/sbin/traceroute directly."
 	case "linux":

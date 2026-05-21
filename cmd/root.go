@@ -88,42 +88,42 @@ func Run() {
 
 	switch os.Args[1] {
 	case "menu":
-		RunMenu(os.Args[2:])
+		RunMenu(os.Args[2:]) // menu loops until user quits — no exit code
 	case "dns":
-		RunDNS(os.Args[2:])
+		os.Exit(RunDNS(os.Args[2:]))
 	case "route":
-		RunRoute(os.Args[2:])
+		os.Exit(RunRoute(os.Args[2:]))
 	case "ip":
-		RunIP(os.Args[2:])
+		os.Exit(RunIP(os.Args[2:]))
 	case "config":
-		runConfigCmd(os.Args[2:])
+		os.Exit(runConfigCmd(os.Args[2:]))
 	case "-h", "--help", "help":
 		usage()
 	case "-v", "--version", "version":
 		fmt.Printf("netcheck %s\n", Version)
 	default:
-		RunFull(os.Args[1:])
+		os.Exit(RunFull(os.Args[1:]))
 	}
 }
 
 // runConfigCmd dispatches `netcheck config ...` subcommands. Today only "show"
-// exists. Bare `netcheck config` defaults to show.
-func runConfigCmd(args []string) {
+// exists. Bare `netcheck config` defaults to show. Returns a process exit code.
+func runConfigCmd(args []string) int {
 	if len(args) == 0 {
-		RunConfigShow(nil)
-		return
+		return RunConfigShow(nil)
 	}
 	switch args[0] {
 	case "show":
-		RunConfigShow(args[1:])
+		return RunConfigShow(args[1:])
 	case "-h", "--help":
 		fmt.Fprintln(os.Stderr, "usage: netcheck config <subcommand>")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "subcommands:")
 		fmt.Fprintln(os.Stderr, "  show                           print the active config (default)")
+		return 0
 	default:
 		fmt.Fprintf(os.Stderr, "unknown config subcommand %q\n", args[0])
-		os.Exit(2)
+		return 2
 	}
 }
 

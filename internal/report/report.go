@@ -36,6 +36,11 @@ func (r *Report) OK() bool {
 	return r.HTTP.Err == nil && r.HTTP.Status > 0 && r.HTTP.Status < 400
 }
 
+// nowFn is the clock used by renderers that need a "current time" stamp
+// (today: only the text IP info header, which doesn't take StartedAt). Tests
+// override this for deterministic golden files.
+var nowFn = time.Now
+
 // Mark renders a per-check status indicator.
 func Mark(ok bool) string {
 	if ok {

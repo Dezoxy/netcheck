@@ -207,6 +207,7 @@ The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes 
 | v0.8 | shipped | `goreleaser` release automation |
 | v0.9 | shipped | `config show`, `--out` flag, Windows version-info, staticcheck |
 | **v1.0** | **shipped** | **Stability promise** |
+| v1.0.1 | shipped | Test coverage 20.8% → 85.4% project-wide; every package above 82%. Run* functions return exit codes; no more direct os.Exit. |
 | v1.1+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
 
 </details>

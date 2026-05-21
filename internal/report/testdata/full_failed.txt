@@ -1,0 +1,15 @@
+NETCHECK REPORT
+Target: https://broken.invalid
+Time:   2026-05-21 19:30:45
+
+DNS
+  [FAIL] lookup failed: no such host
+  lookup time: 12ms
+
+HTTP
+  [FAIL] request failed: dial tcp: connection refused
+
+Summary
+  [FAIL] DNS
+  [FAIL] TCP
+  [FAIL] HTTP

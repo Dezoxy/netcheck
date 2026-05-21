@@ -1,0 +1,42 @@
+NETCHECK REPORT
+Target: https://example.com
+Time:   2026-05-21 19:30:45
+
+DNS
+  [OK] A     142.250.184.206  AS15169 GOOGLE (CDN: Google)
+  [OK] AAAA  2a00:1450:400d:80e::200e  AS15169 GOOGLE (CDN: Google)
+  lookup time: 14ms
+
+TCP
+  [OK] IPv4 142.250.184.206:443 reachable (21ms)
+  [OK] IPv6 [2a00:1450:400d:80e::200e]:443 reachable (24ms)
+
+TLS
+  [OK] Certificate valid
+    Subject:   *.example.com
+    Issuer:    WR2
+    Protocol:  TLS 1.3 (cipher TLS_AES_128_GCM_SHA256)
+    Expires:   2026-07-21 (61 days)
+    Chain:     1 cert(s)
+    SANs:      [*.example.com example.com]
+  handshake time: 53ms
+
+HTTP
+  [OK] Status:    200
+    Protocol:  HTTP/1.1
+    Server:    gws
+    Final URL: https://www.example.com/
+    Redirects: 1
+      1. 301  https://example.com
+  Timing (first request):
+    DNS:     6ms
+    Connect: 17ms
+    TLS:     40ms
+    TTFB:    328ms
+    Total:   774ms
+
+Summary
+  [OK] DNS
+  [OK] TCP
+  [OK] TLS
+  [OK] HTTP

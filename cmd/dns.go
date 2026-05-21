@@ -58,8 +58,10 @@ func (s *stringSlice) String() string     { return strings.Join(*s, ",") }
 func (s *stringSlice) Set(v string) error { *s = append(*s, v); return nil }
 
 // RunDNS executes the `netcheck dns <host>` resolver-comparison command.
-func RunDNS(args []string) {
-	fs := flag.NewFlagSet("netcheck dns", flag.ExitOnError)
+// Returns a process exit code (0 success, 1 at least one resolver errored, 2 bad invocation).
+func RunDNS(args []string) int {
+	fs := flag.NewFlagSet("netcheck dns", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
 	configPath := addConfigFlag(fs)
 	typesFlag := fs.String("type", "A,AAAA", "comma-separated record types (A,AAAA,CNAME,MX,TXT,NS,SOA)")
 	timeout := fs.Duration("timeout", 5*time.Second, "per-query timeout")
@@ -78,11 +80,11 @@ func RunDNS(args []string) {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
-		os.Exit(2)
+		return 2
 	}
 	if fs.NArg() != 1 {
 		fs.Usage()
-		os.Exit(2)
+		return 2
 	}
 	applyConfigOverride(*configPath)
 	host := fs.Arg(0)
@@ -90,13 +92,13 @@ func RunDNS(args []string) {
 	format, err := ParseFormat(*outputFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	types, err := dnscompare.ParseTypes(*typesFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	var resolvers []dnscompare.Resolver
@@ -120,13 +122,13 @@ func RunDNS(args []string) {
 		parsed, err := dnscompare.ParseResolver(r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(2)
+			return 2
 		}
 		resolvers = append(resolvers, parsed)
 	}
 	if len(resolvers) == 0 {
 		fmt.Fprintln(os.Stderr, "error: no resolvers configured")
-		os.Exit(2)
+		return 2
 	}
 
 	startedAt := time.Now()
@@ -150,7 +152,7 @@ func RunDNS(args []string) {
 	w, closer, err := openOut(*outFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer closer()
 
@@ -158,7 +160,7 @@ func RunDNS(args []string) {
 	case FormatJSON:
 		if err := report.WriteJSON(w, report.ToDNSCompareJSON(host, startedAt, collected)); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	case FormatMarkdown:
 		report.RenderDNSCompareMD(w, report.ToDNSCompareJSON(host, startedAt, collected))
@@ -172,6 +174,7 @@ func RunDNS(args []string) {
 	}
 
 	if anyError {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }

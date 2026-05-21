@@ -1,0 +1,10 @@
+IP INFO
+Target:   1.1.1.1
+Time:     2026-05-21 19:30:45
+Reverse:  one.one.one.one
+ASN:      AS13335 CLOUDFLARENET (Cloudflare, Inc.)
+Country:  US
+Prefix:   1.1.1.0/24
+Registry: apnic
+CDN:      Cloudflare (high confidence - ASN match + cloudflare PTR)
+Abuse:    abuse@cloudflare.com

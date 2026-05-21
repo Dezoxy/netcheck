@@ -4,6 +4,21 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.0.1]
+
+- **Test coverage push: 20.8% → 85.4% project-wide.**
+  - Golden-file tests for the entire `internal/report` rendering package (text, Markdown, HTML across all 4 commands). 0% → 84.7%.
+  - httptest-based tests for `internal/check` HTTP, TLS, TCP, plus DNS lookup. 0% → 89.9%.
+  - Fake-binary harness for `internal/route` Stream and Find tests. 43.9% → 90.6%.
+  - ASNCache + RDAP cache tests in `internal/ipinfo`. 61.3% → 87.4%.
+  - `recordValue` + `ParseTypes` + `EnsurePort` + `SystemResolvers` in `internal/dnscompare`. 64.4% → 85.6%.
+  - End-to-end tests for every `RunX` function in `cmd/`, including subprocess-style stdin capture for the interactive menu. 7% → 83.7%.
+  - Config file `resolvePath` and parse-error tests. 82.6% → 95.7%.
+- **Refactor:** `RunFull`, `RunDNS`, `RunRoute`, `RunIP`, `RunConfigShow` now return an `int` exit code instead of calling `os.Exit` directly. `cmd.Run()` is the only `os.Exit` caller now. This is a pure refactor — exit codes are unchanged. Makes the runners testable without subprocess gymnastics.
+- **`route.BuildArgs` / `route.InstallHint`** factored into `buildArgsFor(goos, ...)` / `installHintFor(goos)` testable internals. The exported API is unchanged.
+- **Stable clock** for the report package's text IP renderer via a `nowFn` package var, so golden tests are deterministic.
+- **Testable RDAP base URL:** `lookupRDAPAt(ctx, client, baseURL, ip)` extracted from `lookupRDAP` so httptest can substitute the bootstrap URL.
+
 ## [1.0.0] — Stable
 
 - **Stability promise** — `STABILITY.md` documents the v1.x backward-compatibility contract for CLI flags, exit codes, JSON schema, and config file keys.
@@ -93,6 +108,7 @@ Per-release notes are also generated automatically by `goreleaser` and attached 
 
 - Initial release. `netcheck <target>` runs DNS, TCP, TLS, and HTTP checks with `httptrace` timing breakdown and redirect chain.
 
+[1.0.1]: https://github.com/Dezoxy/netcheck/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Dezoxy/netcheck/releases/tag/v1.0.0
 [0.9.1]: https://github.com/Dezoxy/netcheck/releases/tag/v0.9.1
 [0.9.0]: https://github.com/Dezoxy/netcheck/releases/tag/v0.9.0

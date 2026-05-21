@@ -118,3 +118,70 @@ func TestMissingFileNotAnError(t *testing.T) {
 		t.Errorf("Source = %q, want empty", cfg.Source)
 	}
 }
+
+func TestLoadParseError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.yaml")
+	// Malformed YAML: opening bracket without close.
+	os.WriteFile(path, []byte("resolvers: [\n  - name: cf\n"), 0644)
+	cfg, err := Load(path)
+	if err == nil {
+		t.Errorf("expected parse error, got nil")
+	}
+	// Even on parse error we return non-nil cfg with defaults.
+	if cfg == nil {
+		t.Errorf("cfg = nil on parse error, expected defaults")
+	}
+}
+
+func TestResolvePathXDG(t *testing.T) {
+	dir := t.TempDir()
+	cfgDir := filepath.Join(dir, "netcheck")
+	os.MkdirAll(cfgDir, 0755)
+	cfgPath := filepath.Join(cfgDir, "config.yaml")
+	os.WriteFile(cfgPath, []byte("user_agent: from-xdg\n"), 0644)
+
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("NETCHECK_CONFIG", "")       // ensure NETCHECK_CONFIG isn't set
+	t.Setenv("HOME", "/tmp/no-such-home") // ensure ~/.config fallback misses
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.UserAgent != "from-xdg" {
+		t.Errorf("UserAgent = %q, want from-xdg", cfg.UserAgent)
+	}
+	if cfg.Source != cfgPath {
+		t.Errorf("Source = %q, want %q", cfg.Source, cfgPath)
+	}
+}
+
+func TestResolvePathNETCHECK_CONFIG(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "explicit.yaml")
+	os.WriteFile(cfgPath, []byte("user_agent: from-env\n"), 0644)
+
+	t.Setenv("NETCHECK_CONFIG", cfgPath)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "/tmp/no-such-home")
+
+	cfg, _ := Load("")
+	if cfg.UserAgent != "from-env" {
+		t.Errorf("UserAgent = %q, want from-env (NETCHECK_CONFIG should win)", cfg.UserAgent)
+	}
+}
+
+func TestResolvePathExplicitMissingFallsToDefaults(t *testing.T) {
+	t.Setenv("NETCHECK_CONFIG", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	t.Setenv("HOME", "/tmp/no-such-home")
+
+	cfg, _ := Load("/definitely/not/here.yaml")
+	if cfg.Source != "" {
+		t.Errorf("Source = %q, want empty (explicit missing should fall back)", cfg.Source)
+	}
+	if cfg.Timeout == 0 {
+		t.Errorf("Timeout = 0, want defaults")
+	}
+}
