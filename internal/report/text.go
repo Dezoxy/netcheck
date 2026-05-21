@@ -222,7 +222,7 @@ func RenderDNSCompare(w io.Writer, r *dnscompare.Result) {
 func RenderIPInfo(w io.Writer, targetLabel string, details []ipinfo.IPDetails, fromHost bool, resolveTook time.Duration) {
 	fmt.Fprintln(w, "IP INFO")
 	fmt.Fprintf(w, "Target:   %s\n", targetLabel)
-	fmt.Fprintf(w, "Time:     %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(w, "Time:     %s\n", nowFn().Format("2006-01-02 15:04:05"))
 	if fromHost {
 		fmt.Fprintf(w, "Resolved: %d address(es) in %s\n", len(details), MS(resolveTook))
 	}

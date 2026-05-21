@@ -16,8 +16,10 @@ import (
 )
 
 // RunRoute executes the `netcheck route <host>` traceroute-with-ASN command.
-func RunRoute(args []string) {
-	fs := flag.NewFlagSet("netcheck route", flag.ExitOnError)
+// Returns a process exit code.
+func RunRoute(args []string) int {
+	fs := flag.NewFlagSet("netcheck route", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
 	configPath := addConfigFlag(fs)
 	maxHops := fs.Int("max-hops", 30, "maximum number of hops")
 	probes := fs.Int("probes", 3, "probes per hop")
@@ -35,11 +37,11 @@ func RunRoute(args []string) {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
-		os.Exit(2)
+		return 2
 	}
 	if fs.NArg() != 1 {
 		fs.Usage()
-		os.Exit(2)
+		return 2
 	}
 	applyConfigOverride(*configPath)
 	host := fs.Arg(0)
@@ -47,7 +49,7 @@ func RunRoute(args []string) {
 	format, err := ParseFormat(*outputFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	opts := route.Options{
@@ -60,7 +62,7 @@ func RunRoute(args []string) {
 	w, closer, err := openOut(*outFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer closer()
 
@@ -89,7 +91,7 @@ func RunRoute(args []string) {
 	data, err := collectRoute(host, opts, *timeout, *noASN)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	// When writing to a file in text mode, the header wasn't printed yet
@@ -100,14 +102,15 @@ func RunRoute(args []string) {
 
 	if err := writeRoute(w, data, format); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
 	// Exit 1 when the run produced nothing useful — no hops collected at all
 	// means traceroute failed to start or was killed before its first probe.
 	if len(data.Hops) == 0 {
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 // writeRoute renders RouteData to w in the requested format.

@@ -18,8 +18,10 @@ import (
 )
 
 // RunIP executes the `netcheck ip <ip|host>` command.
-func RunIP(args []string) {
-	fs := flag.NewFlagSet("netcheck ip", flag.ExitOnError)
+// Returns a process exit code.
+func RunIP(args []string) int {
+	fs := flag.NewFlagSet("netcheck ip", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
 	configPath := addConfigFlag(fs)
 	timeout := fs.Duration("timeout", loadedConfig.Timeout, "overall IP info timeout")
 	outputFlag := addOutputFlag(fs)
@@ -31,31 +33,32 @@ func RunIP(args []string) {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
-		os.Exit(2)
+		return 2
 	}
 	if fs.NArg() != 1 {
 		fs.Usage()
-		os.Exit(2)
+		return 2
 	}
 	applyConfigOverride(*configPath)
 
 	format, err := ParseFormat(*outputFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	w, closer, err := openOut(*outFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer closer()
 
 	if err := RunIPInfoFormat(w, fs.Arg(0), *timeout, format); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 // RunIPInfo is the legacy text-only entry point kept for callers (notably the

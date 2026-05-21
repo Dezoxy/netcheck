@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>netcheck — https://example.com</title>
+<style>body { font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1.5em; color: #1d1d1f; }
+h1 { font-size: 1.6em; margin: 0 0 0.2em; }
+h2 { font-size: 1.15em; margin-top: 1.6em; border-bottom: 1px solid #e0e0e6; padding-bottom: 0.2em; }
+p.meta { color: #6a6a72; margin-top: 0; }
+table { border-collapse: collapse; width: 100%; margin: 0.6em 0 1.2em; }
+th, td { border: 1px solid #e0e0e6; padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: #f7f7fa; font-weight: 600; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+code { background: #f4f4f8; padding: 1px 5px; border-radius: 3px; }
+.ok { color: #0a7d28; font-weight: 600; }
+.fail { color: #b00020; font-weight: 600; }
+.muted { color: #8a8a92; }
+ul.kv { list-style: none; padding: 0; margin: 0.4em 0 1em; }
+ul.kv li { margin: 0.15em 0; }
+ul.kv li b { display: inline-block; min-width: 130px; color: #4a4a52; font-weight: 500; }
+.warn { background: #fff8e1; border-left: 3px solid #f4b400; padding: 0.5em 0.8em; margin: 0.8em 0; font-size: 0.95em; }
+</style>
+</head><body>
+<h1>netcheck report</h1>
+<p class="meta">Target: <code>https://example.com</code> · 2026-05-21T19:30:45Z · <span class="ok">OK</span></p>
+<h2>DNS</h2>
+<table><thead><tr><th>Type</th><th>IP</th><th>ASN</th><th>CDN</th><th>Reverse</th></tr></thead><tbody>
+<tr><td>A</td><td><code>142.250.184.206</code></td><td><code>AS15169</code> GOOGLE</td><td>Google</td><td><span class="muted">—</span></td></tr>
+<tr><td>AAAA</td><td><code>2a00:1450:400d:80e::200e</code></td><td><code>AS15169</code> GOOGLE</td><td>Google</td><td><span class="muted">—</span></td></tr>
+</tbody></table>
+<p class="muted">lookup time: 14ms</p>
+<h2>TCP</h2>
+<table><thead><tr><th>Family</th><th>Address</th><th>Status</th><th>Time</th></tr></thead><tbody>
+<tr><td>IPv4</td><td><code>142.250.184.206:443</code></td><td><span class="ok">OK</span></td><td>21ms</td></tr>
+<tr><td>IPv6</td><td><code>[2a00:1450:400d:80e::200e]:443</code></td><td><span class="ok">OK</span></td><td>24ms</td></tr>
+</tbody></table>
+<h2>TLS</h2>
+<ul class="kv">
+<li><b>Subject:</b> *.example.com</li>
+<li><b>Issuer:</b> WR2</li>
+<li><b>Protocol:</b> TLS 1.3 (cipher <code>TLS_AES_128_GCM_SHA256</code>)</li>
+<li><b>Expires:</b> <span class="ok">2026-07-21 (61 days)</span></li>
+<li><b>Chain:</b> 1 cert(s)</li>
+<li><b>Handshake:</b> 53ms</li>
+</ul>
+<h2>HTTP</h2>
+<ul class="kv">
+<li><b>Status:</b> <span class="ok">200</span></li>
+<li><b>Protocol:</b> HTTP/1.1</li>
+<li><b>Server:</b> gws</li>
+<li><b>Final URL:</b> <code>https://www.example.com/</code></li>
+<li><b>Redirects:</b> 1</li>
+</ul>
+<ol>
+<li><code>301</code> → <code>https://example.com</code></li>
+</ol>
+<h3>Timing</h3>
+<table><thead><tr><th>DNS</th><th>Connect</th><th>TLS</th><th>TTFB</th><th>Total</th></tr></thead><tbody>
+<tr><td>6ms</td><td>17ms</td><td>40ms</td><td>328ms</td><td>774ms</td></tr>
+</tbody></table>
+</body></html>

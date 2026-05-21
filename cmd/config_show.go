@@ -14,9 +14,10 @@ import (
 
 // RunConfigShow prints the active config: where it was loaded from, the
 // resolved values, and the list of configured resolvers. Supports --output
-// json|markdown|html|text.
-func RunConfigShow(args []string) {
-	fs := flag.NewFlagSet("netcheck config show", flag.ExitOnError)
+// json|markdown|html|text. Returns a process exit code.
+func RunConfigShow(args []string) int {
+	fs := flag.NewFlagSet("netcheck config show", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
 	configPath := addConfigFlag(fs)
 	outputFlag := addOutputFlag(fs)
 	outFlag := addOutFlag(fs)
@@ -28,20 +29,20 @@ func RunConfigShow(args []string) {
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
-		os.Exit(2)
+		return 2
 	}
 	applyConfigOverride(*configPath)
 
 	format, err := ParseFormat(*outputFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		return 2
 	}
 
 	w, closer, err := openOut(*outFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 	defer closer()
 
@@ -49,11 +50,12 @@ func RunConfigShow(args []string) {
 	case FormatJSON:
 		if err := writeConfigJSON(w); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
+			return 1
 		}
 	default:
 		writeConfigText(w)
 	}
+	return 0
 }
 
 type configShowJSON struct {
