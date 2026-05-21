@@ -45,9 +45,15 @@ vet:
 test:
 	go test ./...
 
-## clean: remove the local bin/ directory
+## coverage: run tests with coverage and print a per-package summary
+coverage:
+	go test -coverprofile=coverage.out ./...
+	@echo
+	@go tool cover -func=coverage.out | tail -30
+
+## clean: remove the local bin/ directory and coverage artifacts
 clean:
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) coverage.out
 
 ## help: list available targets
 help:

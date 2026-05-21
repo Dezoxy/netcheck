@@ -812,14 +812,19 @@ Important choices:
 - `config.example.yaml` ships in repo
 - New dependency: `gopkg.in/yaml.v3` (BSD-licensed, small)
 
-## v0.7 — Tests + CI
+## v0.7 — Tests + CI (shipped)
 
-- Unit tests for the gaps: `route` parser, `target` (parseTarget + normalizeHost), `dnscompare` verdict logic, full-check assembly, IPv6/port/scheme edge cases
-- GitHub Actions: `make verify` + `go test ./...` on push/PR
-- Build matrix: linux/darwin/windows × amd64/arm64
-- README status badge
-- Coverage reporting (codecov or Makefile target)
-- Add `staticcheck` and `golangci-lint` to CI
+- Unit tests: `target.Parse` / `target.NormalizeHost` (87.8% coverage), `route.ParseHopLine` (35%), `dnscompare.Verdict` (27.3%), `cmd.ParseFormat`
+- GitHub Actions workflow at `.github/workflows/ci.yml` running on push and PR:
+  - `gofmt -l` check (fails if any file needs formatting)
+  - `go vet ./...`
+  - `go test -race -coverprofile=coverage.out ./...`
+  - Coverage summary printed in the run log
+- Cross-platform build matrix: linux/darwin/windows × amd64/arm64 (6 combinations)
+- README status badge linked to the CI workflow
+- `make coverage` target for local runs (writes `coverage.out`, prints per-function summary)
+- `staticcheck` / `golangci-lint`: deferred — `gofmt` + `vet` cover the bulk;
+  add them in v0.7.1 if specific issues come up in real use
 
 ## v0.8 — Release automation
 

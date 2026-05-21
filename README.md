@@ -1,5 +1,7 @@
 # netcheck
 
+[![CI](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml)
+
 A CLI tool that analyzes what happens between your machine and a target website or domain — DNS, TCP, TLS, HTTP, redirects, timing, IP ownership, CDN hints, traceroute, and per-resolver DNS comparison.
 
 ## Install
@@ -279,7 +281,7 @@ See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for
 | v0.5 | shipped | `--output text\|json\|markdown\|html` on every command; versioned JSON schema (`netcheck_version: "0.5.0"`) |
 | v0.6 | shipped | YAML config file (`~/.config/netcheck/config.yaml`), `NETCHECK_*` env vars, DoT + DoH resolver types |
 | v0.6.1 | shipped | Menu offers to save each result as text/json/markdown/html; auto-detects working-dir vs installed |
-| v0.7 | planned | Fill test coverage gaps, GitHub Actions CI, build matrix, status badge |
+| v0.7 | shipped | Unit tests for target/route-parser/dnscompare-verdict/cmd-output, GitHub Actions CI, cross-platform build matrix, status badge |
 | v0.8 | planned | `goreleaser` cross-platform release binaries, checksums, optional Homebrew tap |
 | v0.9 | planned | Release candidate — CLI surface freeze, doc pass, asciinema demo |
 | v1.0 | planned | Stability promise (no breaking changes in v1.x), final docs, optional man page |
