@@ -826,13 +826,17 @@ Important choices:
 - `staticcheck` / `golangci-lint`: deferred — `gofmt` + `vet` cover the bulk;
   add them in v0.7.1 if specific issues come up in real use
 
-## v0.8 — Release automation
+## v0.8 — Release automation (shipped)
 
-- `goreleaser` config — tag triggers cross-platform binary release
-- Signed checksums attached to GitHub releases
-- Optional Homebrew tap (`brew install dezoxy/tap/netcheck`)
-- Optional SBOM in releases
-- Replaces today's hand-written release notes
+- `.goreleaser.yml` builds 6 binaries on every tag push (linux/darwin/windows × amd64/arm64), packs them into `tar.gz`/`zip` archives with `README.md` + `LICENSE` + `config.example.yaml`, and computes a `checksums.txt` (SHA256)
+- `.github/workflows/release.yml` runs goreleaser when a `v*` tag is pushed; uploads all artifacts to the matching GitHub release page
+- `cmd.Version` switched from `const` to `var` so build-time `-X` ldflags inject the version. Makefile uses `git describe`; goreleaser uses the tag. Local `go build` defaults to `"dev"`
+- Auto-generated release notes from commits since the previous tag, with `feat:`/`fix:` grouping and noise filters (merge commits, docs/test/chore commits)
+- `LICENSE` file (MIT) added — bundled into every archive
+- **Skipped (separate features later):**
+  - Homebrew tap — needs a separate repo and ongoing maintenance; defer to v0.8.1
+  - Code signing (Windows SmartScreen, macOS Gatekeeper) — requires paid certs; v1.0+ concern
+  - SBOM generation — low demand for a CLI utility; goreleaser can add later via plugins
 
 ## v0.9 — Release candidate
 

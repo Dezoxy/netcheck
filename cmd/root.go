@@ -16,7 +16,11 @@ import (
 
 // Version is the canonical netcheck version string, surfaced via `--version`
 // and wired into the RDAP/HTTP User-Agent at startup.
-const Version = "0.7.1"
+//
+// Set at build time via `-ldflags "-X netcheck/cmd.Version=<value>"`. The
+// Makefile injects `git describe`; goreleaser injects the clean tag (e.g.
+// "0.8.0"). Plain `go build` leaves it as "dev".
+var Version = "dev"
 
 // loadedConfig is the merged config (file + env + defaults) used by every
 // subcommand to seed flag defaults. Populated by LoadConfig (called from main).
