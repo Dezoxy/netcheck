@@ -6,10 +6,30 @@ A CLI tool that analyzes what happens between your machine and a target website 
 
 ## Install
 
+### Pre-built binary (no Go toolchain required)
+
+Grab the archive for your platform from the [latest release](https://github.com/Dezoxy/netcheck/releases/latest):
+
+```bash
+# macOS Apple Silicon (M1/M2/M3/M4)
+curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_$(curl -s https://api.github.com/repos/Dezoxy/netcheck/releases/latest | grep tag_name | cut -d\" -f4 | sed s/^v//)_darwin_arm64.tar.gz | tar xz
+sudo mv netcheck /usr/local/bin/
+
+# Linux amd64
+curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_<VERSION>_linux_amd64.tar.gz | tar xz
+sudo mv netcheck /usr/local/bin/
+```
+
+Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`, `windows_arm64`.
+
+Each archive also bundles `README.md`, `LICENSE`, and `config.example.yaml`. SHA256 checksums are in `checksums.txt` on the release page.
+
+### From source
+
 ```bash
 git clone https://github.com/Dezoxy/netcheck.git
 cd netcheck
-make build              # produces ./bin/netcheck
+make build              # produces ./bin/netcheck (version stamped from git describe)
 # or, to put it on your PATH:
 make install            # installs into $GOBIN (~/go/bin) via `go install`
 ```
@@ -282,7 +302,8 @@ See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for
 | v0.6 | shipped | YAML config file (`~/.config/netcheck/config.yaml`), `NETCHECK_*` env vars, DoT + DoH resolver types |
 | v0.6.1 | shipped | Menu offers to save each result as text/json/markdown/html; auto-detects working-dir vs installed |
 | v0.7 | shipped | Unit tests for target/route-parser/dnscompare-verdict/cmd-output, GitHub Actions CI, cross-platform build matrix, status badge |
-| v0.8 | planned | `goreleaser` cross-platform release binaries, checksums, optional Homebrew tap |
+| v0.7.1 | shipped | Opt CI into Node 24 ahead of GitHub Actions deprecation |
+| v0.8 | shipped | `goreleaser` release automation — tag → 6 cross-platform binaries with SHA256 checksums attached to the GitHub release |
 | v0.9 | planned | Release candidate — CLI surface freeze, doc pass, asciinema demo |
 | v1.0 | planned | Stability promise (no breaking changes in v1.x), final docs, optional man page |
 

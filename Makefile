@@ -3,14 +3,19 @@ BINARY  := $(BIN_DIR)/netcheck
 PKG     := .
 ARGS    ?=
 
+# VERSION is auto-derived from git for local builds. `make build VERSION=...`
+# overrides. goreleaser sets its own value via ldflags in .goreleaser.yml.
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -s -w -X netcheck/cmd.Version=$(VERSION)
+
 .DEFAULT_GOAL := build
 
-.PHONY: build run verify install uninstall fmt vet test clean help
+.PHONY: build run verify install uninstall fmt vet test coverage clean help
 
-## build: compile the binary into ./bin/
+## build: compile the binary into ./bin/ (version stamped from git describe)
 build:
 	@mkdir -p $(BIN_DIR)
-	go build -o $(BINARY) $(PKG)
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(PKG)
 
 ## run: build, then run with ARGS="..." (e.g. make run ARGS="route google.com")
 run: build
@@ -22,7 +27,7 @@ verify: fmt vet build
 
 ## install: install into $GOBIN (or ~/go/bin), so `netcheck` is on PATH
 install:
-	go install $(PKG)
+	go install -ldflags "$(LDFLAGS)" $(PKG)
 	@echo "Installed to $$(go env GOBIN 2>/dev/null || echo $$(go env GOPATH)/bin)/netcheck"
 	@echo "Ensure that directory is on your PATH."
 
