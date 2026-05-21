@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# Opt the JavaScript actions (checkout, setup-go) into Node 24 ahead of the
+# June 2026 default. This silences the deprecation warning on every run and
+# is a no-op once Node 24 becomes the default.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   test:
     name: vet + fmt + test

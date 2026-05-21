@@ -16,7 +16,7 @@ import (
 
 // Version is the canonical netcheck version string, surfaced via `--version`
 // and wired into the RDAP/HTTP User-Agent at startup.
-const Version = "0.7.0"
+const Version = "0.7.1"
 
 // loadedConfig is the merged config (file + env + defaults) used by every
 // subcommand to seed flag defaults. Populated by LoadConfig (called from main).
