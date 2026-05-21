@@ -95,12 +95,35 @@ func Run() {
 		RunRoute(os.Args[2:])
 	case "ip":
 		RunIP(os.Args[2:])
+	case "config":
+		runConfigCmd(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 	case "-v", "--version", "version":
 		fmt.Printf("netcheck %s\n", Version)
 	default:
 		RunFull(os.Args[1:])
+	}
+}
+
+// runConfigCmd dispatches `netcheck config ...` subcommands. Today only "show"
+// exists. Bare `netcheck config` defaults to show.
+func runConfigCmd(args []string) {
+	if len(args) == 0 {
+		RunConfigShow(nil)
+		return
+	}
+	switch args[0] {
+	case "show":
+		RunConfigShow(args[1:])
+	case "-h", "--help":
+		fmt.Fprintln(os.Stderr, "usage: netcheck config <subcommand>")
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "subcommands:")
+		fmt.Fprintln(os.Stderr, "  show                           print the active config (default)")
+	default:
+		fmt.Fprintf(os.Stderr, "unknown config subcommand %q\n", args[0])
+		os.Exit(2)
 	}
 }
 
@@ -113,6 +136,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck dns <host>            compare DNS resolvers")
 	fmt.Fprintln(os.Stderr, "  netcheck route <host>          trace the network path with per-hop ASN")
 	fmt.Fprintln(os.Stderr, "  netcheck ip <ip|host>          show IP ownership, RDAP, reverse DNS, and CDN hints")
+	fmt.Fprintln(os.Stderr, "  netcheck config show           print the active config (source path, resolvers, defaults)")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
 	fmt.Fprintln(os.Stderr)

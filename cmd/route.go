@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"text/tabwriter"
@@ -25,6 +26,7 @@ func RunRoute(args []string) {
 	noASN := fs.Bool("no-asn", false, "skip Team Cymru ASN lookup per hop")
 	timeout := fs.Duration("timeout", 60*time.Second, "overall traceroute timeout")
 	outputFlag := addOutputFlag(fs)
+	outFlag := addOutFlag(fs)
 
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck route [flags] <host>")
@@ -55,10 +57,17 @@ func RunRoute(args []string) {
 		NoResolve: *noResolve,
 	}
 
+	w, closer, err := openOut(*outFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer closer()
+
 	// In text mode we print the header before traceroute runs so the user gets
-	// feedback while it's still working. The pre-print also needs the binary
-	// path, so resolve that early.
-	if format == FormatText {
+	// feedback while it's still working. Skipped when writing to a file via
+	// --out (the file gets a complete render at the end).
+	if format == FormatText && *outFlag == "" {
 		if bin, herr := route.Find(); herr == nil {
 			startedAt := time.Now()
 			cmdArgs := route.BuildArgs(opts, host)
@@ -67,7 +76,7 @@ func RunRoute(args []string) {
 			destIP := route.ResolveTarget(resCtx, host)
 			resCancel()
 
-			renderRouteHeader(os.Stdout, &RouteData{
+			renderRouteHeader(w, &RouteData{
 				Host:      host,
 				DestIP:    destIP,
 				Bin:       bin,
@@ -83,14 +92,26 @@ func RunRoute(args []string) {
 		os.Exit(2)
 	}
 
-	if err := writeRoute(os.Stdout, data, format); err != nil {
+	// When writing to a file in text mode, the header wasn't printed yet
+	// (we skipped it above to keep the file self-contained). Emit it now.
+	if format == FormatText && *outFlag != "" {
+		renderRouteHeader(w, data)
+	}
+
+	if err := writeRoute(w, data, format); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Exit 1 when the run produced nothing useful — no hops collected at all
+	// means traceroute failed to start or was killed before its first probe.
+	if len(data.Hops) == 0 {
 		os.Exit(1)
 	}
 }
 
 // writeRoute renders RouteData to w in the requested format.
-func writeRoute(w *os.File, d *RouteData, format Format) error {
+func writeRoute(w io.Writer, d *RouteData, format Format) error {
 	var renderASN *ipinfo.ASNCache
 	if !d.NoASN {
 		renderASN = d.ASNCache
@@ -189,7 +210,7 @@ func collectRoute(host string, opts route.Options, timeout time.Duration, noASN 
 
 // renderRouteHeader writes the "ROUTE / Host / Time / Tool" header. Extracted
 // so RunRoute and menu re-render paths can share it.
-func renderRouteHeader(w *os.File, d *RouteData) {
+func renderRouteHeader(w io.Writer, d *RouteData) {
 	fmt.Fprintf(w, "ROUTE\nHost:  %s", d.Host)
 	if d.DestIP != "" {
 		fmt.Fprintf(w, "  (%s)", d.DestIP)
@@ -201,7 +222,7 @@ func renderRouteHeader(w *os.File, d *RouteData) {
 // renderRouteText draws the tab-aligned hop table for the text format. Stays
 // in cmd/ because it needs the live ASNCache for per-hop lookups (the report
 // package only sees the projected ASNJSON).
-func renderRouteText(w *os.File, hops []*route.Hop, asnC *ipinfo.ASNCache, destIP string, probes int, noASN bool) {
+func renderRouteText(w io.Writer, hops []*route.Hop, asnC *ipinfo.ASNCache, destIP string, probes int, noASN bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	headerCols := []string{"  HOP", "ADDRESS", "RTT"}
 	if !noASN {

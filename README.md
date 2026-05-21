@@ -54,6 +54,14 @@ Env vars: `NETCHECK_TIMEOUT` (Go duration like `5s`), `NETCHECK_USER_AGENT`. Bot
 
 See [config.example.yaml](config.example.yaml) for the full schema.
 
+Run `netcheck config show` to see what config netcheck is actually using — the loaded source file (or "defaults — no config file loaded"), the resolved values after env overrides, and the list of config-defined resolvers. `--output json` works too:
+
+```bash
+netcheck config show
+netcheck config show --output json | jq '.resolvers'
+netcheck config --config /path/to/other.yaml show   # try a different config without moving files
+```
+
 ### DNS-over-TLS and DNS-over-HTTPS
 
 The `dns` command accepts non-UDP resolvers via URL-style `--resolver`:
@@ -70,14 +78,16 @@ Or define them once in the config file (`type: dot` / `type: doh` / `type: tcp`)
 
 ### Output formats
 
-Every command accepts `--output text|json|markdown|html` (default `text`):
+Every command accepts `--output text|json|markdown|html` (default `text`) and `--out <file>` (write to a file instead of stdout — parent directories are created automatically):
 
 ```bash
-netcheck google.com --output json | jq '.dns.a'
-netcheck dns cloudflare.com --output markdown > report.md
-netcheck ip 1.1.1.1 --output html > /tmp/report.html && open /tmp/report.html
-netcheck route google.com --output json | jq '.hops[] | select(.timeout)'
+netcheck --output json google.com | jq '.dns.a'
+netcheck dns --output markdown cloudflare.com > report.md
+netcheck ip --output html --out /tmp/report.html 1.1.1.1 && open /tmp/report.html
+netcheck route --output json google.com | jq '.hops[] | select(.timeout)'
 ```
+
+> Flags must come before the positional argument: `netcheck dns --output json cloudflare.com`, not `netcheck dns cloudflare.com --output json`.
 
 JSON output is versioned (`"netcheck_version": "0.5.0"`) and tagged with a `kind` field (`"full"`, `"dns"`, `"route"`, `"ip"`) so downstream consumers can detect both the schema version and the source command. Breaking schema changes bump the version; additive optional fields don't.
 
@@ -304,6 +314,8 @@ See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for
 | v0.7 | shipped | Unit tests for target/route-parser/dnscompare-verdict/cmd-output, GitHub Actions CI, cross-platform build matrix, status badge |
 | v0.7.1 | shipped | Opt CI into Node 24 ahead of GitHub Actions deprecation |
 | v0.8 | shipped | `goreleaser` release automation — tag → 6 cross-platform binaries with SHA256 checksums attached to the GitHub release |
+| v0.8.1 | shipped | Gate releases on `go test -race ./...` via goreleaser before-hook |
+| v0.9 | shipped | `netcheck config show`, `--out <file>` flag, route exit-code fix, Windows version-info, staticcheck in CI, expanded test coverage |
 | v0.9 | planned | Release candidate — CLI surface freeze, doc pass, asciinema demo |
 | v1.0 | planned | Stability promise (no breaking changes in v1.x), final docs, optional man page |
 

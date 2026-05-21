@@ -10,7 +10,7 @@ LDFLAGS := -s -w -X netcheck/cmd.Version=$(VERSION)
 
 .DEFAULT_GOAL := build
 
-.PHONY: build run verify install uninstall fmt vet test coverage clean help
+.PHONY: build run verify install uninstall fmt vet test coverage clean winres help
 
 ## build: compile the binary into ./bin/ (version stamped from git describe)
 build:
@@ -56,9 +56,15 @@ coverage:
 	@echo
 	@go tool cover -func=coverage.out | tail -30
 
-## clean: remove the local bin/ directory and coverage artifacts
+## winres: generate Windows version-info .syso files for amd64 and arm64
+winres:
+	@command -v go-winres >/dev/null 2>&1 || go install github.com/tc-hib/go-winres@latest
+	go-winres make --arch amd64,arm64 --file-version git-tag --product-version git-tag
+
+## clean: remove bin/, coverage, and generated .syso files
 clean:
 	rm -rf $(BIN_DIR) coverage.out
+	rm -f rsrc_windows_*.syso
 
 ## help: list available targets
 help:

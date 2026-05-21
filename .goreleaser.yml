@@ -10,6 +10,11 @@ before:
     # of whether ci.yml ran on this commit. Adds ~1m to release time — fine
     # for a low-frequency event, well worth the safety.
     - go test -race ./...
+    # Generate Windows version-info .syso files (amd64 + arm64). The Go
+    # compiler picks them up automatically when building for windows.
+    # Uses the current git tag for FileVersion / ProductVersion.
+    - go install github.com/tc-hib/go-winres@latest
+    - go-winres make --arch amd64,arm64 --file-version git-tag --product-version git-tag
 
 builds:
   - id: netcheck

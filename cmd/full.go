@@ -19,6 +19,7 @@ func RunFull(args []string) {
 	timeout := fs.Duration("timeout", loadedConfig.Timeout, "per-check timeout")
 	insecure := fs.Bool("insecure", false, "skip TLS verification")
 	outputFlag := addOutputFlag(fs)
+	outFlag := addOutFlag(fs)
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck [flags] <target>")
 		fmt.Fprintln(os.Stderr)
@@ -82,18 +83,25 @@ func RunFull(args []string) {
 	r.HTTP = check.HTTP(c, t, *insecure)
 	cf()
 
+	w, closer, err := openOut(*outFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer closer()
+
 	switch format {
 	case FormatJSON:
-		if err := report.WriteJSON(os.Stdout, report.ToFullJSON(&r)); err != nil {
+		if err := report.WriteJSON(w, report.ToFullJSON(&r)); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
 	case FormatMarkdown:
-		report.RenderFullMD(os.Stdout, &r)
+		report.RenderFullMD(w, &r)
 	case FormatHTML:
-		report.RenderFullHTML(os.Stdout, &r)
+		report.RenderFullHTML(w, &r)
 	default:
-		report.Render(os.Stdout, &r)
+		report.Render(w, &r)
 	}
 
 	if !r.OK() {

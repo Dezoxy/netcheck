@@ -69,6 +69,7 @@ func RunDNS(args []string) {
 	skipDefaults := fs.Bool("no-defaults", false, "skip built-in resolvers (Cloudflare/Google/Quad9)")
 	skipConfig := fs.Bool("no-config-resolvers", false, "skip resolvers defined in the config file")
 	outputFlag := addOutputFlag(fs)
+	outFlag := addOutFlag(fs)
 
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck dns [flags] <host>")
@@ -146,20 +147,27 @@ func RunDNS(args []string) {
 		}
 	}
 
+	w, closer, err := openOut(*outFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer closer()
+
 	switch format {
 	case FormatJSON:
-		if err := report.WriteJSON(os.Stdout, report.ToDNSCompareJSON(host, startedAt, collected)); err != nil {
+		if err := report.WriteJSON(w, report.ToDNSCompareJSON(host, startedAt, collected)); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			os.Exit(1)
 		}
 	case FormatMarkdown:
-		report.RenderDNSCompareMD(os.Stdout, report.ToDNSCompareJSON(host, startedAt, collected))
+		report.RenderDNSCompareMD(w, report.ToDNSCompareJSON(host, startedAt, collected))
 	case FormatHTML:
-		report.RenderDNSCompareHTML(os.Stdout, report.ToDNSCompareJSON(host, startedAt, collected))
+		report.RenderDNSCompareHTML(w, report.ToDNSCompareJSON(host, startedAt, collected))
 	default:
-		fmt.Printf("DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, startedAt.Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(w, "DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, startedAt.Format("2006-01-02 15:04:05"))
 		for i := range collected {
-			report.RenderDNSCompare(os.Stdout, &collected[i])
+			report.RenderDNSCompare(w, &collected[i])
 		}
 	}
 
