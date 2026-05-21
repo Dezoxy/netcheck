@@ -89,6 +89,8 @@ Input is normalized before each check: surrounding whitespace and quotes are str
 
 When stdin is **not** a terminal (e.g. piped from a script), bare `netcheck` keeps its old behavior and prints usage — so existing automation doesn't accidentally hang waiting for menu input.
 
+**Saving results.** After each menu action completes, netcheck offers to save the result in any of the four output formats (text, JSON, markdown, HTML). When running from the source checkout (i.e. `./bin/netcheck`), it saves silently into the binary's `bin/` directory with an auto-named file like `netcheck-ip-1.1.1.1-20260521-081414.json`. When installed on PATH (e.g. via `go install` or `cp /usr/local/bin/`), it prompts for a save directory and suggests `~/Documents`.
+
 ### Full check (DNS, TCP, TLS, HTTP)
 
 ```bash
@@ -276,6 +278,7 @@ See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for
 | v0.4.2 | shipped | Refactored flat `package main` into `cmd/` + `internal/` per the documented layout |
 | v0.5 | shipped | `--output text\|json\|markdown\|html` on every command; versioned JSON schema (`netcheck_version: "0.5.0"`) |
 | v0.6 | shipped | YAML config file (`~/.config/netcheck/config.yaml`), `NETCHECK_*` env vars, DoT + DoH resolver types |
+| v0.6.1 | shipped | Menu offers to save each result as text/json/markdown/html; auto-detects working-dir vs installed |
 | v0.7 | planned | Fill test coverage gaps, GitHub Actions CI, build matrix, status badge |
 | v0.8 | planned | `goreleaser` cross-platform release binaries, checksums, optional Homebrew tap |
 | v0.9 | planned | Release candidate — CLI surface freeze, doc pass, asciinema demo |

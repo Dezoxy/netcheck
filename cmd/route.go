@@ -48,25 +48,97 @@ func RunRoute(args []string) {
 		os.Exit(2)
 	}
 
-	bin, err := route.Find()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		fmt.Fprintln(os.Stderr, route.InstallHint())
-		os.Exit(2)
-	}
-
 	opts := route.Options{
 		MaxHops:   *maxHops,
 		Probes:    *probes,
 		WaitSec:   *wait,
 		NoResolve: *noResolve,
 	}
+
+	// In text mode we print the header before traceroute runs so the user gets
+	// feedback while it's still working. The pre-print also needs the binary
+	// path, so resolve that early.
+	if format == FormatText {
+		if bin, herr := route.Find(); herr == nil {
+			startedAt := time.Now()
+			cmdArgs := route.BuildArgs(opts, host)
+			toolArgs := cmdArgs[:len(cmdArgs)-1]
+			resCtx, resCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			destIP := route.ResolveTarget(resCtx, host)
+			resCancel()
+
+			renderRouteHeader(os.Stdout, &RouteData{
+				Host:      host,
+				DestIP:    destIP,
+				Bin:       bin,
+				ToolArgs:  toolArgs,
+				StartedAt: startedAt,
+			})
+		}
+	}
+
+	data, err := collectRoute(host, opts, *timeout, *noASN)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
+	}
+
+	if err := writeRoute(os.Stdout, data, format); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+// writeRoute renders RouteData to w in the requested format.
+func writeRoute(w *os.File, d *RouteData, format Format) error {
+	var renderASN *ipinfo.ASNCache
+	if !d.NoASN {
+		renderASN = d.ASNCache
+	}
+
+	switch format {
+	case FormatJSON:
+		return report.WriteJSON(w, report.ToRouteJSON(d.Host, d.DestIP, d.Bin, d.ToolArgs, d.StartedAt, d.Hops, renderASN))
+	case FormatMarkdown:
+		report.RenderRouteMD(w, report.ToRouteJSON(d.Host, d.DestIP, d.Bin, d.ToolArgs, d.StartedAt, d.Hops, renderASN))
+	case FormatHTML:
+		report.RenderRouteHTML(w, report.ToRouteJSON(d.Host, d.DestIP, d.Bin, d.ToolArgs, d.StartedAt, d.Hops, renderASN))
+	default:
+		// When invoked from RunRoute, the header was already printed before
+		// streaming. When invoked from a save context, we want it included.
+		// The caller is responsible for picking — we just emit the table.
+		renderRouteText(w, d.Hops, d.ASNCache, d.DestIP, d.Probes, d.NoASN)
+	}
+	return nil
+}
+
+// RouteData captures everything one traceroute run produces, in a form the
+// menu can re-render in any format. RunRoute and menuRoute both build it.
+type RouteData struct {
+	Host      string
+	DestIP    string
+	Bin       string
+	ToolArgs  []string
+	StartedAt time.Time
+	Hops      []*route.Hop
+	ASNCache  *ipinfo.ASNCache // nil when no-asn was requested
+	Probes    int
+	NoASN     bool
+}
+
+// collectRoute runs traceroute and gathers parsed hops + ASN lookups. It does
+// not write to stdout — callers render the data however they like.
+func collectRoute(host string, opts route.Options, timeout time.Duration, noASN bool) (*RouteData, error) {
+	bin, err := route.Find()
+	if err != nil {
+		return nil, fmt.Errorf("%v\n%s", err, route.InstallHint())
+	}
+
 	cmdArgs := route.BuildArgs(opts, host)
 
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Best-effort target IP for the header (independent of traceroute's own resolution).
 	resCtx, resCancel := context.WithTimeout(ctx, 3*time.Second)
 	destIP := route.ResolveTarget(resCtx, host)
 	resCancel()
@@ -74,30 +146,16 @@ func RunRoute(args []string) {
 	startedAt := time.Now()
 	toolArgs := cmdArgs[:len(cmdArgs)-1] // drop the host
 
-	// In text mode we print the header immediately so the user gets feedback
-	// while traceroute is still running. Structured formats buffer everything
-	// and emit at the end.
-	if format == FormatText {
-		fmt.Printf("ROUTE\nHost:  %s", host)
-		if destIP != "" {
-			fmt.Printf("  (%s)", destIP)
-		}
-		fmt.Printf("\nTime:  %s\n", startedAt.Format("2006-01-02 15:04:05"))
-		fmt.Printf("Tool:  %s %v\n\n", bin, toolArgs)
-	}
-
 	hopsCh, errCh := route.Stream(ctx, bin, cmdArgs)
-
 	asnC := ipinfo.NewASNCache()
-	// Buffer hops so we can render them in order, but kick off ASN lookups in
-	// parallel as hops arrive — by the time we print, lookups are usually done.
+
 	var (
 		collected []*route.Hop
 		asnWG     sync.WaitGroup
 	)
 	for hop := range hopsCh {
 		collected = append(collected, hop)
-		if *noASN {
+		if noASN {
 			continue
 		}
 		for _, ip := range hop.IPs() {
@@ -110,30 +168,34 @@ func RunRoute(args []string) {
 		}
 	}
 	if err := <-errCh; err != nil {
+		// Non-fatal: traceroute often exits non-zero when it doesn't reach the
+		// destination. The collected hops are still meaningful.
 		fmt.Fprintf(os.Stderr, "traceroute error: %v\n", err)
 	}
 	asnWG.Wait()
 
-	// The ASN cache is what powers route JSON/MD/HTML output. When --no-asn is
-	// set, hand a nil cache through so the renderers omit the column.
-	var renderASN *ipinfo.ASNCache
-	if !*noASN {
-		renderASN = asnC
-	}
+	return &RouteData{
+		Host:      host,
+		DestIP:    destIP,
+		Bin:       bin,
+		ToolArgs:  toolArgs,
+		StartedAt: startedAt,
+		Hops:      collected,
+		ASNCache:  asnC,
+		Probes:    opts.Probes,
+		NoASN:     noASN,
+	}, nil
+}
 
-	switch format {
-	case FormatJSON:
-		if err := report.WriteJSON(os.Stdout, report.ToRouteJSON(host, destIP, bin, toolArgs, startedAt, collected, renderASN)); err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			os.Exit(1)
-		}
-	case FormatMarkdown:
-		report.RenderRouteMD(os.Stdout, report.ToRouteJSON(host, destIP, bin, toolArgs, startedAt, collected, renderASN))
-	case FormatHTML:
-		report.RenderRouteHTML(os.Stdout, report.ToRouteJSON(host, destIP, bin, toolArgs, startedAt, collected, renderASN))
-	default:
-		renderRouteText(os.Stdout, collected, asnC, destIP, *probes, *noASN)
+// renderRouteHeader writes the "ROUTE / Host / Time / Tool" header. Extracted
+// so RunRoute and menu re-render paths can share it.
+func renderRouteHeader(w *os.File, d *RouteData) {
+	fmt.Fprintf(w, "ROUTE\nHost:  %s", d.Host)
+	if d.DestIP != "" {
+		fmt.Fprintf(w, "  (%s)", d.DestIP)
 	}
+	fmt.Fprintf(w, "\nTime:  %s\n", d.StartedAt.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(w, "Tool:  %s %v\n\n", d.Bin, d.ToolArgs)
 }
 
 // renderRouteText draws the tab-aligned hop table for the text format. Stays

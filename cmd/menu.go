@@ -7,16 +7,20 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"netcheck/internal/check"
 	"netcheck/internal/dnscompare"
+	"netcheck/internal/ipinfo"
 	"netcheck/internal/report"
+	"netcheck/internal/route"
 	"netcheck/internal/target"
 )
 
 // RunMenu drops into an interactive loop where the user picks an action and
-// types a target. It keeps running until the user quits.
+// types a target. It keeps running until the user quits, and after each
+// successful action offers to save the result as text/json/markdown/html.
 func RunMenu(args []string) {
 	// Args are accepted but ignored — menu is interactive only.
 	_ = args
@@ -39,35 +43,45 @@ func RunMenu(args []string) {
 		}
 		choice = strings.TrimSpace(strings.ToLower(choice))
 
+		var s *savable
 		switch choice {
 		case "q", "quit", "exit", "":
 			if choice == "" {
-				// Treat empty input as a gentle nudge, not a quit.
-				continue
+				continue // empty input → re-show menu, not quit
 			}
 			fmt.Fprintln(out, "Bye.")
 			return
 		case "1":
-			if err := menuFull(in, out); err != nil {
+			res, err := menuFull(in, out)
+			if err != nil {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
+			s = res
 		case "2":
-			if err := menuDNS(in, out); err != nil {
+			res, err := menuDNS(in, out)
+			if err != nil {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
+			s = res
 		case "3":
-			if err := menuRoute(in, out); err != nil {
+			res, err := menuRoute(in, out)
+			if err != nil {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
+			s = res
 		case "4":
-			if err := menuIP(in, out); err != nil {
+			res, err := menuIP(in, out)
+			if err != nil {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
+			s = res
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
 		}
 
+		fmt.Fprintln(out)
+		offerSave(in, out, s)
 		fmt.Fprintln(out)
 		_, _ = readLine(in, "Press Enter to return to menu... ")
 		fmt.Fprintln(out)
@@ -93,15 +107,16 @@ func readLine(r *bufio.Reader, prompt string) (string, error) {
 	return strings.TrimRight(line, "\r\n"), nil
 }
 
-// menuFull prompts for a target, normalizes it as a URL, and runs the full check.
-func menuFull(in *bufio.Reader, out io.Writer) error {
+// menuFull prompts for a target, runs the full check, prints text to out, and
+// returns a savable that can re-render the same Report in any format.
+func menuFull(in *bufio.Reader, out io.Writer) (*savable, error) {
 	raw, err := readLine(in, "Target URL: ")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	t, err := target.Parse(strings.TrimSpace(raw))
 	if err != nil {
-		return fmt.Errorf("could not parse target: %w", err)
+		return nil, fmt.Errorf("could not parse target: %w", err)
 	}
 	if t.Raw != strings.TrimSpace(raw) {
 		fmt.Fprintf(out, "  → normalized to: %s\n", t.Raw)
@@ -144,18 +159,35 @@ func menuFull(in *bufio.Reader, out io.Writer) error {
 	cf()
 
 	report.Render(out, &r)
-	return nil
+
+	return &savable{
+		Kind: "full",
+		Host: t.Host,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, report.ToFullJSON(&r))
+			case FormatMarkdown:
+				report.RenderFullMD(w, &r)
+			case FormatHTML:
+				report.RenderFullHTML(w, &r)
+			default:
+				report.Render(w, &r)
+			}
+			return nil
+		},
+	}, nil
 }
 
 // menuDNS prompts for a host and runs the DNS comparison with defaults.
-func menuDNS(in *bufio.Reader, out io.Writer) error {
+func menuDNS(in *bufio.Reader, out io.Writer) (*savable, error) {
 	raw, err := readLine(in, "Host: ")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	host, err := target.NormalizeHost(raw)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if host != strings.TrimSpace(raw) {
 		fmt.Fprintf(out, "  → normalized to: %s\n", host)
@@ -165,48 +197,155 @@ func menuDNS(in *bufio.Reader, out io.Writer) error {
 	var resolvers []dnscompare.Resolver
 	resolvers = append(resolvers, dnscompare.SystemResolvers()...)
 	resolvers = append(resolvers, dnscompare.DefaultResolvers...)
+	for _, r := range loadedConfig.Resolvers {
+		if parsed, perr := configResolverToDNS(r); perr == nil {
+			resolvers = append(resolvers, parsed)
+		}
+	}
 
-	fmt.Fprintf(out, "DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, time.Now().Format("2006-01-02 15:04:05"))
+	startedAt := time.Now()
+	fmt.Fprintf(out, "DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, startedAt.Format("2006-01-02 15:04:05"))
 
 	const timeout = 5 * time.Second
+	var collected []dnscompare.Result
 	for _, qt := range []string{"A", "AAAA"} {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout*2)
 		result := dnscompare.Compare(ctx, resolvers, host, qt, timeout)
 		cancel()
+		collected = append(collected, result)
 		report.RenderDNSCompare(out, &result)
 	}
-	return nil
+
+	return &savable{
+		Kind: "dns",
+		Host: host,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, report.ToDNSCompareJSON(host, startedAt, collected))
+			case FormatMarkdown:
+				report.RenderDNSCompareMD(w, report.ToDNSCompareJSON(host, startedAt, collected))
+			case FormatHTML:
+				report.RenderDNSCompareHTML(w, report.ToDNSCompareJSON(host, startedAt, collected))
+			default:
+				fmt.Fprintf(w, "DNS COMPARE\nHost:  %s\nTime:  %s\n\n", host, startedAt.Format("2006-01-02 15:04:05"))
+				for i := range collected {
+					report.RenderDNSCompare(w, &collected[i])
+				}
+			}
+			return nil
+		},
+	}, nil
 }
 
-// menuRoute prompts for a host and runs traceroute with defaults + ASN annotation.
-func menuRoute(in *bufio.Reader, out io.Writer) error {
+// menuRoute prompts for a host, runs traceroute, prints the text result, and
+// returns a savable for re-render in any format.
+func menuRoute(in *bufio.Reader, out io.Writer) (*savable, error) {
 	raw, err := readLine(in, "Host: ")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	host, err := target.NormalizeHost(raw)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if host != strings.TrimSpace(raw) {
 		fmt.Fprintf(out, "  → normalized to: %s\n", host)
 	}
 	fmt.Fprintln(out)
 
-	// Delegate to the existing route command runner. It reads its own flags
-	// from the slice we pass — defaults match what the CLI gives.
-	RunRoute([]string{host})
-	return nil
+	opts := route.Options{MaxHops: 30, Probes: 3, WaitSec: 2}
+	const timeout = 60 * time.Second
+
+	// Print the header before traceroute starts so the user has feedback.
+	if bin, ferr := route.Find(); ferr == nil {
+		cmdArgs := route.BuildArgs(opts, host)
+		toolArgs := cmdArgs[:len(cmdArgs)-1]
+		resCtx, resCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		destIP := route.ResolveTarget(resCtx, host)
+		resCancel()
+		renderRouteHeader(os.Stdout, &RouteData{
+			Host: host, DestIP: destIP, Bin: bin, ToolArgs: toolArgs, StartedAt: time.Now(),
+		})
+	}
+
+	data, err := collectRoute(host, opts, timeout, false)
+	if err != nil {
+		return nil, err
+	}
+	renderRouteText(os.Stdout, data.Hops, data.ASNCache, data.DestIP, data.Probes, data.NoASN)
+
+	return &savable{
+		Kind: "route",
+		Host: host,
+		Render: func(w io.Writer, f Format) error {
+			file, ok := w.(*os.File)
+			switch f {
+			case FormatJSON, FormatMarkdown, FormatHTML:
+				if ok {
+					return writeRoute(file, data, f)
+				}
+				// Fall through for non-*os.File writers (shouldn't happen via offerSave).
+			}
+			// Text save: header + table.
+			if ok {
+				renderRouteHeader(file, data)
+				return writeRoute(file, data, FormatText)
+			}
+			return fmt.Errorf("unsupported writer type")
+		},
+	}, nil
 }
 
 // menuIP prompts for an IP or host and shows ownership/RDAP/CDN details.
-func menuIP(in *bufio.Reader, out io.Writer) error {
+func menuIP(in *bufio.Reader, out io.Writer) (*savable, error) {
 	raw, err := readLine(in, "IP or host: ")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	fmt.Fprintln(out)
-	return RunIPInfo(out, raw, 10*time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	startedAt := time.Now()
+	label, ips, fromHost, err := ResolveIPInput(ctx, raw)
+	if err != nil {
+		return nil, err
+	}
+	resolveTook := time.Since(startedAt)
+
+	details := make([]ipinfo.IPDetails, len(ips))
+	var wg sync.WaitGroup
+	for i, ip := range ips {
+		i, ip := i, ip
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			details[i] = ipinfo.LookupIP(ctx, ip, nil, nil)
+		}()
+	}
+	wg.Wait()
+
+	report.RenderIPInfo(out, label, details, fromHost, resolveTook)
+
+	return &savable{
+		Kind: "ip",
+		Host: label,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
+			case FormatMarkdown:
+				report.RenderIPInfoMD(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
+			case FormatHTML:
+				report.RenderIPInfoHTML(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
+			default:
+				report.RenderIPInfo(w, label, details, fromHost, resolveTook)
+			}
+			return nil
+		},
+	}, nil
 }
 
 // stdinIsTTY reports whether stdin is connected to a terminal. We use this to
