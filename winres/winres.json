@@ -1,0 +1,48 @@
+{
+	"RT_GROUP_ICON": {},
+	"RT_MANIFEST": {
+		"#1": {
+			"0409": {
+				"identity": {},
+				"description": "netcheck — CLI network diagnostic",
+				"minimum-os": "win7",
+				"execution-level": "as invoker",
+				"ui-access": false,
+				"auto-elevate": false,
+				"dpi-awareness": "system",
+				"disable-theming": false,
+				"disable-window-filtering": false,
+				"high-resolution-scrolling-aware": false,
+				"ultra-high-resolution-scrolling-aware": false,
+				"long-path-aware": true,
+				"printer-driver-isolation": false,
+				"gdi-scaling": false,
+				"segment-heap": false,
+				"use-common-controls-v6": false
+			}
+		}
+	},
+	"RT_VERSION": {
+		"#1": {
+			"0000": {
+				"fixed": {
+					"file_version": "0.0.0.0",
+					"product_version": "0.0.0.0"
+				},
+				"info": {
+					"0409": {
+						"Comments": "Analyzes the path between your machine and a target — DNS, TCP, TLS, HTTP, redirects, timing, IP ownership, CDN hints, traceroute, and per-resolver DNS comparison.",
+						"CompanyName": "Dezoxy",
+						"FileDescription": "netcheck",
+						"FileVersion": "0.0.0.0",
+						"InternalName": "netcheck",
+						"LegalCopyright": "© 2026 Dezoxy. MIT licensed.",
+						"OriginalFilename": "netcheck.exe",
+						"ProductName": "netcheck",
+						"ProductVersion": "0.0.0.0"
+					}
+				}
+			}
+		}
+	}
+}

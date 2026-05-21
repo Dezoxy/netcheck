@@ -3,3 +3,6 @@
 *.exe
 coverage.out
 .DS_Store
+
+# go-winres output — regenerated at build time
+rsrc_windows_*.syso

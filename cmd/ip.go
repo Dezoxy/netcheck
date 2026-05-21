@@ -23,6 +23,7 @@ func RunIP(args []string) {
 	configPath := addConfigFlag(fs)
 	timeout := fs.Duration("timeout", loadedConfig.Timeout, "overall IP info timeout")
 	outputFlag := addOutputFlag(fs)
+	outFlag := addOutFlag(fs)
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck ip [flags] <ip|host>")
 		fmt.Fprintln(os.Stderr)
@@ -44,7 +45,14 @@ func RunIP(args []string) {
 		os.Exit(2)
 	}
 
-	if err := RunIPInfoFormat(os.Stdout, fs.Arg(0), *timeout, format); err != nil {
+	w, closer, err := openOut(*outFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	defer closer()
+
+	if err := RunIPInfoFormat(w, fs.Arg(0), *timeout, format); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

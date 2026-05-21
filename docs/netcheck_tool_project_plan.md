@@ -838,13 +838,50 @@ Important choices:
   - Code signing (Windows SmartScreen, macOS Gatekeeper) — requires paid certs; v1.0+ concern
   - SBOM generation — low demand for a CLI utility; goreleaser can add later via plugins
 
-## v0.9 — Release candidate
+## v0.9 — Release candidate (shipped)
 
-- Whatever pain points have surfaced from real-world use of v0.5–v0.8
-- CLI surface freeze: final pass on flag names, exit codes, output formats
-- Doc pass: rewrite README for v1.0, add an asciinema demo
-- Decide which "future features" still earn their slot, drop the rest
-- Bug-fix-only patch releases (v0.9.1, v0.9.2…) as needed
+Polish pass to prepare for the v1.0 API freeze.
+
+**New commands / flags:**
+- `netcheck config show` subcommand — prints active config (source path,
+  resolved values, env-resolved User-Agent, configured resolvers). Supports
+  `--output text|json|markdown|html` like every other command
+- `--out <file>` flag on every command — writes the result to a file with
+  auto-created parent directories; "Saved to <abs-path>" to stderr.
+  Mirrors the menu's save flow for non-interactive use
+
+**Reliability:**
+- Route exit code fix — now returns 1 when no hops were collected at all
+  (previously always returned 0). DNS/full/ip already behaved correctly
+- `staticcheck` added as a CI step before `go test`. Repo is clean today;
+  the gate catches future regressions in patterns staticcheck recognizes
+- Windows polish: `winres/winres.json` defines version-info resource;
+  goreleaser regenerates `.syso` files (amd64 + arm64) before each release.
+  Windows .exe now shows ProductName, FileDescription, FileVersion,
+  CompanyName in Task Manager / right-click Properties
+
+**Tests:**
+- `cmd/menu_save_test.go` — sanitize, defaultFilename, expandPath, defaultSaveDir
+- `cmd/dns_test.go` — `configResolverToDNS` matrix for all 5 type values
+- `internal/route/route_test.go` — `BuildArgs` flag mapping per platform,
+  `InstallHint` sanity
+- `internal/ipinfo/ipinfo_test.go` — NormalizeIP, UniqueIPs, CleanASNOrg,
+  NormalizeASN, IsPrivateOrSpecial, DNSInfoSuffix, cymruQueryName
+- `internal/ipinfo/rdap_http_test.go` — RDAP HTTP round-trip with httptest
+  (`lookupRDAPAt` testable seam)
+- `internal/dnscompare/doh_test.go` — DoH RFC 8484 wire-format round-trip
+  with httptest, using miekg/dns Pack/Unpack on both sides
+
+**Coverage gains:**
+- ipinfo: 38% → 61%
+- dnscompare: 27% → 64%
+- route: 35% → 44%
+- cmd: 2% → 7%
+
+**Deliberately deferred to the v1.0 launch PR itself:**
+- asciinema demo — better timing once v1.0 actually ships
+- Big README rewrite — happens with v1.0
+- /etc/netcheck/config.yaml system-wide path — niche, easy add later
 
 ## v1.0 — Stable
 

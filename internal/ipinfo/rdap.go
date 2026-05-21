@@ -87,7 +87,17 @@ type rdapLink struct {
 	Value string `json:"value"`
 }
 
+// rdapBaseURL is the bootstrap endpoint that routes per-IP queries to the
+// correct RIR. Overridable in tests via lookupRDAPAt.
+const rdapBaseURL = "https://rdap.org"
+
 func lookupRDAP(ctx context.Context, client *http.Client, ipStr string) *RDAPInfo {
+	return lookupRDAPAt(ctx, client, rdapBaseURL, ipStr)
+}
+
+// lookupRDAPAt is the testable form of lookupRDAP — takes the base URL as a
+// parameter so httptest servers can stand in for the real RDAP bootstrap.
+func lookupRDAPAt(ctx context.Context, client *http.Client, baseURL, ipStr string) *RDAPInfo {
 	ip := net.ParseIP(ipStr)
 	if ip == nil || IsPrivateOrSpecial(ip) {
 		return nil
@@ -96,7 +106,7 @@ func lookupRDAP(ctx context.Context, client *http.Client, ipStr string) *RDAPInf
 	c, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(c, "GET", "https://rdap.org/ip/"+url.PathEscape(ip.String()), nil)
+	req, err := http.NewRequestWithContext(c, "GET", baseURL+"/ip/"+url.PathEscape(ip.String()), nil)
 	if err != nil {
 		return nil
 	}

@@ -279,20 +279,10 @@ func menuRoute(in *bufio.Reader, out io.Writer) (*savable, error) {
 		Kind: "route",
 		Host: host,
 		Render: func(w io.Writer, f Format) error {
-			file, ok := w.(*os.File)
-			switch f {
-			case FormatJSON, FormatMarkdown, FormatHTML:
-				if ok {
-					return writeRoute(file, data, f)
-				}
-				// Fall through for non-*os.File writers (shouldn't happen via offerSave).
+			if f == FormatText {
+				renderRouteHeader(w, data)
 			}
-			// Text save: header + table.
-			if ok {
-				renderRouteHeader(file, data)
-				return writeRoute(file, data, FormatText)
-			}
-			return fmt.Errorf("unsupported writer type")
+			return writeRoute(w, data, f)
 		},
 	}, nil
 }
