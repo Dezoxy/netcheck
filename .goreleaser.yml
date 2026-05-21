@@ -6,6 +6,10 @@ project_name: netcheck
 before:
   hooks:
     - go mod tidy
+    # Gate: same tests CI runs. Refuses to ship if anything fails, regardless
+    # of whether ci.yml ran on this commit. Adds ~1m to release time — fine
+    # for a low-frequency event, well worth the safety.
+    - go test -race ./...
 
 builds:
   - id: netcheck
