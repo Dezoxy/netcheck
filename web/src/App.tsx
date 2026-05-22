@@ -1,4 +1,6 @@
 import {
+  Bookmark,
+  Check,
   Download,
   FileText,
   Globe,
@@ -6,53 +8,140 @@ import {
   LockKeyhole,
   Menu,
   Play,
-  RotateCcw,
   Settings2,
+  Trash2,
   X,
 } from "lucide-react";
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
-import { runFullCheck } from "./api";
-import type { FullCheckReport, RecentCheck } from "./types";
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  deleteSavedReport,
+  listSavedReports,
+  loadSavedReport,
+  runDNSCheck,
+  runFullCheck,
+  runIPCheck,
+  runRouteCheck,
+  saveReport,
+} from "./api";
+import type {
+  AnyReport,
+  CheckMode,
+  DNSCompareReport,
+  FullCheckReport,
+  IPInfoReport,
+  RecentCheck,
+  RouteReport,
+  SavedReportMeta,
+} from "./types";
 
 const HISTORY_KEY = "netcheck.recent-checks.v1";
 const MAX_RECENTS = 8;
 
 type RunState = "idle" | "loading" | "ready" | "error";
+type SideTab = "recent" | "saved";
+
+const MODE_LABEL: Record<CheckMode, string> = {
+  full: "Full Check",
+  dns: "DNS Compare",
+  route: "Route",
+  ip: "IP Info",
+};
 
 export default function App() {
+  const [mode, setMode] = useState<CheckMode>("full");
   const [target, setTarget] = useState("google.com");
-  const [report, setReport] = useState<FullCheckReport | null>(null);
+  const [report, setReport] = useState<AnyReport | null>(null);
   const [runState, setRunState] = useState<RunState>("idle");
   const [error, setError] = useState("");
   const [insecure, setInsecure] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [sideTab, setSideTab] = useState<SideTab>("recent");
   const [recents, setRecents] = useState<RecentCheck[]>(readRecents);
+  const [saved, setSaved] = useState<SavedReportMeta[]>([]);
+  const [savedError, setSavedError] = useState("");
+  const [savingNow, setSavingNow] = useState(false);
+  const [savedJustNow, setSavedJustNow] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(recents));
   }, [recents]);
 
+  const refreshSaved = useCallback(async () => {
+    setSavedError("");
+    try {
+      setSaved(await listSavedReports());
+    } catch (cause) {
+      setSavedError(cause instanceof Error ? cause.message : "could not load saved reports");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (sideTab === "saved") {
+      void refreshSaved();
+    }
+  }, [sideTab, refreshSaved]);
+
+  const runCheck = useCallback(
+    async (overrideMode?: CheckMode, overrideTarget?: string) => {
+      const effectiveMode = overrideMode ?? mode;
+      const effectiveTarget = (overrideTarget ?? target).trim();
+      if (!effectiveTarget) {
+        setError("Enter a URL, host, or IP address.");
+        setRunState("error");
+        return;
+      }
+      setRunState("loading");
+      setError("");
+      setSavedJustNow(false);
+      try {
+        let next: AnyReport;
+        switch (effectiveMode) {
+          case "dns":
+            next = await runDNSCheck(effectiveTarget);
+            break;
+          case "route":
+            next = await runRouteCheck(effectiveTarget);
+            break;
+          case "ip":
+            next = await runIPCheck(effectiveTarget);
+            break;
+          default:
+            next = await runFullCheck(effectiveTarget, insecure);
+        }
+        setReport(next);
+        setRunState("ready");
+        setHistoryOpen(false);
+        setRecents((current) => upsertRecent(current, next, effectiveMode));
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "The check could not start.");
+        setRunState("error");
+      }
+    },
+    [insecure, mode, target],
+  );
+
   async function submitCheck(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
-    const nextTarget = target.trim();
-    if (!nextTarget) {
-      setError("Enter a URL, host, or IP address.");
-      setRunState("error");
+    await runCheck();
+  }
+
+  async function saveCurrent() {
+    if (!report) {
       return;
     }
-
-    setRunState("loading");
-    setError("");
+    setSavingNow(true);
+    setSavedJustNow(false);
     try {
-      const nextReport = await runFullCheck(nextTarget, insecure);
-      setReport(nextReport);
-      setRunState("ready");
-      setHistoryOpen(false);
-      setRecents((current) => upsertRecent(current, nextReport));
+      await saveReport(report);
+      setSavedJustNow(true);
+      if (sideTab === "saved") {
+        void refreshSaved();
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The check could not start.");
-      setRunState("error");
+      setSavedError(cause instanceof Error ? cause.message : "save failed");
+    } finally {
+      setSavingNow(false);
     }
   }
 
@@ -60,18 +149,43 @@ export default function App() {
     if (!report) {
       return;
     }
+    const targetName = reportTarget(report) || "report";
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
     const href = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = href;
-    anchor.download = `netcheck-${report.target.host || "report"}.json`;
+    anchor.download = `netcheck-${report.kind}-${targetName}.json`;
     anchor.click();
     URL.revokeObjectURL(href);
   }
 
   function rerunRecent(recent: RecentCheck) {
     setTarget(recent.target);
+    setMode(recent.mode);
     setHistoryOpen(false);
+    void runCheck(recent.mode, recent.target);
+  }
+
+  async function openSaved(meta: SavedReportMeta) {
+    try {
+      const { report: loaded } = await loadSavedReport(meta.id);
+      setReport(loaded);
+      setMode(loaded.kind);
+      setTarget(reportTarget(loaded));
+      setRunState("ready");
+      setHistoryOpen(false);
+    } catch (cause) {
+      setSavedError(cause instanceof Error ? cause.message : "could not load");
+    }
+  }
+
+  async function removeSaved(meta: SavedReportMeta) {
+    try {
+      await deleteSavedReport(meta.id);
+      setSaved((current) => current.filter((item) => item.id !== meta.id));
+    } catch (cause) {
+      setSavedError(cause instanceof Error ? cause.message : "delete failed");
+    }
   }
 
   return (
@@ -86,6 +200,9 @@ export default function App() {
         <div className="topbar-actions">
           <IconButton className="desktop-history-button" label="Recent checks" onClick={() => setHistoryOpen((open) => !open)}>
             <History />
+          </IconButton>
+          <IconButton disabled={!report || savingNow} label={savedJustNow ? "Saved" : "Save report"} onClick={saveCurrent}>
+            {savedJustNow ? <Check /> : <Bookmark />}
           </IconButton>
           <IconButton disabled={!report} label="Export JSON" onClick={exportReport}>
             <Download />
@@ -107,26 +224,58 @@ export default function App() {
           </IconButton>
         </div>
         <nav className="sidenav-nav" aria-label="Workbench">
-          <button className="nav-item nav-item-active" type="button">
-            <RotateCcw />
+          <button
+            aria-selected={sideTab === "recent"}
+            className={`nav-item ${sideTab === "recent" ? "nav-item-active" : ""}`}
+            onClick={() => setSideTab("recent")}
+            type="button"
+          >
+            <History />
             <span>Recent Checks</span>
           </button>
-          <button className="nav-item" type="button">
+          <button
+            aria-selected={sideTab === "saved"}
+            className={`nav-item ${sideTab === "saved" ? "nav-item-active" : ""}`}
+            onClick={() => setSideTab("saved")}
+            type="button"
+          >
             <FileText />
             <span>Saved Reports</span>
           </button>
         </nav>
-        <section className="recent-list" aria-label="Recent checks">
-          {recents.map((recent) => (
-            <button className="recent-item" key={`${recent.target}-${recent.ranAt}`} onClick={() => rerunRecent(recent)} type="button">
-              <span className={`recent-dot ${recent.ok ? "recent-dot-ok" : "recent-dot-fail"}`} />
-              <span>
-                <strong>{recent.target}</strong>
-                <time>{formatRecentTime(recent.ranAt)}</time>
-              </span>
-            </button>
-          ))}
-        </section>
+        {sideTab === "recent" ? (
+          <section className="recent-list" aria-label="Recent checks">
+            {recents.length === 0 ? <p className="empty-list">No recent checks yet.</p> : null}
+            {recents.map((recent) => (
+              <button className="recent-item" key={`${recent.target}-${recent.ranAt}`} onClick={() => rerunRecent(recent)} type="button">
+                <span className={`recent-dot ${recent.ok ? "recent-dot-ok" : "recent-dot-fail"}`} />
+                <span>
+                  <strong>{recent.target}</strong>
+                  <time>{MODE_LABEL[recent.mode] || "Full"} · {formatRecentTime(recent.ranAt)}</time>
+                </span>
+              </button>
+            ))}
+          </section>
+        ) : (
+          <section className="recent-list" aria-label="Saved reports">
+            {savedError ? <p className="detail-error">{savedError}</p> : null}
+            {saved.length === 0 && !savedError ? <p className="empty-list">No saved reports yet.</p> : null}
+            {saved.map((item) => (
+              <div className="recent-item recent-item-saved" key={item.id}>
+                <button className="recent-item-main" onClick={() => openSaved(item)} type="button">
+                  <span className={`recent-dot ${item.ok === false ? "recent-dot-fail" : "recent-dot-ok"}`} />
+                  <span>
+                    <strong>{item.target}</strong>
+                    <time>{MODE_LABEL[item.kind] || item.kind} · {formatRecentTime(item.saved_at)}</time>
+                  </span>
+                </button>
+                <IconButton label="Delete saved report" onClick={() => removeSaved(item)}>
+                  <Trash2 />
+                </IconButton>
+              </div>
+            ))}
+          </section>
+        )}
         <div className="sidenav-footer">
           <a href="https://github.com/Dezoxy/netcheck#readme" rel="noreferrer" target="_blank">
             <Globe />
@@ -165,18 +314,18 @@ export default function App() {
             </button>
           </div>
           <div className="mode-tabs" role="tablist" aria-label="Check mode">
-            <button aria-selected="true" className="mode-tab mode-tab-active" role="tab" type="button">
-              Full Check
-            </button>
-            <button className="mode-tab" disabled role="tab" type="button">
-              DNS Compare
-            </button>
-            <button className="mode-tab" disabled role="tab" type="button">
-              Route
-            </button>
-            <button className="mode-tab" disabled role="tab" type="button">
-              IP Info
-            </button>
+            {(Object.entries(MODE_LABEL) as Array<[CheckMode, string]>).map(([key, label]) => (
+              <button
+                key={key}
+                aria-selected={mode === key}
+                className={`mode-tab ${mode === key ? "mode-tab-active" : ""}`}
+                onClick={() => setMode(key)}
+                role="tab"
+                type="button"
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </form>
 
@@ -184,7 +333,7 @@ export default function App() {
           <section className="settings-panel" aria-label="Check settings">
             <div>
               <strong>Check Settings</strong>
-              <p>TLS verification stays on unless this run needs inspection of an invalid certificate.</p>
+              <p>TLS verification stays on unless this run needs inspection of an invalid certificate. Only applies to the Full Check.</p>
             </div>
             <label>
               <input checked={insecure} onChange={(event) => setInsecure(event.target.checked)} type="checkbox" />
@@ -196,13 +345,30 @@ export default function App() {
           </section>
         ) : null}
 
-        {runState === "idle" ? <EmptyWorkbench onRun={() => void submitCheck()} /> : null}
+        {runState === "idle" ? <EmptyWorkbench mode={mode} onRun={() => void submitCheck()} /> : null}
         {runState === "error" ? <ErrorBanner message={error} /> : null}
-        {report ? <FullCheckWorkbench loading={runState === "loading"} report={report} /> : null}
+        {report ? <ReportView loading={runState === "loading"} report={report} /> : null}
       </main>
     </div>
   );
 }
+
+// ─── Report routing ───────────────────────────────────────────────────────
+
+function ReportView({ loading, report }: { loading: boolean; report: AnyReport }) {
+  switch (report.kind) {
+    case "full":
+      return <FullCheckWorkbench loading={loading} report={report} />;
+    case "dns":
+      return <DNSCompareWorkbench loading={loading} report={report} />;
+    case "route":
+      return <RouteWorkbench loading={loading} report={report} />;
+    case "ip":
+      return <IPInfoWorkbench loading={loading} report={report} />;
+  }
+}
+
+// ─── Full check view (unchanged from v1.1.0) ─────────────────────────────
 
 function FullCheckWorkbench({ loading, report }: { loading: boolean; report: FullCheckReport }) {
   const tcp = report.tcp_v4 ?? report.tcp_v6;
@@ -301,13 +467,178 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
   );
 }
 
-function EmptyWorkbench({ onRun }: { onRun: () => void }) {
+// ─── DNS compare view ─────────────────────────────────────────────────────
+
+function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DNSCompareReport }) {
+  const allAgree = report.queries.every((q) => q.verdict.agree);
+  return (
+    <section className={loading ? "result-area result-area-loading" : "result-area"}>
+      <div className="result-header">
+        <h1>
+          DNS Compare: <span>{report.host}</span>
+        </h1>
+        <div className={`health-pill ${allAgree ? "health-pill-ok" : "health-pill-fail"}`}>
+          <span />
+          {allAgree ? "All resolvers agree" : "Disagreement detected"}
+        </div>
+      </div>
+
+      {report.queries.map((q) => (
+        <Panel key={q.qtype} className="dns-panel" icon={<FileText />} title={`${q.qtype} records`}>
+          <div className="dns-table">
+            <div className="dns-header dns-row-4">
+              <span>Resolver</span>
+              <span>Address</span>
+              <span>Time</span>
+              <span>Answer</span>
+            </div>
+            {q.results.map((r) => (
+              <div className="dns-row dns-row-4" key={`${q.qtype}-${r.name}-${r.address}`}>
+                <span>{r.name}</span>
+                <code>{r.address}</code>
+                <code>{r.took_ms}ms</code>
+                {r.error ? (
+                  <span className="detail-error">{r.error}</span>
+                ) : (
+                  <code>{(r.records ?? []).join(", ") || "(none)"}</code>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="muted">
+            {q.verdict.agree ? "All successful resolvers returned the same answer set." : `${q.verdict.groups.length} distinct answer sets:`}
+          </p>
+          {!q.verdict.agree
+            ? q.verdict.groups.map((group, i) => (
+                <p className="muted" key={`group-${i}`}>
+                  <strong>Set {i + 1}</strong> ({group.resolvers.join(", ")}): <code>{group.records.join(", ") || "(empty)"}</code>
+                </p>
+              ))
+            : null}
+        </Panel>
+      ))}
+    </section>
+  );
+}
+
+// ─── Route view ───────────────────────────────────────────────────────────
+
+function RouteWorkbench({ loading, report }: { loading: boolean; report: RouteReport }) {
+  return (
+    <section className={loading ? "result-area result-area-loading" : "result-area"}>
+      <div className="result-header">
+        <h1>
+          Route: <span>{report.host}</span>
+          {report.dest_ip ? <span className="muted"> ({report.dest_ip})</span> : null}
+        </h1>
+        <div className={`health-pill ${report.reached ? "health-pill-ok" : "health-pill-fail"}`}>
+          <span />
+          {report.reached ? `Reached in ${report.hops.length} hops` : `Stopped after ${report.hops.length} hops`}
+        </div>
+      </div>
+
+      <Panel className="dns-panel" icon={<FileText />} title="Hops">
+        <div className="dns-table">
+          <div className="dns-header dns-row-4">
+            <span>#</span>
+            <span>Address</span>
+            <span>RTT (ms)</span>
+            <span>ASN</span>
+          </div>
+          {report.hops.map((hop) => (
+            <div className="dns-row dns-row-4" key={`hop-${hop.n}`}>
+              <span>{hop.n}</span>
+              {hop.timeout ? (
+                <span className="muted">* * *</span>
+              ) : (
+                <code>{hopAddress(hop)}</code>
+              )}
+              {hop.timeout ? (
+                <span className="muted">*</span>
+              ) : (
+                <code>{hopRTT(hop)}</code>
+              )}
+              {hop.asn ? <span>AS{hop.asn.asn} {hop.asn.org ?? ""}</span> : <span className="muted">—</span>}
+            </div>
+          ))}
+        </div>
+        {report.timeouts > 0 ? (
+          <p className="muted">
+            {report.timeouts} hop(s) timed out — routers commonly drop or rate-limit probes; missing hops don't always mean a broken route.
+          </p>
+        ) : null}
+      </Panel>
+    </section>
+  );
+}
+
+function hopAddress(hop: RouteReport["hops"][number]): string {
+  if (!hop.probes || hop.probes.length === 0) {
+    return hop.ips?.[0] ?? "(no addresses)";
+  }
+  const first = hop.probes[0];
+  if (first.host && first.ip) {
+    return `${first.host} (${first.ip})`;
+  }
+  return first.ip ?? first.host ?? "(no addresses)";
+}
+
+function hopRTT(hop: RouteReport["hops"][number]): string {
+  if (!hop.probes || hop.probes.length === 0) {
+    return "—";
+  }
+  return hop.probes.map((p) => p.rtt_ms.toFixed(2)).join(" / ");
+}
+
+// ─── IP info view ─────────────────────────────────────────────────────────
+
+function IPInfoWorkbench({ loading, report }: { loading: boolean; report: IPInfoReport }) {
+  return (
+    <section className={loading ? "result-area result-area-loading" : "result-area"}>
+      <div className="result-header">
+        <h1>
+          IP Info: <span>{report.target}</span>
+        </h1>
+        <div className="health-pill health-pill-ok">
+          <span />
+          {report.details.length} address{report.details.length === 1 ? "" : "es"}
+        </div>
+      </div>
+
+      {report.details.map((d) => (
+        <Panel key={d.ip} className="dns-panel" icon={<Globe />} title={d.ip}>
+          <dl className="certificate-grid">
+            <Detail label="Reverse" value={(d.reverse ?? []).join(", ") || "—"} />
+            {d.asn ? <Detail label="ASN" value={`AS${d.asn.asn} ${d.asn.org ?? ""}`} /> : null}
+            {d.asn?.country || d.rdap?.country ? <Detail label="Country" value={d.asn?.country ?? d.rdap?.country ?? "—"} /> : null}
+            {d.asn?.prefix ? <Detail label="Prefix" value={d.asn.prefix} /> : null}
+            {d.rdap?.registry || d.asn?.registry ? <Detail label="Registry" value={d.rdap?.registry ?? d.asn?.registry ?? "—"} /> : null}
+            {d.cdn?.provider ? (
+              <Detail label="CDN" value={d.cdn.confidence && d.cdn.reason ? `${d.cdn.provider} (${d.cdn.confidence} — ${d.cdn.reason})` : d.cdn.provider} />
+            ) : null}
+            {d.rdap?.abuse_email ? <Detail label="Abuse" value={d.rdap.abuse_email} /> : null}
+          </dl>
+        </Panel>
+      ))}
+    </section>
+  );
+}
+
+// ─── Shared building blocks ───────────────────────────────────────────────
+
+function EmptyWorkbench({ mode, onRun }: { mode: CheckMode; onRun: () => void }) {
+  const blurb: Record<CheckMode, string> = {
+    full: "DNS, TCP, TLS, HTTP, redirects, and timing land in one report.",
+    dns: "Query Cloudflare, Google, Quad9, and your system resolver in parallel — see if they agree.",
+    route: "Trace the network path with per-hop ASN ownership.",
+    ip: "Get reverse DNS, ASN, RDAP, country, and CDN classification for an IP or hostname.",
+  };
   return (
     <section className="empty-workbench">
       <div>
         <span>Ready</span>
-        <h1>Run a full network check.</h1>
-        <p>DNS, TCP, TLS, HTTP, redirects, and timing land in one report.</p>
+        <h1>Run a {MODE_LABEL[mode]}.</h1>
+        <p>{blurb[mode]}</p>
       </div>
       <button className="run-button" onClick={onRun} type="button">
         <Play />
@@ -397,22 +728,62 @@ function IconButton({
   );
 }
 
+// ─── Pure helpers ─────────────────────────────────────────────────────────
+
 function readRecents(): RecentCheck[] {
   try {
     const saved = localStorage.getItem(HISTORY_KEY);
-    return saved ? (JSON.parse(saved) as RecentCheck[]) : [];
+    if (!saved) {
+      return [];
+    }
+    const parsed = JSON.parse(saved) as Array<Partial<RecentCheck>>;
+    // Migrate any pre-v1.2 entries that didn't have a mode field.
+    return parsed
+      .filter((item): item is RecentCheck & { mode?: CheckMode } => !!item && typeof item.target === "string")
+      .map((item) => ({
+        ok: !!item.ok,
+        ranAt: item.ranAt ?? new Date().toISOString(),
+        target: item.target as string,
+        mode: (item.mode as CheckMode) ?? "full",
+      }));
   } catch {
     return [];
   }
 }
 
-function upsertRecent(current: RecentCheck[], report: FullCheckReport): RecentCheck[] {
-  const next = {
-    ok: report.ok,
+function upsertRecent(current: RecentCheck[], report: AnyReport, mode: CheckMode): RecentCheck[] {
+  const next: RecentCheck = {
+    ok: reportOK(report),
     ranAt: report.started_at,
-    target: report.target.raw,
+    target: reportTarget(report),
+    mode,
   };
-  return [next, ...current.filter((item) => item.target !== next.target)].slice(0, MAX_RECENTS);
+  return [next, ...current.filter((item) => !(item.target === next.target && item.mode === next.mode))].slice(0, MAX_RECENTS);
+}
+
+function reportTarget(report: AnyReport): string {
+  switch (report.kind) {
+    case "full":
+      return report.target.raw;
+    case "dns":
+    case "route":
+      return report.host;
+    case "ip":
+      return report.target;
+  }
+}
+
+function reportOK(report: AnyReport): boolean {
+  switch (report.kind) {
+    case "full":
+      return report.ok;
+    case "dns":
+      return report.queries.every((q) => q.verdict.agree);
+    case "route":
+      return report.reached;
+    case "ip":
+      return report.details.length > 0;
+  }
 }
 
 function timingSegments(report: FullCheckReport) {

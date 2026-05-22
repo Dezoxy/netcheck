@@ -946,3 +946,81 @@ input,
     min-height: 0;
   }
 }
+
+/* ─── v1.2: mode-switching, saved reports, four-column rows ────────────── */
+
+.empty-list {
+  margin: 1rem 1.5rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.85rem;
+}
+
+/* Two-column variant for saved reports: target/time on the left, delete on the right. */
+.recent-item-saved {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.recent-item-saved .recent-item-main {
+  flex: 1 1 auto;
+  background: none;
+  border: none;
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.recent-item-saved .recent-item-main:hover,
+.recent-item-saved .recent-item-main:focus-visible {
+  background: rgba(255, 255, 255, 0.04);
+  outline: none;
+}
+
+.recent-item-saved .recent-item-main span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recent-item-saved .recent-item-main strong,
+.recent-item-saved .recent-item-main time {
+  display: block;
+}
+
+.recent-item-saved .recent-item-main strong {
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.recent-item-saved .recent-item-main time {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-style: normal;
+}
+
+.recent-item-saved .icon-button {
+  align-self: center;
+  padding: 0.3rem;
+}
+
+/* Four-column variant used by DNS compare (resolver/address/time/answer) and
+   Route (hop/address/rtt/asn). Apply .dns-row-4 to BOTH the header and rows. */
+.dns-row-4 {
+  grid-template-columns: minmax(80px, 1.5fr) minmax(120px, 2fr) minmax(60px, 0.8fr) minmax(140px, 3fr);
+}
+
+@media (max-width: 720px) {
+  .dns-row-4 {
+    grid-template-columns: 1fr;
+  }
+}
