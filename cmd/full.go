@@ -49,41 +49,7 @@ func RunFull(args []string) int {
 		return 2
 	}
 
-	r := report.Report{Target: t, StartedAt: time.Now()}
-
-	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
-	r.DNS = check.LookupDNS(ctx, t.Host)
-	cancel()
-
-	if r.DNS.Err == nil {
-		c, cf := context.WithTimeout(context.Background(), *timeout)
-		annotateDNS(c, &r.DNS, nil)
-		cf()
-
-		if len(r.DNS.A) > 0 {
-			c, cf := context.WithTimeout(context.Background(), *timeout)
-			res := check.TCP(c, r.DNS.A[0], t.Port)
-			r.TCPv4 = &res
-			cf()
-		}
-		if len(r.DNS.AAAA) > 0 {
-			c, cf := context.WithTimeout(context.Background(), *timeout)
-			res := check.TCP(c, r.DNS.AAAA[0], t.Port)
-			r.TCPv6 = &res
-			cf()
-		}
-	}
-
-	if t.Scheme == "https" {
-		c, cf := context.WithTimeout(context.Background(), *timeout)
-		res := check.TLS(c, t.Host, t.Port, *insecure)
-		r.TLS = &res
-		cf()
-	}
-
-	c, cf := context.WithTimeout(context.Background(), *timeout*3)
-	r.HTTP = check.HTTP(c, t, *insecure)
-	cf()
+	r := BuildFullReport(context.Background(), t, *timeout, *insecure)
 
 	w, closer, err := openOut(*outFlag)
 	if err != nil {
@@ -94,20 +60,62 @@ func RunFull(args []string) int {
 
 	switch format {
 	case FormatJSON:
-		if err := report.WriteJSON(w, report.ToFullJSON(&r)); err != nil {
+		if err := report.WriteJSON(w, report.ToFullJSON(r)); err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			return 1
 		}
 	case FormatMarkdown:
-		report.RenderFullMD(w, &r)
+		report.RenderFullMD(w, r)
 	case FormatHTML:
-		report.RenderFullHTML(w, &r)
+		report.RenderFullHTML(w, r)
 	default:
-		report.Render(w, &r)
+		report.Render(w, r)
 	}
 
 	if !r.OK() {
 		return 1
 	}
 	return 0
+}
+
+// BuildFullReport executes the full DNS/TCP/TLS/HTTP pipeline for one parsed
+// target without rendering it. CLI and app surfaces share this path.
+func BuildFullReport(ctx context.Context, t *target.Target, timeout time.Duration, insecure bool) *report.Report {
+	r := &report.Report{Target: t, StartedAt: time.Now()}
+
+	dnsCtx, dnsCancel := context.WithTimeout(ctx, timeout)
+	r.DNS = check.LookupDNS(dnsCtx, t.Host)
+	dnsCancel()
+
+	if r.DNS.Err == nil {
+		annotateCtx, annotateCancel := context.WithTimeout(ctx, timeout)
+		annotateDNS(annotateCtx, &r.DNS, nil)
+		annotateCancel()
+
+		if len(r.DNS.A) > 0 {
+			tcpCtx, tcpCancel := context.WithTimeout(ctx, timeout)
+			res := check.TCP(tcpCtx, r.DNS.A[0], t.Port)
+			r.TCPv4 = &res
+			tcpCancel()
+		}
+		if len(r.DNS.AAAA) > 0 {
+			tcpCtx, tcpCancel := context.WithTimeout(ctx, timeout)
+			res := check.TCP(tcpCtx, r.DNS.AAAA[0], t.Port)
+			r.TCPv6 = &res
+			tcpCancel()
+		}
+	}
+
+	if t.Scheme == "https" {
+		tlsCtx, tlsCancel := context.WithTimeout(ctx, timeout)
+		res := check.TLS(tlsCtx, t.Host, t.Port, insecure)
+		r.TLS = &res
+		tlsCancel()
+	}
+
+	httpCtx, httpCancel := context.WithTimeout(ctx, timeout*3)
+	r.HTTP = check.HTTP(httpCtx, t, insecure)
+	httpCancel()
+
+	return r
 }

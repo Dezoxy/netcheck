@@ -370,9 +370,11 @@ Should run a smart full check that is useful but not too slow.
 
 ## 8. Repository Structure
 
-### Current layout (as of v0.4.2)
+### Current layout
 
-Split into `cmd/` (CLI surface) and `internal/` (reusable check primitives). Each `internal/` subpackage has a single responsibility and earns its own test file. The split is designed so v0.5 can drop in new output formats and v0.6 can drop in config loading without touching command code.
+Split into `cmd/` (CLI and local app surface), `internal/` (reusable check
+primitives and embedded app assets), and `web/` (React/PWA source). Each
+`internal/` subpackage has a single responsibility and earns its own test file.
 
 ```text
 netcheck/
@@ -380,6 +382,7 @@ netcheck/
 ├── cmd/                             # package cmd — CLI surface
 │   ├── root.go                      # usage, version, dispatch
 │   ├── full.go                      # `netcheck <target>` (full check)
+│   ├── app.go                       # `netcheck app` local HTTP API + asset server
 │   ├── dns.go                       # `netcheck dns`
 │   ├── route.go                     # `netcheck route`
 │   ├── ip.go                        # `netcheck ip`
@@ -415,9 +418,15 @@ netcheck/
 │   │   ├── markdown.go              # v0.5
 │   │   ├── html.go                  # v0.5
 │   │   └── *_test.go
-│   └── config/                      # v0.6
-│       ├── config.go
-│       └── *_test.go
+│   ├── config/                      # v0.6
+│   │   ├── config.go
+│   │   └── *_test.go
+│   └── webui/                       # embedded React/PWA production assets
+│       ├── assets.go
+│       └── dist/
+├── web/                             # React/PWA app source, Vite build
+│   ├── src/
+│   └── public/
 ├── testdata/                        # parser fixtures, RDAP/Cymru samples
 ├── bin/                             # build output (gitignored)
 ├── .github/workflows/               # v0.7 (CI) + v0.8 (release)
@@ -427,7 +436,7 @@ netcheck/
 ├── go.mod, go.sum
 ├── README.md
 ├── config.example.yaml              # v0.6
-└── netcheck_tool_project_plan.md
+└── docs/netcheck_tool_project_plan.md
 ```
 
 ### Why this layout
@@ -442,6 +451,8 @@ netcheck/
 | `internal/ipinfo/` | ASN (Cymru), RDAP, CDN classification. Reusable as a library. |
 | `internal/report/` | All output formats — keeps text/JSON/MD/HTML in one place. |
 | `internal/config/` | Config-file loading and env-var overrides (v0.6). |
+| `internal/webui/` | Production web assets embedded into the Go binary. |
+| `web/` | React/PWA source for the local browser workbench. |
 | `testdata/` | Fixtures for parser tests (traceroute output, RDAP JSON, Cymru TXT). |
 | `.github/workflows/` | CI (v0.7) and release automation (v0.8). |
 
@@ -721,7 +732,7 @@ Important choices:
 | Cloudflare detection | Useful for CDN troubleshooting |
 | NextDNS profile test | Useful for your DNS setup |
 | Prometheus exporter | Homelab monitoring |
-| Web UI | Easier visualization |
+| Web app modes beyond full check | Visual DNS compare, route, and IP inspection |
 | TUI mode | Pretty terminal dashboard |
 | Historical comparison | Compare today vs yesterday |
 | Screenshot report | Shareable diagnostic report |
@@ -908,6 +919,18 @@ The "stop adding things and ship what you have" release.
 - GitHub Pages landing page — over-investment for a CLI; README is enough
 - Announcement (HN / r/golang / etc.) — separate from the PR; ship first
 
+## Post-v1.0 — Local web app
+
+- `netcheck app` starts a local HTTP workbench on `127.0.0.1:8787` by default
+- React/PWA production assets are built from `web/` and embedded in
+  `internal/webui/dist/`
+- The app API reuses the full-check DNS/TCP/TLS/HTTP pipeline through
+  `BuildFullReport`
+- Current UI scope: visual full checks, recent checks, JSON export, and
+  installable homescreen metadata
+- DNS compare, route, and IP info remain CLI-only until their app panels are
+  designed and wired
+
 ## v1.1+ — Deferred features
 
 Explicitly kept out of the v1.0 arc so the foundation stays tight:
@@ -919,7 +942,7 @@ Explicitly kept out of the v1.0 arc so the foundation stays tight:
 - Proxy / VPN detection
 - Browser-like mode (HSTS cache, cookies, HTTP/3, extensions)
 - Native TCP traceroute (avoids needing system `traceroute`)
-- Web UI
+- Web app modes for DNS compare, route, and IP info
 
 ---
 

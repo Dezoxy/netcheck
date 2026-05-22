@@ -66,7 +66,10 @@ make install    # → $GOBIN (usually ~/go/bin)
 
 ## What it does
 
-netcheck has four checks plus an interactive menu. Run any of them from a terminal; pipe the output through `jq`; or just run `netcheck` with no arguments to get the menu.
+netcheck has four checks, an interactive terminal menu, and a local web
+workbench for visual full checks. Run the checks from a terminal; pipe the
+output through `jq`; run `netcheck` with no arguments to get the menu; or start
+`netcheck app` for the browser UI.
 
 | Command | Asks |
 |---|---|
@@ -75,6 +78,7 @@ netcheck has four checks plus an interactive menu. Run any of them from a termin
 | `netcheck route <host>` | What's the network path to this host, and who owns each hop? |
 | `netcheck ip <ip\|host>` | Who owns this IP? What's its ASN, reverse DNS, RDAP record, CDN affiliation? |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
+| `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
 
 Every command accepts `--output text|json|markdown|html` (default `text`) and `--out <file>` (write to file with `Saved to <abs-path>` echoed to stderr). The text format is byte-stable across `v1.x`; the JSON schema is versioned (`"netcheck_version"` field) and stable per [STABILITY.md](STABILITY.md).
@@ -88,6 +92,18 @@ netcheck google.com
 netcheck https://expired.badssl.com           # see the TLS section flag this
 netcheck --insecure https://self-signed.badssl.com    # inspect without verifying
 ```
+
+### Local web app
+
+```bash
+netcheck app
+netcheck app --listen 127.0.0.1:8787
+```
+
+Open `http://127.0.0.1:8787/` for the React/PWA workbench. The app serves from
+the Go binary and uses the same full-check engine as the CLI. Its current UI
+scope is visual full checks, recent checks, and JSON export; DNS compare, route,
+and IP info stay on the CLI for now.
 
 ### Compare DNS resolvers
 
@@ -177,7 +193,11 @@ PRs welcome. The codebase is small (~3000 lines), unit-tested where the logic is
 ```bash
 make verify     # gofmt + vet + build + version
 make coverage   # tests with per-function coverage summary
+make app        # rebuild the React/PWA assets and run the local web app
 ```
+
+The released binary already embeds the web assets. Building the app UI from
+source also needs Node.js/npm for the frontend under `web/`.
 
 See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for architecture notes.
 

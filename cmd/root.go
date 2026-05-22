@@ -89,6 +89,8 @@ func Run() {
 	switch os.Args[1] {
 	case "menu":
 		RunMenu(os.Args[2:]) // menu loops until user quits — no exit code
+	case "app":
+		os.Exit(RunApp(os.Args[2:]))
 	case "dns":
 		os.Exit(RunDNS(os.Args[2:]))
 	case "route":
@@ -132,6 +134,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "usage:")
 	fmt.Fprintln(os.Stderr, "  netcheck                       interactive menu (when run on a terminal)")
 	fmt.Fprintln(os.Stderr, "  netcheck menu                  interactive menu (explicit)")
+	fmt.Fprintln(os.Stderr, "  netcheck app                   run the local web app")
 	fmt.Fprintln(os.Stderr, "  netcheck <target>              full check (DNS, TCP, TLS, HTTP)")
 	fmt.Fprintln(os.Stderr, "  netcheck dns <host>            compare DNS resolvers")
 	fmt.Fprintln(os.Stderr, "  netcheck route <host>          trace the network path with per-hop ASN")

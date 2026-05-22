@@ -1,5 +1,7 @@
 /bin/
 /dist/
+/web/node_modules/
+/web/*.tsbuildinfo
 *.exe
 coverage.out
 .DS_Store

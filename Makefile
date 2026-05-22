@@ -2,6 +2,7 @@ BIN_DIR := bin
 BINARY  := $(BIN_DIR)/netcheck
 PKG     := .
 ARGS    ?=
+WEB_DIR := web
 
 # VERSION is auto-derived from git for local builds. `make build VERSION=...`
 # overrides. goreleaser sets its own value via ldflags in .goreleaser.yml.
@@ -10,7 +11,11 @@ LDFLAGS := -s -w -X netcheck/cmd.Version=$(VERSION)
 
 .DEFAULT_GOAL := build
 
-.PHONY: build run verify install uninstall fmt vet test coverage clean winres help
+.PHONY: app build run verify install uninstall fmt vet test coverage clean web-build winres help
+
+## app: build the React assets, then run the local web app
+app: web-build
+	go run . app $(ARGS)
 
 ## build: compile the binary into ./bin/ (version stamped from git describe)
 build:
@@ -55,6 +60,11 @@ coverage:
 	go test -coverprofile=coverage.out ./...
 	@echo
 	@go tool cover -func=coverage.out | tail -30
+
+## web-build: install frontend deps and rebuild the embedded React/PWA assets
+web-build:
+	cd $(WEB_DIR) && npm install
+	cd $(WEB_DIR) && npm run build
 
 ## winres: generate Windows version-info .syso files for amd64 and arm64
 winres:
