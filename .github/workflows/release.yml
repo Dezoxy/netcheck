@@ -1,30 +1,52 @@
 name: Release
 
+# Triggered by release-please publishing a release (which happens when the
+# release-please bot's "chore: release X.Y.Z" PR is merged). The push-of-tag
+# event we used to listen for is suppressed by GitHub when the tag is pushed
+# using GITHUB_TOKEN — see
+# https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
+# "An action in a workflow run can't trigger a new workflow run." `release`
+# events are NOT subject to that restriction.
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
+  # workflow_dispatch lets you manually re-run goreleaser against an existing
+  # tag — useful for backfilling binaries on a release that shipped without
+  # them (e.g. when this trigger was misconfigured).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.3.1). Defaults to the latest tag.'
+        required: false
+        type: string
 
 permissions:
-  contents: write # required so goreleaser can create the release and upload assets
+  contents: write # required so goreleaser can upload assets to the release
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # full history so goreleaser can build the changelog
+          # release-published events check out the release's commit by default
+          # but we want full history so goreleaser can build the changelog.
+          fetch-depth: 0
+          # For workflow_dispatch with a tag input, check out that tag explicitly.
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
           go-version: 'stable'
           cache: true
 
       - name: Run goreleaser
-        uses: goreleaser/goreleaser-action@v7
+        uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
           args: release --clean
