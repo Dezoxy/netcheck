@@ -4,6 +4,23 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.2.0](https://github.com/Dezoxy/netcheck/compare/v1.1.2...v1.2.0) (2026-05-22)
+
+
+### Features
+
+* **app:** wire DNS, Route, IP endpoints + saved-reports CRUD ([ebb6a48](https://github.com/Dezoxy/netcheck/commit/ebb6a48141d44be99a5fa03b21ac72a786dbce2f))
+* **web:** mode-switching, DNS/Route/IP panels, saved reports, recent rerun ([a347137](https://github.com/Dezoxy/netcheck/commit/a347137c562353940fe8a448b73bb7b916e599e5))
+* wire DNS/Route/IP web tabs + saved-reports + recent rerun ([078a757](https://github.com/Dezoxy/netcheck/commit/078a757b87c2e1d55cb1714e8dc66b0716d1f0f3))
+
+## [1.1.2](https://github.com/Dezoxy/netcheck/compare/v1.1.1...v1.1.2) (2026-05-22)
+
+
+### Bug fixes
+
+* use npm ci in web-build to prevent lockfile drift ([59d8d1f](https://github.com/Dezoxy/netcheck/commit/59d8d1f97e8367b7d5136fd64e279aedb8b543e6))
+* use npm ci in web-build to prevent lockfile drift ([6af2341](https://github.com/Dezoxy/netcheck/commit/6af23412e8717c31a136a2c125e62310da19a5ef))
+
 ## [1.1.0]
 
 - **Local React/PWA workbench:** `netcheck app` serves an embedded browser UI
