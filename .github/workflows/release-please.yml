@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
 
-# release-please needs to open PRs and tag/release. GITHUB_TOKEN's default
-# write permissions on `contents` and `pull-requests` are sufficient.
+# release-please needs to open PRs and tag/release. The goreleaser job needs
+# to upload assets to the release. GITHUB_TOKEN's default write permissions
+# on `contents` and `pull-requests` are sufficient.
 permissions:
   contents: write
   pull-requests: write
@@ -19,10 +20,46 @@ env:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    # Expose release-please's outputs so the downstream job can decide whether
+    # to run goreleaser and which tag to check out.
+    outputs:
+      releases_created: ${{ steps.rp.outputs.releases_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
     steps:
       - name: Run release-please
+        id: rp
         uses: googleapis/release-please-action@v4
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Runs in the same workflow run as release-please, conditional on a release
+  # actually being created. This sidesteps GitHub's GITHUB_TOKEN-suppression
+  # rule: events triggered by GITHUB_TOKEN (including release-published)
+  # don't fire downstream workflows. By making goreleaser a downstream JOB in
+  # the same workflow, no cross-workflow trigger is needed.
+  goreleaser:
+    needs: release-please
+    if: needs.release-please.outputs.releases_created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for changelog generation
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+
+      - name: Run goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
