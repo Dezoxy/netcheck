@@ -13,9 +13,10 @@ LDFLAGS := -s -w -X netcheck/cmd.Version=$(VERSION)
 
 .PHONY: app build run verify install uninstall fmt vet test coverage clean web-build winres help
 
-## app: build the React assets, then run the local web app
-app: web-build
-	go run . app $(ARGS)
+## app: build the React assets + Go binary, then run the local web app
+# Leaves ./bin/netcheck behind so you can re-run without rebuilding next time.
+app: web-build build
+	./$(BINARY) app $(ARGS)
 
 ## build: compile the binary into ./bin/ (version stamped from git describe)
 build:
@@ -61,12 +62,19 @@ coverage:
 	@echo
 	@go tool cover -func=coverage.out | tail -30
 
-## web-build: install frontend deps and rebuild the embedded React/PWA assets
-# `npm ci` (clean install) refuses to modify package-lock.json — every dev gets
-# the exact dependency tree pinned in the lockfile and the working tree never
-# drifts during a build. Use `npm install <pkg>` manually to actually update deps.
-web-build:
+## web-build: rebuild the embedded React/PWA assets (npm ci only if needed)
+# Two-step pattern so we don't pay the ~15s npm-ci cost on every build:
+#   - $(WEB_NM) (web/node_modules) is rebuilt only when package-lock.json
+#     changes — npm ci refuses to mutate the lockfile, so this stays clean.
+#   - vite always rebuilds (it's fast, ~1s, and outputs to internal/webui/dist
+#     which Go embeds at compile time).
+WEB_NM := $(WEB_DIR)/node_modules/.install-stamp
+
+$(WEB_NM): $(WEB_DIR)/package-lock.json $(WEB_DIR)/package.json
 	cd $(WEB_DIR) && npm ci
+	@mkdir -p $(WEB_DIR)/node_modules && touch $(WEB_NM)
+
+web-build: $(WEB_NM)
 	cd $(WEB_DIR) && npm run build
 
 ## winres: generate Windows version-info .syso files for amd64 and arm64
