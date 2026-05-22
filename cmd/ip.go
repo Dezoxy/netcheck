@@ -142,3 +142,32 @@ func ResolveIPInput(ctx context.Context, raw string) (string, []net.IP, bool, er
 	}
 	return host, ips, true, nil
 }
+
+// BuildIPInfo resolves raw (literal IP or hostname) and enriches every
+// resulting IP with ASN, RDAP, reverse DNS, and CDN classification. CLI
+// and app surfaces share this path.
+func BuildIPInfo(ctx context.Context, raw string, timeout time.Duration) (report.IPInfoJSON, error) {
+	c, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	startedAt := time.Now()
+	label, ips, fromHost, err := ResolveIPInput(c, raw)
+	if err != nil {
+		return report.IPInfoJSON{}, err
+	}
+	resolveTook := time.Since(startedAt)
+
+	details := make([]ipinfo.IPDetails, len(ips))
+	var wg sync.WaitGroup
+	for i, ip := range ips {
+		i, ip := i, ip
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			details[i] = ipinfo.LookupIP(c, ip, nil, nil)
+		}()
+	}
+	wg.Wait()
+
+	return report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details), nil
+}

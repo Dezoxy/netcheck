@@ -178,3 +178,25 @@ func RunDNS(args []string) int {
 	}
 	return 0
 }
+
+// BuildDNSCompare runs the same resolver-comparison pipeline as RunDNS for
+// the given host and record types, against the given resolvers, and returns
+// the JSON-ready DNSCompareJSON. CLI and app surfaces share this path.
+//
+// The caller chooses the resolver set (typically: SystemResolvers +
+// DefaultResolvers + config-defined). Pass `nil` or empty `types` to default
+// to A,AAAA. Errors from individual resolvers are recorded inside the result
+// (per-resolver Err); BuildDNSCompare itself never returns an error.
+func BuildDNSCompare(ctx context.Context, host string, resolvers []dnscompare.Resolver, types []string, timeout time.Duration) report.DNSCompareJSON {
+	if len(types) == 0 {
+		types = []string{"A", "AAAA"}
+	}
+	startedAt := time.Now()
+	collected := make([]dnscompare.Result, 0, len(types))
+	for _, qt := range types {
+		qctx, cancel := context.WithTimeout(ctx, timeout*2)
+		collected = append(collected, dnscompare.Compare(qctx, resolvers, host, qt, timeout))
+		cancel()
+	}
+	return report.ToDNSCompareJSON(host, startedAt, collected)
+}
