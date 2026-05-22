@@ -62,8 +62,11 @@ coverage:
 	@go tool cover -func=coverage.out | tail -30
 
 ## web-build: install frontend deps and rebuild the embedded React/PWA assets
+# `npm ci` (clean install) refuses to modify package-lock.json — every dev gets
+# the exact dependency tree pinned in the lockfile and the working tree never
+# drifts during a build. Use `npm install <pkg>` manually to actually update deps.
 web-build:
-	cd $(WEB_DIR) && npm install
+	cd $(WEB_DIR) && npm ci
 	cd $(WEB_DIR) && npm run build
 
 ## winres: generate Windows version-info .syso files for amd64 and arm64
