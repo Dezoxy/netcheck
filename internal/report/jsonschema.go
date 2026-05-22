@@ -404,7 +404,7 @@ func tlsToJSON(r check.TLSResult) TLSJSON {
 	out.DNSNames = r.DNSNames
 	out.NotBefore = r.NotBefore
 	out.NotAfter = r.NotAfter
-	out.DaysRemaining = int(time.Until(r.NotAfter).Hours() / 24)
+	out.DaysRemaining = daysRemaining(r.NotAfter)
 	out.ChainCount = len(r.Chain)
 	return out
 }

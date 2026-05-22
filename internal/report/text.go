@@ -108,7 +108,7 @@ func renderTLS(w io.Writer, t *check.TLSResult) {
 		fmt.Fprintf(w, "  %s handshake failed: %v\n\n", Mark(false), t.Err)
 		return
 	}
-	days := int(time.Until(t.NotAfter).Hours() / 24)
+	days := daysRemaining(t.NotAfter)
 	fmt.Fprintf(w, "  %s Certificate valid\n", Mark(days > 0))
 	fmt.Fprintf(w, "    Subject:   %s\n", t.Subject)
 	fmt.Fprintf(w, "    Issuer:    %s\n", t.Issuer)
