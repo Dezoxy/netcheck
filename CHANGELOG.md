@@ -4,6 +4,14 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.1.2](https://github.com/Dezoxy/netcheck/compare/v1.1.1...v1.1.2) (2026-05-22)
+
+
+### Bug fixes
+
+* use npm ci in web-build to prevent lockfile drift ([59d8d1f](https://github.com/Dezoxy/netcheck/commit/59d8d1f97e8367b7d5136fd64e279aedb8b543e6))
+* use npm ci in web-build to prevent lockfile drift ([6af2341](https://github.com/Dezoxy/netcheck/commit/6af23412e8717c31a136a2c125e62310da19a5ef))
+
 ## [1.1.0]
 
 - **Local React/PWA workbench:** `netcheck app` serves an embedded browser UI
