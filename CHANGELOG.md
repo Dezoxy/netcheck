@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.3.2](https://github.com/Dezoxy/netcheck/compare/v1.3.1...v1.3.2) (2026-05-22)
+
+
+### Bug fixes
+
+* **ci:** run goreleaser in same workflow as release-please (binaries still missing on v1.3.1) ([#29](https://github.com/Dezoxy/netcheck/issues/29)) ([94d9d8f](https://github.com/Dezoxy/netcheck/commit/94d9d8f824ba519b983ac4d8e7fd591a13be7758))
+
 ## [1.3.1](https://github.com/Dezoxy/netcheck/compare/v1.3.0...v1.3.1) (2026-05-22)
 
 
