@@ -2,6 +2,10 @@
 /dist/
 /web/node_modules/
 /web/*.tsbuildinfo
+# vite normally writes to internal/webui/dist (per web/vite.config.ts), but
+# protect against accidental writes if someone runs vite with a different
+# --outDir or another build tool drops output here.
+/web/dist/
 *.exe
 coverage.out
 .DS_Store
