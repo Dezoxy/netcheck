@@ -4,6 +4,21 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.3.1](https://github.com/Dezoxy/netcheck/compare/v1.3.0...v1.3.1) (2026-05-22)
+
+
+### Bug fixes
+
+* **ci:** trigger release workflow on release-published (binaries missing on v1.1.2 / v1.2.0 / v1.3.0) ([#27](https://github.com/Dezoxy/netcheck/issues/27)) ([4ff0433](https://github.com/Dezoxy/netcheck/commit/4ff0433d86fe9df95e100f56be9b9af690579c6a))
+
+## [1.3.0](https://github.com/Dezoxy/netcheck/compare/v1.2.0...v1.3.0) (2026-05-22)
+
+
+### Features
+
+* **build:** make app produces ./bin/netcheck + skips redundant npm ci ([661ca82](https://github.com/Dezoxy/netcheck/commit/661ca82a857e52f82c693327fc9bad72554c15f1))
+* **build:** make app produces ./bin/netcheck + skips redundant npm ci ([3606d67](https://github.com/Dezoxy/netcheck/commit/3606d67456434e68272f17b3f99a7d6d1b46d99c))
+
 ## [1.2.0](https://github.com/Dezoxy/netcheck/compare/v1.1.2...v1.2.0) (2026-05-22)
 
 
