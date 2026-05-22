@@ -31,10 +31,22 @@ These flag names, their semantics, and the commands they're attached to are stab
 | `--wait <n>` | route | Per-probe wait in seconds |
 | `--no-resolve` | route | Skip reverse DNS per hop |
 | `--no-asn` | route | Skip Team Cymru ASN lookup |
+| `--listen <addr>` | app | HTTP listen address (default `127.0.0.1:8787`) |
 
 ### Subcommands
 
-`full` (default), `dns`, `route`, `ip`, `menu`, `config show`, `help`, `version` — all stable.
+`full` (default), `dns`, `route`, `ip`, `app`, `menu`, `config show`, `help`, `version` — all stable.
+
+### Web app HTTP API (`netcheck app`)
+
+When `netcheck app` is running, it exposes two HTTP endpoints on the listen address. Both are stable for v1.x; new endpoints may be added, existing ones won't change shape.
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| `GET` | `/api/healthz` | (none) | `{"status": "ok"}` with `200 OK` |
+| `POST` | `/api/check/full` | `{"target": "<url-or-host>", "insecure": <bool>}` (JSON body) | `200 OK` with the same `FullJSON` schema the CLI emits (`"kind": "full"`, `"netcheck_version": "0.5.0"`). On bad input: `400` with `{"error": "<message>"}`. |
+
+The web UI assets served at `/` (HTML, CSS, JS, icons, service worker, manifest) are **not** part of the stability promise — their structure and asset names may change between releases. Only the `/api/*` endpoints are covered.
 
 ### Exit codes
 
