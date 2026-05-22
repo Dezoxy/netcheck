@@ -297,3 +297,22 @@ func joinTabs(cols []string) string {
 	}
 	return out
 }
+
+// BuildRoute runs traceroute against host with the given options and returns
+// the JSON-ready RouteJSON, including per-hop ASN annotations unless noASN
+// is set. CLI and app surfaces share this path.
+//
+// Returns an error only when the traceroute binary itself can't be located
+// or started; per-hop timeouts and partial output are reported inside the
+// RouteJSON (Timeouts count + per-hop Timeout flag).
+func BuildRoute(ctx context.Context, host string, opts route.Options, timeout time.Duration, noASN bool) (report.RouteJSON, error) {
+	data, err := collectRoute(host, opts, timeout, noASN)
+	if err != nil {
+		return report.RouteJSON{}, err
+	}
+	var asnC *ipinfo.ASNCache
+	if !data.NoASN {
+		asnC = data.ASNCache
+	}
+	return report.ToRouteJSON(data.Host, data.DestIP, data.Bin, data.ToolArgs, data.StartedAt, data.Hops, asnC), nil
+}
