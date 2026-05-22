@@ -919,7 +919,7 @@ The "stop adding things and ship what you have" release.
 - GitHub Pages landing page — over-investment for a CLI; README is enough
 - Announcement (HN / r/golang / etc.) — separate from the PR; ship first
 
-## Post-v1.0 — Local web app
+## v1.1 — Local web app (shipped)
 
 - `netcheck app` starts a local HTTP workbench on `127.0.0.1:8787` by default
 - React/PWA production assets are built from `web/` and embedded in
@@ -931,9 +931,9 @@ The "stop adding things and ship what you have" release.
 - DNS compare, route, and IP info remain CLI-only until their app panels are
   designed and wired
 
-## v1.1+ — Deferred features
+## v1.2+ — Deferred features
 
-Explicitly kept out of the v1.0 arc so the foundation stays tight:
+Explicitly kept out of the v1.1 release so the foundation stays tight:
 
 - HTTP/3 / QUIC test
 - Prometheus exporter

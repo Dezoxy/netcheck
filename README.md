@@ -43,14 +43,14 @@ Summary
 
 ```bash
 # macOS Apple Silicon
-curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.0.0_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.1.0_darwin_arm64.tar.gz | tar xz
 sudo mv netcheck /usr/local/bin/
 
 # Linux amd64
-curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.0.0_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.1.0_linux_amd64.tar.gz | tar xz
 sudo mv netcheck /usr/local/bin/
 
-# Windows: download netcheck_1.0.0_windows_amd64.zip, unzip, run netcheck.exe
+# Windows: download netcheck_1.1.0_windows_amd64.zip, unzip, run netcheck.exe
 ```
 
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`, `windows_arm64`. Each archive bundles `README.md`, `LICENSE`, and `config.example.yaml`. SHA256s in `checksums.txt`.
@@ -228,6 +228,7 @@ The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes 
 | v0.9 | shipped | `config show`, `--out` flag, Windows version-info, staticcheck |
 | **v1.0** | **shipped** | **Stability promise** |
 | v1.0.1 | shipped | Test coverage 20.8% → 85.4% project-wide; every package above 82%. Run* functions return exit codes; no more direct os.Exit. |
-| v1.1+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
+| v1.1.0 | shipped | Local React/PWA workbench via `netcheck app`; same full-check Go engine exposed through the local JSON API. |
+| v1.2+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
 
 </details>

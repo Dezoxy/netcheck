@@ -4,6 +4,19 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.1.0]
+
+- **Local React/PWA workbench:** `netcheck app` serves an embedded browser UI
+  on `127.0.0.1:8787` for visual full checks, recent checks, and JSON export.
+- **Shared Go full-check path:** the local JSON API reuses the same
+  DNS/TCP/TLS/HTTP orchestration as the CLI through `BuildFullReport`.
+- **Web app delivery:** Vite-built frontend assets live in `web/`, are embedded
+  in the Go binary, and include homescreen/PWA metadata.
+- **Web app coverage:** local API tests cover full-check success, insecure TLS,
+  JSON validation, command startup failures, and embedded workbench assets.
+- **CI/report reliability:** report expiry golden tests use the report clock,
+  and GitHub workflows use Node 24 action majors.
+
 ## [1.0.1]
 
 - **Test coverage push: 20.8% → 85.4% project-wide.**
@@ -108,6 +121,7 @@ Per-release notes are also generated automatically by `goreleaser` and attached 
 
 - Initial release. `netcheck <target>` runs DNS, TCP, TLS, and HTTP checks with `httptrace` timing breakdown and redirect chain.
 
+[1.1.0]: https://github.com/Dezoxy/netcheck/releases/tag/v1.1.0
 [1.0.1]: https://github.com/Dezoxy/netcheck/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Dezoxy/netcheck/releases/tag/v1.0.0
 [0.9.1]: https://github.com/Dezoxy/netcheck/releases/tag/v0.9.1
