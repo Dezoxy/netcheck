@@ -78,6 +78,11 @@ changelog:
       - "Merge branch"
 
 release:
+  # release-please owns the tag + GitHub Release (notes, name, body).
+  # goreleaser's job is just to attach the cross-platform binaries.
+  # `mode: append` makes goreleaser add assets to the existing release
+  # instead of trying to create a new one and 422-ing on conflict.
+  mode: append
   draft: false
   prerelease: auto # rc/beta/alpha tags publish as prerelease automatically
   name_template: "v{{ .Version }}"
