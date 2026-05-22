@@ -2,6 +2,10 @@
 /dist/
 /web/node_modules/
 /web/*.tsbuildinfo
+# Make stamp inside node_modules used to skip npm ci when the lockfile
+# is unchanged. Already covered by /web/node_modules/ above, but listing
+# it explicitly so the intent is obvious.
+/web/node_modules/.install-stamp
 # vite normally writes to internal/webui/dist (per web/vite.config.ts), but
 # protect against accidental writes if someone runs vite with a different
 # --outDir or another build tool drops output here.
