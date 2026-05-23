@@ -77,6 +77,11 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck dns <host>` | Do Cloudflare, Google, Quad9, my system resolver, and any DoH/DoT resolver agree on this hostname's IPs? |
 | `netcheck route <host>` | What's the network path to this host, and who owns each hop? |
 | `netcheck ip <ip\|host>` | Who owns this IP? What's its ASN, reverse DNS, RDAP record, CDN affiliation? |
+| `netcheck headers <url>` | Is the site sending the security headers (HSTS, CSP, X-Frame-Options, etc.) it should be? |
+| `netcheck tech <url>` | What's behind this site? CMS, JS framework, server, CDN, language — fingerprinted from one passive GET. |
+| `netcheck subs <domain>` | Which subdomains exist? Enumerated from Certificate Transparency logs (crt.sh + CertSpotter). |
+| `netcheck reverse <ip>` | What else lives on this IP? Reverse DNS + Hackertarget + optional Shodan (via API key in config). |
+| `netcheck arch <domain>` | What does the Wayback Machine remember about this domain? First/last seen, total snapshots, recent URLs. |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
@@ -128,6 +133,74 @@ netcheck route --max-hops 20 --no-asn 1.1.1.1
 netcheck ip 1.1.1.1
 netcheck ip cloudflare.com    # resolves the host and reports each IP
 ```
+
+### Security headers report card
+
+```bash
+netcheck headers https://news.ycombinator.com
+netcheck headers --output json https://github.com | jq '.summary'
+```
+
+Grades the major security-relevant response headers (HSTS, Content-Security-Policy,
+X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) and
+flags information-disclosure headers (Server, X-Powered-By). One HTTP GET — passive,
+indistinguishable from a normal browser visit.
+
+### Tech fingerprint
+
+```bash
+netcheck tech https://wordpress.org
+netcheck tech --output json https://shopify.com | jq '.matches[] | {name, category}'
+```
+
+Identifies the stack from one passive GET — CMS (WordPress, Drupal, Ghost, Magento,
+Shopify, WooCommerce), JS framework (Next.js, Nuxt, Angular, React, Vue), server
+(nginx, Apache, Caddy, IIS, LiteSpeed), CDN (Cloudflare, Fastly, CloudFront, Akamai,
+BunnyCDN), language / web framework (PHP, Laravel, Django, Rails, ASP.NET), and
+common libraries (jQuery, Bootstrap). Each match comes with a confidence tier and the
+evidence that triggered it. Catalogue grows over time — not part of the v1.x JSON
+stability promise.
+
+### Subdomain enumeration
+
+```bash
+netcheck subs example.com
+netcheck subs --output json microsoft.com | jq '.subdomains | length'
+```
+
+Queries public Certificate Transparency log aggregators (crt.sh and CertSpotter) in
+parallel, dedupes the union, filters to names that actually belong to the target
+domain, and lists each subdomain with which source(s) reported it. Passive — netcheck
+never talks to the target. If one source is flaking (crt.sh notoriously 502s), the
+run still succeeds with the surviving source and the failure shows up in the
+"Source errors" section.
+
+### Reverse IP lookup
+
+```bash
+netcheck reverse 1.1.1.1
+netcheck reverse --output json 8.8.8.8 | jq '.hostnames | length'
+```
+
+Lists other hostnames pointing at the given IP. Sources: system reverse DNS (`PTR`),
+Hackertarget's free reverse-IP API, and **optionally Shodan** when
+`apis.shodan_api_key` is set in `~/.config/netcheck/config.yaml`. Shodan adds the
+most signal (its scan database tracks hostnames seen on the IP), so it's worth
+getting a free key at https://account.shodan.io/ if you do this often. Same
+resilience as `subs` — one source failing doesn't fail the run.
+
+### Wayback / historical snapshots
+
+```bash
+netcheck arch example.com
+netcheck arch --output json example.com | jq '.first, .last, .total'
+```
+
+Queries archive.org's CDX API for historical snapshots of the domain and its
+subdomains. Returns total snapshot count, first/last seen dates, and a sample of
+the most-recent unique URLs the Wayback Machine has indexed. Useful for finding
+abandoned admin paths, old API endpoints, or historical hostnames that no longer
+resolve. No API key needed.
 
 ### Pipe into other tools
 
@@ -229,6 +302,9 @@ The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes 
 | **v1.0** | **shipped** | **Stability promise** |
 | v1.0.1 | shipped | Test coverage 20.8% → 85.4% project-wide; every package above 82%. Run* functions return exit codes; no more direct os.Exit. |
 | v1.1.0 | shipped | Local React/PWA workbench via `netcheck app`; same full-check Go engine exposed through the local JSON API. |
-| v1.2+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
+| v1.2.0 | shipped | Web app: DNS / Route / IP tabs wired end-to-end, saved-reports CRUD, recent rerun |
+| v1.3.x | shipped | Build & release hardening: `make app` leaves `./bin/netcheck`, npm-ci stamp, goreleaser-in-same-workflow as release-please |
+| **v1.4** | **planned** | **Passive recon: `subs` (CT logs), `reverse` (reverse DNS / Hackertarget), `tech` (Wappalyzer-style fingerprint), `headers` (security-header report card), `arch` (archive.org CDX)** |
+| v1.5+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode, active scanning (ports / TLS audit / path enum / takeover detection) |
 
 </details>

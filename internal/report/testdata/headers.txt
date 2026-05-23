@@ -1,0 +1,29 @@
+SECURITY HEADERS
+URL:      https://example.com/
+Status:   200
+Time:     2026-05-21 19:30:45 (145ms)
+
+  [PASS   ] Strict-Transport-Security
+      value: max-age=31536000; includeSubDomains; preload
+      note:  Long max-age, includeSubDomains, preload directive present.
+  [WEAK   ] Content-Security-Policy
+      value: default-src 'self'; script-src 'unsafe-inline'
+      note:  Present but allows 'unsafe-inline' — these weaken the XSS protection. Use nonces or hashes where possible.
+  [PASS   ] X-Frame-Options
+      value: DENY
+      note:  Set to a safe value.
+  [MISSING] X-Content-Type-Options
+      note:  Missing — set `X-Content-Type-Options: nosniff` to prevent browsers from re-interpreting response bodies.
+  [PASS   ] Referrer-Policy
+      value: strict-origin-when-cross-origin
+      note:  Set to a value that limits cross-origin referrer leakage.
+  [MISSING] Permissions-Policy
+      note:  Missing — controls which browser features (camera, geolocation, etc.) a page can use. Set even a permissive policy to make the surface explicit.
+  [INFO   ] Server
+      value: nginx/1.25.3
+      note:  Server header exposes software identification — consider stripping or making it generic in production.
+  [WEAK   ] X-Powered-By
+      value: PHP/8.1.0
+      note:  X-Powered-By leaks the application stack — remove this header.
+
+Summary: 3 pass · 2 weak · 2 missing · 1 info

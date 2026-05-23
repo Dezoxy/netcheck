@@ -22,3 +22,10 @@ rsrc_windows_*.syso
 # rule the dupes get embedded into the Go binary via go:embed internal/webui/dist/*,
 # served at URLs like /index 2.html, and picked up by `git add .`.
 * [0-9].*
+
+# .env files commonly hold secrets (Shodan API keys, etc.). netcheck itself
+# doesn't read .env — use ~/.config/netcheck/config.yaml or NETCHECK_* env
+# vars instead — but block these from ever being committed by accident.
+.env
+.env.*
+!.env.example

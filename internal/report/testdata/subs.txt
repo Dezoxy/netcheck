@@ -1,0 +1,12 @@
+SUBDOMAIN ENUMERATION
+Domain:   example.com
+Time:     2026-05-21 19:30:45 (1234ms)
+
+  NAME              SOURCES
+  *.example.com     crt.sh
+  api.example.com   certspotter, crt.sh
+  docs.example.com  certspotter
+  example.com       certspotter, crt.sh
+  www.example.com   certspotter
+
+Total: 5 subdomain(s)

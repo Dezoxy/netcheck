@@ -304,3 +304,187 @@ func rdapAbuse(r *RDAPJSON) string {
 	}
 	return r.AbuseEmail
 }
+
+// RenderHeadersMD writes the security-header audit as Markdown.
+func RenderHeadersMD(w io.Writer, d HeadersJSON) {
+	fmt.Fprintf(w, "# netcheck headers — `%s`\n\n", d.URL)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "- **Final URL:** `%s`\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "- **Status:** %d\n", d.Status)
+	}
+	if d.Error != "" {
+		fmt.Fprintf(w, "\n> **Audit failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Summary:** %d pass · %d weak · %d missing · %d info\n\n",
+		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
+
+	fmt.Fprintln(w, "| Header | Grade | Value | Note |")
+	fmt.Fprintln(w, "|---|---|---|---|")
+	for _, f := range d.Findings {
+		val := f.Value
+		if val == "" {
+			val = "—"
+		} else {
+			val = "`" + val + "`"
+		}
+		fmt.Fprintf(w, "| %s | %s | %s | %s |\n", f.Name, gradeMD(f.Grade), val, mdEscapePipes(f.Comment))
+	}
+	fmt.Fprintln(w)
+}
+
+func gradeMD(g string) string {
+	switch g {
+	case "pass":
+		return "**PASS**"
+	case "weak":
+		return "_weak_"
+	case "missing":
+		return "_missing_"
+	case "info":
+		return "_info_"
+	default:
+		return g
+	}
+}
+
+// mdEscapePipes escapes "|" so it doesn't break a markdown table row.
+func mdEscapePipes(s string) string {
+	return strings.ReplaceAll(s, "|", `\|`)
+}
+
+// RenderReverseMD writes the reverse-IP result as Markdown.
+func RenderReverseMD(w io.Writer, d ReverseJSON) {
+	fmt.Fprintf(w, "# netcheck reverse — `%s`\n\n", d.IP)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Lookup failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Hostnames:** %d\n\n", len(d.Hostnames))
+
+	if len(d.Hostnames) == 0 {
+		fmt.Fprintln(w, "_(no hostnames found)_")
+	} else {
+		fmt.Fprintln(w, "| Hostname | Sources |")
+		fmt.Fprintln(w, "|---|---|")
+		for _, h := range d.Hostnames {
+			fmt.Fprintf(w, "| `%s` | %s |\n", h.Name, strings.Join(h.Sources, ", "))
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(d.SourceDisabled) > 0 {
+		fmt.Fprintf(w, "_Disabled (no API key): %s_\n\n", strings.Join(d.SourceDisabled, ", "))
+	}
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w, "## Source errors")
+		fmt.Fprintln(w)
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "- **%s:** %s\n", name, mdEscapePipes(err))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
+// RenderArchMD writes the Wayback result as Markdown.
+func RenderArchMD(w io.Writer, d ArchJSON) {
+	fmt.Fprintf(w, "# netcheck arch — `%s`\n\n", d.Domain)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Lookup failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Total snapshots:** %d\n", d.Total)
+	fmt.Fprintf(w, "- **Unique URLs:** %d\n", d.UniqueURLs)
+	if d.First != nil {
+		fmt.Fprintf(w, "- **First seen:** %s\n", d.First.Format("2006-01-02"))
+	}
+	if d.Last != nil {
+		fmt.Fprintf(w, "- **Last seen:** %s\n", d.Last.Format("2006-01-02"))
+	}
+	fmt.Fprintln(w)
+
+	if len(d.RecentSamples) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "## Recent snapshots (%d, newest first)\n\n", len(d.RecentSamples))
+	fmt.Fprintln(w, "| Date | Status | URL |")
+	fmt.Fprintln(w, "|---|---|---|")
+	for _, s := range d.RecentSamples {
+		status := "—"
+		if s.Status > 0 {
+			status = fmt.Sprintf("%d", s.Status)
+		}
+		fmt.Fprintf(w, "| %s | %s | `%s` |\n", s.Timestamp.Format("2006-01-02"), status, s.URL)
+	}
+	fmt.Fprintln(w)
+}
+
+// RenderSubsMD writes the subdomain enumeration result as Markdown.
+func RenderSubsMD(w io.Writer, d SubsJSON) {
+	fmt.Fprintf(w, "# netcheck subs — `%s`\n\n", d.Domain)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Enumeration failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Subdomains:** %d\n\n", len(d.Subdomains))
+
+	if len(d.Subdomains) == 0 {
+		fmt.Fprintln(w, "_(no subdomains found in CT logs)_")
+	} else {
+		fmt.Fprintln(w, "| Name | Sources |")
+		fmt.Fprintln(w, "|---|---|")
+		for _, s := range d.Subdomains {
+			fmt.Fprintf(w, "| `%s` | %s |\n", s.Name, strings.Join(s.Sources, ", "))
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w, "## Source errors")
+		fmt.Fprintln(w)
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "- **%s:** %s\n", name, mdEscapePipes(err))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
+// RenderTechMD writes the tech-detection result as Markdown.
+func RenderTechMD(w io.Writer, d TechJSON) {
+	fmt.Fprintf(w, "# netcheck tech — `%s`\n\n", d.URL)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "- **Final URL:** `%s`\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "- **Status:** %d\n", d.Status)
+	}
+	if d.Error != "" {
+		fmt.Fprintf(w, "\n> **Detect failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Matches:** %d\n\n", len(d.Matches))
+
+	if len(d.Matches) == 0 {
+		fmt.Fprintln(w, "_(no known technologies fingerprinted)_")
+		return
+	}
+
+	fmt.Fprintln(w, "| Technology | Category | Version | Confidence | Evidence |")
+	fmt.Fprintln(w, "|---|---|---|---|---|")
+	for _, m := range d.Matches {
+		ver := m.Version
+		if ver == "" {
+			ver = "—"
+		}
+		fmt.Fprintf(w, "| %s | `%s` | %s | %s | %s |\n",
+			m.Name, m.Category, ver, m.Confidence, mdEscapePipes(m.Evidence))
+	}
+	fmt.Fprintln(w)
+}

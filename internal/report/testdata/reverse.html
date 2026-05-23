@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
-<title>netcheck dns — example.com</title>
+<title>netcheck reverse — 1.1.1.1</title>
 <style>body { font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1.5em; color: #1d1d1f; }
 h1 { font-size: 1.6em; margin: 0 0 0.2em; }
 h2 { font-size: 1.15em; margin-top: 1.6em; border-bottom: 1px solid #e0e0e6; padding-bottom: 0.2em; }
@@ -22,18 +22,14 @@ ul.kv li b { display: inline-block; min-width: 130px; color: #4a4a52; font-weigh
 .warn { background: #fff8e1; border-left: 3px solid #f4b400; padding: 0.5em 0.8em; margin: 0.8em 0; font-size: 0.95em; }
 </style>
 </head><body>
-<h1>netcheck dns compare</h1>
-<p class="meta">Host: <code>example.com</code> · 2026-05-21T19:30:45Z</p>
-<h2>A records</h2>
-<table><thead><tr><th>Resolver</th><th>Address</th><th>Time</th><th>Answer</th></tr></thead><tbody>
-<tr><td>Cloudflare</td><td><code>1.1.1.1:53</code></td><td>12ms</td><td><code>1.1.1.1</code></td></tr>
-<tr><td>Google</td><td><code>8.8.8.8:53</code></td><td>18ms</td><td><code>1.1.1.1</code></td></tr>
-<tr><td>Quad9</td><td><code>9.9.9.9:53</code></td><td>14ms</td><td><code>2.2.2.2</code></td></tr>
-<tr><td>Failing</td><td><code>0.0.0.0:53</code></td><td>5000ms</td><td class="fail">error: timeout</td></tr>
+<h1>netcheck reverse</h1>
+<p class="meta">IP: <code>1.1.1.1</code> · 2026-05-21T19:30:45Z · 456ms</p>
+<p><b>3 hostname(s)</b></p>
+<table>
+<thead><tr><th>Hostname</th><th>Sources</th></tr></thead>
+<tbody>
+<tr><td><code>one.one.one.one</code></td><td>ptr</td></tr>
+<tr><td><code>shared.example.com</code></td><td>hackertarget, shodan</td></tr>
+<tr><td><code>ht-only.example.com</code></td><td>hackertarget</td></tr>
 </tbody></table>
-<p><b>Verdict:</b> resolvers disagree (2 distinct answer sets)</p>
-<ul>
-<li>Set 1 (Cloudflare, Google): <code>1.1.1.1</code></li>
-<li>Set 2 (Quad9): <code>2.2.2.2</code></li>
-</ul>
 </body></html>

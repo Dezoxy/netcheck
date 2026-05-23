@@ -309,6 +309,386 @@ func TestRenderIPInfoHTML(t *testing.T) {
 	assertGolden(t, "ip_info.html", buf.Bytes())
 }
 
+// ─── Headers ──────────────────────────────────────────────────────────────
+
+// fixtureHeaders returns a HeadersJSON exercising every grade tier (pass,
+// weak, missing, info) so the renderers cover all branches.
+func fixtureHeaders() HeadersJSON {
+	return HeadersJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "headers",
+		URL:             "https://example.com/",
+		FinalURL:        "https://example.com/",
+		Status:          200,
+		StartedAt:       fixedTime,
+		TookMS:          145,
+		Findings: []FindingJSON{
+			{Name: "Strict-Transport-Security", Value: "max-age=31536000; includeSubDomains; preload", Grade: "pass", Comment: "Long max-age, includeSubDomains, preload directive present."},
+			{Name: "Content-Security-Policy", Value: "default-src 'self'; script-src 'unsafe-inline'", Grade: "weak", Comment: "Present but allows 'unsafe-inline' — these weaken the XSS protection. Use nonces or hashes where possible."},
+			{Name: "X-Frame-Options", Value: "DENY", Grade: "pass", Comment: "Set to a safe value."},
+			{Name: "X-Content-Type-Options", Value: "", Grade: "missing", Comment: "Missing — set `X-Content-Type-Options: nosniff` to prevent browsers from re-interpreting response bodies."},
+			{Name: "Referrer-Policy", Value: "strict-origin-when-cross-origin", Grade: "pass", Comment: "Set to a value that limits cross-origin referrer leakage."},
+			{Name: "Permissions-Policy", Value: "", Grade: "missing", Comment: "Missing — controls which browser features (camera, geolocation, etc.) a page can use. Set even a permissive policy to make the surface explicit."},
+			{Name: "Server", Value: "nginx/1.25.3", Grade: "info", Comment: "Server header exposes software identification — consider stripping or making it generic in production."},
+			{Name: "X-Powered-By", Value: "PHP/8.1.0", Grade: "weak", Comment: "X-Powered-By leaks the application stack — remove this header."},
+		},
+		Summary: HeadersSummaryJSON{Pass: 3, Weak: 2, Missing: 2, Info: 1},
+	}
+}
+
+func TestRenderHeadersText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderHeaders(&buf, fixtureHeaders())
+	assertGolden(t, "headers.txt", buf.Bytes())
+}
+
+func TestRenderHeadersMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderHeadersMD(&buf, fixtureHeaders())
+	assertGolden(t, "headers.md", buf.Bytes())
+}
+
+func TestRenderHeadersHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderHeadersHTML(&buf, fixtureHeaders())
+	assertGolden(t, "headers.html", buf.Bytes())
+}
+
+func TestRenderHeadersTextErr(t *testing.T) {
+	d := HeadersJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "headers",
+		URL:             "https://nope.invalid/",
+		StartedAt:       fixedTime,
+		TookMS:          12,
+		Error:           "dial tcp: lookup nope.invalid: no such host",
+	}
+	var buf bytes.Buffer
+	RenderHeaders(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("audit failed")) {
+		t.Errorf("text error path should mention 'audit failed':\n%s", buf.String())
+	}
+}
+
+func TestRenderHeadersMDErr(t *testing.T) {
+	d := HeadersJSON{URL: "https://nope.invalid/", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderHeadersMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Audit failed")) {
+		t.Errorf("md error path should mention 'Audit failed':\n%s", buf.String())
+	}
+}
+
+func TestRenderHeadersHTMLErr(t *testing.T) {
+	d := HeadersJSON{URL: "https://nope.invalid/", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderHeadersHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Audit failed")) {
+		t.Errorf("html error path should mention 'Audit failed':\n%s", buf.String())
+	}
+}
+
+// ─── Tech ─────────────────────────────────────────────────────────────────
+
+func fixtureTech() TechJSON {
+	return TechJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "tech",
+		URL:             "https://example.com/",
+		FinalURL:        "https://example.com/",
+		Status:          200,
+		StartedAt:       fixedTime,
+		TookMS:          312,
+		Matches: []TechMatch{
+			{Name: "WordPress", Category: "cms", Version: "6.4.2", Confidence: "high", Evidence: `<meta name="generator" content="WordPress ...">`},
+			{Name: "PHP", Category: "language", Version: "8.2.1", Confidence: "high", Evidence: "X-Powered-By: PHP/8.2.1"},
+			{Name: "nginx", Category: "server", Version: "1.25.3", Confidence: "high", Evidence: "Server: nginx/1.25.3"},
+			{Name: "Cloudflare", Category: "cdn", Confidence: "high", Evidence: "CF-Ray header"},
+			{Name: "jQuery", Category: "library", Version: "3.6.0", Confidence: "medium", Evidence: "jquery*.js in HTML"},
+		},
+	}
+}
+
+func TestRenderTechText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderTech(&buf, fixtureTech())
+	assertGolden(t, "tech.txt", buf.Bytes())
+}
+
+func TestRenderTechMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderTechMD(&buf, fixtureTech())
+	assertGolden(t, "tech.md", buf.Bytes())
+}
+
+func TestRenderTechHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderTechHTML(&buf, fixtureTech())
+	assertGolden(t, "tech.html", buf.Bytes())
+}
+
+func TestRenderTechEmpty(t *testing.T) {
+	d := TechJSON{URL: "https://nothing.example/", StartedAt: fixedTime}
+	var buf bytes.Buffer
+	RenderTech(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no known technologies")) {
+		t.Errorf("empty text path should say 'no known technologies':\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no known technologies")) {
+		t.Errorf("empty md path should say so:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no known technologies")) {
+		t.Errorf("empty html path should say so:\n%s", buf.String())
+	}
+}
+
+func TestRenderTechErr(t *testing.T) {
+	d := TechJSON{URL: "https://nope.invalid/", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderTech(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("detect failed")) {
+		t.Errorf("text error path should mention 'detect failed':\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Detect failed")) {
+		t.Errorf("md error path should mention 'Detect failed':\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Detect failed")) {
+		t.Errorf("html error path should mention 'Detect failed':\n%s", buf.String())
+	}
+}
+
+// ─── Subs ─────────────────────────────────────────────────────────────────
+
+func fixtureSubs() SubsJSON {
+	return SubsJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "subs",
+		Domain:          "example.com",
+		StartedAt:       fixedTime,
+		TookMS:          1234,
+		Subdomains: []SubdomainJSON{
+			{Name: "*.example.com", Wildcard: true, Sources: []string{"crt.sh"}},
+			{Name: "api.example.com", Sources: []string{"certspotter", "crt.sh"}},
+			{Name: "docs.example.com", Sources: []string{"certspotter"}},
+			{Name: "example.com", Sources: []string{"certspotter", "crt.sh"}},
+			{Name: "www.example.com", Sources: []string{"certspotter"}},
+		},
+	}
+}
+
+func TestRenderSubsText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderSubs(&buf, fixtureSubs())
+	assertGolden(t, "subs.txt", buf.Bytes())
+}
+
+func TestRenderSubsMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderSubsMD(&buf, fixtureSubs())
+	assertGolden(t, "subs.md", buf.Bytes())
+}
+
+func TestRenderSubsHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderSubsHTML(&buf, fixtureSubs())
+	assertGolden(t, "subs.html", buf.Bytes())
+}
+
+func TestRenderSubsEmpty(t *testing.T) {
+	d := SubsJSON{Domain: "example.com", StartedAt: fixedTime, Kind: "subs"}
+	var buf bytes.Buffer
+	RenderSubs(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no subdomains found in CT logs")) {
+		t.Errorf("empty text path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no subdomains found")) {
+		t.Errorf("empty md path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no subdomains found")) {
+		t.Errorf("empty html path:\n%s", buf.String())
+	}
+}
+
+func TestRenderSubsAllSourcesFailed(t *testing.T) {
+	d := SubsJSON{
+		Domain:       "example.com",
+		Kind:         "subs",
+		StartedAt:    fixedTime,
+		SourceErrors: map[string]string{"crt.sh": "rate limited", "certspotter": "rate limited"},
+	}
+	var buf bytes.Buffer
+	RenderSubs(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("every source errored")) {
+		t.Errorf("text should call out the all-sources-down state:\n%s", buf.String())
+	}
+}
+
+func TestRenderSubsTopLevelError(t *testing.T) {
+	d := SubsJSON{Domain: "", Kind: "subs", StartedAt: fixedTime, Error: "empty domain"}
+	var buf bytes.Buffer
+	RenderSubs(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("enumeration failed")) {
+		t.Errorf("text err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Enumeration failed")) {
+		t.Errorf("md err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Enumeration failed")) {
+		t.Errorf("html err path:\n%s", buf.String())
+	}
+}
+
+// ─── Reverse ──────────────────────────────────────────────────────────────
+
+func fixtureReverse() ReverseJSON {
+	return ReverseJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "reverse",
+		IP:              "1.1.1.1",
+		StartedAt:       fixedTime,
+		TookMS:          456,
+		Hostnames: []HostnameJSON{
+			{Name: "one.one.one.one", Sources: []string{"ptr"}},
+			{Name: "shared.example.com", Sources: []string{"hackertarget", "shodan"}},
+			{Name: "ht-only.example.com", Sources: []string{"hackertarget"}},
+		},
+	}
+}
+
+func TestRenderReverseText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderReverse(&buf, fixtureReverse())
+	assertGolden(t, "reverse.txt", buf.Bytes())
+}
+
+func TestRenderReverseMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderReverseMD(&buf, fixtureReverse())
+	assertGolden(t, "reverse.md", buf.Bytes())
+}
+
+func TestRenderReverseHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderReverseHTML(&buf, fixtureReverse())
+	assertGolden(t, "reverse.html", buf.Bytes())
+}
+
+func TestRenderReverseEmpty(t *testing.T) {
+	d := ReverseJSON{IP: "1.2.3.4", Kind: "reverse", StartedAt: fixedTime, SourceDisabled: []string{"shodan"}}
+	var buf bytes.Buffer
+	RenderReverse(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no hostnames found")) {
+		t.Errorf("text empty path:\n%s", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("Disabled (no API key): shodan")) {
+		t.Errorf("text should mention disabled source:\n%s", buf.String())
+	}
+}
+
+func TestRenderReverseErr(t *testing.T) {
+	d := ReverseJSON{IP: "bad", Kind: "reverse", StartedAt: fixedTime, Error: "not an IP"}
+	var buf bytes.Buffer
+	RenderReverse(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("lookup failed")) {
+		t.Errorf("text err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderReverseMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("md err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderReverseHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("html err path:\n%s", buf.String())
+	}
+}
+
+// ─── Arch (Wayback) ───────────────────────────────────────────────────────
+
+func fixtureArch() ArchJSON {
+	first := time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC)
+	last := time.Date(2023, 6, 15, 12, 0, 0, 0, time.UTC)
+	return ArchJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "arch",
+		Domain:          "example.com",
+		StartedAt:       fixedTime,
+		TookMS:          2345,
+		Total:           3,
+		UniqueURLs:      3,
+		First:           &first,
+		Last:            &last,
+		RecentSamples: []SnapshotJSON{
+			{Timestamp: last, URL: "https://example.com/foo", Status: 404},
+			{Timestamp: time.Date(2020, 5, 1, 0, 0, 0, 0, time.UTC), URL: "https://example.com/about", Status: 200},
+			{Timestamp: first, URL: "https://example.com/", Status: 200},
+		},
+	}
+}
+
+func TestRenderArchText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderArch(&buf, fixtureArch())
+	assertGolden(t, "arch.txt", buf.Bytes())
+}
+
+func TestRenderArchMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderArchMD(&buf, fixtureArch())
+	assertGolden(t, "arch.md", buf.Bytes())
+}
+
+func TestRenderArchHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderArchHTML(&buf, fixtureArch())
+	assertGolden(t, "arch.html", buf.Bytes())
+}
+
+func TestRenderArchEmpty(t *testing.T) {
+	d := ArchJSON{Domain: "empty.example", Kind: "arch", StartedAt: fixedTime}
+	var buf bytes.Buffer
+	RenderArch(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Total snapshots: 0")) {
+		t.Errorf("text empty path:\n%s", buf.String())
+	}
+}
+
+func TestRenderArchErr(t *testing.T) {
+	d := ArchJSON{Domain: "bad", Kind: "arch", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderArch(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("lookup failed")) {
+		t.Errorf("text err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderArchMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("md err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderArchHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("html err path:\n%s", buf.String())
+	}
+}
+
 // ─── JSON ─────────────────────────────────────────────────────────────────
 
 func TestWriteJSON(t *testing.T) {

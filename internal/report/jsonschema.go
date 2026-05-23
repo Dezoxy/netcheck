@@ -9,8 +9,13 @@ import (
 	"netcheck/internal/check"
 	"netcheck/internal/dnscompare"
 	"netcheck/internal/ipinfo"
+	"netcheck/internal/reverseip"
 	"netcheck/internal/route"
+	"netcheck/internal/secheaders"
+	"netcheck/internal/subenum"
 	"netcheck/internal/target"
+	"netcheck/internal/techdetect"
+	"netcheck/internal/wayback"
 )
 
 // SchemaVersion is the netcheck JSON schema version. Bump on any breaking
@@ -215,6 +220,118 @@ type RDAPJSON struct {
 	AbuseEmail string `json:"abuse_email,omitempty"`
 }
 
+// HeadersJSON is the JSON representation of a `netcheck headers` audit.
+type HeadersJSON struct {
+	NetcheckVersion string             `json:"netcheck_version"`
+	Kind            string             `json:"kind"` // "headers"
+	URL             string             `json:"url"`
+	FinalURL        string             `json:"final_url,omitempty"`
+	Status          int                `json:"status,omitempty"`
+	StartedAt       time.Time          `json:"started_at"`
+	TookMS          int64              `json:"took_ms"`
+	Findings        []FindingJSON      `json:"findings,omitempty"`
+	Summary         HeadersSummaryJSON `json:"summary"`
+	Error           string             `json:"error,omitempty"`
+}
+
+// FindingJSON is the per-header verdict.
+type FindingJSON struct {
+	Name    string `json:"name"`
+	Value   string `json:"value,omitempty"`
+	Grade   string `json:"grade"` // "pass" | "weak" | "missing" | "info"
+	Comment string `json:"comment,omitempty"`
+}
+
+// HeadersSummaryJSON is a quick count of findings by grade.
+type HeadersSummaryJSON struct {
+	Pass    int `json:"pass"`
+	Weak    int `json:"weak"`
+	Missing int `json:"missing"`
+	Info    int `json:"info"`
+}
+
+// TechJSON is the JSON representation of a `netcheck tech` fingerprint run.
+type TechJSON struct {
+	NetcheckVersion string      `json:"netcheck_version"`
+	Kind            string      `json:"kind"` // "tech"
+	URL             string      `json:"url"`
+	FinalURL        string      `json:"final_url,omitempty"`
+	Status          int         `json:"status,omitempty"`
+	StartedAt       time.Time   `json:"started_at"`
+	TookMS          int64       `json:"took_ms"`
+	Matches         []TechMatch `json:"matches,omitempty"`
+	Error           string      `json:"error,omitempty"`
+}
+
+// TechMatch is one detected technology.
+type TechMatch struct {
+	Name       string `json:"name"`
+	Category   string `json:"category"`
+	Version    string `json:"version,omitempty"`
+	Confidence string `json:"confidence"`
+	Evidence   string `json:"evidence,omitempty"`
+}
+
+// SubsJSON is the JSON representation of a `netcheck subs` enumeration.
+type SubsJSON struct {
+	NetcheckVersion string            `json:"netcheck_version"`
+	Kind            string            `json:"kind"` // "subs"
+	Domain          string            `json:"domain"`
+	StartedAt       time.Time         `json:"started_at"`
+	TookMS          int64             `json:"took_ms"`
+	Subdomains      []SubdomainJSON   `json:"subdomains,omitempty"`
+	SourceErrors    map[string]string `json:"source_errors,omitempty"`
+	Error           string            `json:"error,omitempty"`
+}
+
+// SubdomainJSON is one finding plus which sources reported it.
+type SubdomainJSON struct {
+	Name     string   `json:"name"`
+	Wildcard bool     `json:"wildcard,omitempty"`
+	Sources  []string `json:"sources"`
+}
+
+// ReverseJSON is the JSON representation of a `netcheck reverse` lookup.
+type ReverseJSON struct {
+	NetcheckVersion string            `json:"netcheck_version"`
+	Kind            string            `json:"kind"` // "reverse"
+	IP              string            `json:"ip"`
+	StartedAt       time.Time         `json:"started_at"`
+	TookMS          int64             `json:"took_ms"`
+	Hostnames       []HostnameJSON    `json:"hostnames,omitempty"`
+	SourceErrors    map[string]string `json:"source_errors,omitempty"`
+	SourceDisabled  []string          `json:"source_disabled,omitempty"`
+	Error           string            `json:"error,omitempty"`
+}
+
+// HostnameJSON is one reverse-IP hit plus the sources that reported it.
+type HostnameJSON struct {
+	Name    string   `json:"name"`
+	Sources []string `json:"sources"`
+}
+
+// ArchJSON is the JSON representation of a `netcheck arch` Wayback lookup.
+type ArchJSON struct {
+	NetcheckVersion string         `json:"netcheck_version"`
+	Kind            string         `json:"kind"` // "arch"
+	Domain          string         `json:"domain"`
+	StartedAt       time.Time      `json:"started_at"`
+	TookMS          int64          `json:"took_ms"`
+	Total           int            `json:"total"`
+	UniqueURLs      int            `json:"unique_urls"`
+	First           *time.Time     `json:"first,omitempty"`
+	Last            *time.Time     `json:"last,omitempty"`
+	RecentSamples   []SnapshotJSON `json:"recent_samples,omitempty"`
+	Error           string         `json:"error,omitempty"`
+}
+
+// SnapshotJSON is one indexed capture from the Wayback CDX.
+type SnapshotJSON struct {
+	Timestamp time.Time `json:"timestamp"`
+	URL       string    `json:"url"`
+	Status    int       `json:"status,omitempty"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -301,6 +418,148 @@ func ToIPInfoJSON(target string, startedAt time.Time, fromHost bool, resolveTook
 	}
 	for _, d := range details {
 		out.Details = append(out.Details, ipDetailsToJSON(d))
+	}
+	return out
+}
+
+// ToHeadersJSON projects a secheaders.Result into HeadersJSON.
+func ToHeadersJSON(r secheaders.Result) HeadersJSON {
+	out := HeadersJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "headers",
+		URL:             r.URL,
+		FinalURL:        r.FinalURL,
+		Status:          r.Status,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, FindingJSON{
+			Name:    f.Name,
+			Value:   f.Value,
+			Grade:   string(f.Grade),
+			Comment: f.Comment,
+		})
+	}
+	p, w, m, i := r.Summary()
+	out.Summary = HeadersSummaryJSON{Pass: p, Weak: w, Missing: m, Info: i}
+	return out
+}
+
+// ToTechJSON projects a techdetect.Result into TechJSON.
+func ToTechJSON(r techdetect.Result) TechJSON {
+	out := TechJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "tech",
+		URL:             r.URL,
+		FinalURL:        r.FinalURL,
+		Status:          r.Status,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, m := range r.Matches {
+		out.Matches = append(out.Matches, TechMatch{
+			Name:       m.Name,
+			Category:   string(m.Category),
+			Version:    m.Version,
+			Confidence: m.Confidence,
+			Evidence:   m.Evidence,
+		})
+	}
+	return out
+}
+
+// ToSubsJSON projects a subenum.Result into SubsJSON.
+func ToSubsJSON(r subenum.Result) SubsJSON {
+	out := SubsJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "subs",
+		Domain:          r.Domain,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, s := range r.Subdomains {
+		out.Subdomains = append(out.Subdomains, SubdomainJSON{
+			Name:     s.Name,
+			Wildcard: s.Wildcard,
+			Sources:  s.Sources,
+		})
+	}
+	if len(r.SourceErrors) > 0 {
+		out.SourceErrors = r.SourceErrors
+	}
+	return out
+}
+
+// ToReverseJSON projects a reverseip.Result into ReverseJSON.
+func ToReverseJSON(r reverseip.Result) ReverseJSON {
+	out := ReverseJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "reverse",
+		IP:              r.IP,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, h := range r.Hostnames {
+		out.Hostnames = append(out.Hostnames, HostnameJSON{
+			Name:    h.Name,
+			Sources: h.Sources,
+		})
+	}
+	if len(r.SourceErrors) > 0 {
+		out.SourceErrors = r.SourceErrors
+	}
+	if len(r.SourceDisabled) > 0 {
+		out.SourceDisabled = r.SourceDisabled
+	}
+	return out
+}
+
+// ToArchJSON projects a wayback.Result into ArchJSON.
+func ToArchJSON(r wayback.Result) ArchJSON {
+	out := ArchJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "arch",
+		Domain:          r.Domain,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+		Total:           r.Total,
+		UniqueURLs:      r.UniqueURLs,
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	if !r.First.IsZero() {
+		f := r.First
+		out.First = &f
+	}
+	if !r.Last.IsZero() {
+		l := r.Last
+		out.Last = &l
+	}
+	for _, s := range r.RecentSamples {
+		out.RecentSamples = append(out.RecentSamples, SnapshotJSON{
+			Timestamp: s.Timestamp,
+			URL:       s.URL,
+			Status:    s.Status,
+		})
 	}
 	return out
 }

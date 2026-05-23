@@ -304,3 +304,200 @@ func formatCDN(match ipinfo.CDNMatch) string {
 	}
 	return fmt.Sprintf("%s (%s confidence - %s)", match.Provider, match.Confidence, match.Reason)
 }
+
+// RenderHeaders writes the security-header audit as text.
+func RenderHeaders(w io.Writer, d HeadersJSON) {
+	fmt.Fprintln(w, "SECURITY HEADERS")
+	fmt.Fprintf(w, "URL:      %s\n", d.URL)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "Final:    %s\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "Status:   %d\n", d.Status)
+	}
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s audit failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	for _, f := range d.Findings {
+		fmt.Fprintf(w, "  %s %s\n", gradeText(f.Grade), f.Name)
+		if f.Value != "" {
+			fmt.Fprintf(w, "      value: %s\n", f.Value)
+		}
+		if f.Comment != "" {
+			fmt.Fprintf(w, "      note:  %s\n", f.Comment)
+		}
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Summary: %d pass · %d weak · %d missing · %d info\n",
+		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
+}
+
+// RenderReverse writes the reverse-IP result as text.
+func RenderReverse(w io.Writer, d ReverseJSON) {
+	fmt.Fprintln(w, "REVERSE IP LOOKUP")
+	fmt.Fprintf(w, "IP:       %s\n", d.IP)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s lookup failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Hostnames) == 0 {
+		fmt.Fprintln(w, "  (no hostnames found)")
+	} else {
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  HOSTNAME\tSOURCES")
+		for _, h := range d.Hostnames {
+			fmt.Fprintf(tw, "  %s\t%s\n", h.Name, strings.Join(h.Sources, ", "))
+		}
+		tw.Flush()
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Total: %d hostname(s)\n", len(d.Hostnames))
+	}
+
+	if len(d.SourceDisabled) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Disabled (no API key): %s\n", strings.Join(d.SourceDisabled, ", "))
+	}
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Source errors:")
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "  %s: %s\n", name, err)
+		}
+	}
+}
+
+// RenderArch writes the Wayback / archive.org result as text.
+func RenderArch(w io.Writer, d ArchJSON) {
+	fmt.Fprintln(w, "WAYBACK ARCHIVE")
+	fmt.Fprintf(w, "Domain:   %s\n", d.Domain)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s lookup failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Total snapshots: %d\n", d.Total)
+	fmt.Fprintf(w, "Unique URLs:     %d\n", d.UniqueURLs)
+	if d.First != nil {
+		fmt.Fprintf(w, "First seen:      %s\n", d.First.Format("2006-01-02"))
+	}
+	if d.Last != nil {
+		fmt.Fprintf(w, "Last seen:       %s\n", d.Last.Format("2006-01-02"))
+	}
+
+	if len(d.RecentSamples) == 0 {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Recent snapshots (showing %d, newest first):\n", len(d.RecentSamples))
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  DATE\tSTATUS\tURL")
+	for _, s := range d.RecentSamples {
+		status := "-"
+		if s.Status > 0 {
+			status = fmt.Sprintf("%d", s.Status)
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\n", s.Timestamp.Format("2006-01-02"), status, s.URL)
+	}
+	tw.Flush()
+}
+
+// RenderSubs writes the subdomain enumeration result as text.
+func RenderSubs(w io.Writer, d SubsJSON) {
+	fmt.Fprintln(w, "SUBDOMAIN ENUMERATION")
+	fmt.Fprintf(w, "Domain:   %s\n", d.Domain)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s enumeration failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Subdomains) == 0 && len(d.SourceErrors) == len(allSubsSources()) {
+		fmt.Fprintln(w, "  (no subdomains found — every source errored)")
+	} else if len(d.Subdomains) == 0 {
+		fmt.Fprintln(w, "  (no subdomains found in CT logs)")
+	} else {
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  NAME\tSOURCES")
+		for _, s := range d.Subdomains {
+			fmt.Fprintf(tw, "  %s\t%s\n", s.Name, strings.Join(s.Sources, ", "))
+		}
+		tw.Flush()
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Total: %d subdomain(s)\n", len(d.Subdomains))
+	}
+
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Source errors:")
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "  %s: %s\n", name, err)
+		}
+	}
+}
+
+// allSubsSources returns the names of every CT source we query — used by the
+// text renderer to decide whether "no results" means "no findings" vs
+// "everything was down". The strings here have to match the Name()
+// returned by each subenum.Source implementation.
+func allSubsSources() []string { return []string{"crt.sh", "certspotter"} }
+
+// RenderTech writes the tech-detection result as text.
+func RenderTech(w io.Writer, d TechJSON) {
+	fmt.Fprintln(w, "TECH FINGERPRINT")
+	fmt.Fprintf(w, "URL:      %s\n", d.URL)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "Final:    %s\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "Status:   %d\n", d.Status)
+	}
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s detect failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Matches) == 0 {
+		fmt.Fprintln(w, "  (no known technologies fingerprinted)")
+		return
+	}
+
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  NAME\tCATEGORY\tVERSION\tCONFIDENCE\tEVIDENCE")
+	for _, m := range d.Matches {
+		ver := m.Version
+		if ver == "" {
+			ver = "-"
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", m.Name, m.Category, ver, m.Confidence, m.Evidence)
+	}
+	tw.Flush()
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Total: %d match(es)\n", len(d.Matches))
+}
+
+// gradeText renders the grade as a fixed-width tag for the text report.
+func gradeText(g string) string {
+	switch g {
+	case "pass":
+		return "[PASS   ]"
+	case "weak":
+		return "[WEAK   ]"
+	case "missing":
+		return "[MISSING]"
+	case "info":
+		return "[INFO   ]"
+	default:
+		return "[       ]"
+	}
+}

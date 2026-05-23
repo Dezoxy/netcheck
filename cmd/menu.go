@@ -75,6 +75,36 @@ func RunMenu(args []string) {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
 			s = res
+		case "5":
+			res, err := menuHeaders(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
+		case "6":
+			res, err := menuTech(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
+		case "7":
+			res, err := menuSubs(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
+		case "8":
+			res, err := menuReverse(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
+		case "9":
+			res, err := menuArch(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
@@ -94,6 +124,11 @@ func printMenu(w io.Writer) {
 	fmt.Fprintln(w, "  2) DNS compare across resolvers")
 	fmt.Fprintln(w, "  3) Route (traceroute + per-hop ASN)")
 	fmt.Fprintln(w, "  4) IP / ASN info")
+	fmt.Fprintln(w, "  5) Security headers audit")
+	fmt.Fprintln(w, "  6) Tech fingerprint (CMS / framework / server / CDN)")
+	fmt.Fprintln(w, "  7) Subdomain enumeration (CT logs)")
+	fmt.Fprintln(w, "  8) Reverse IP lookup (other hostnames on this IP)")
+	fmt.Fprintln(w, "  9) Wayback / archive.org historical snapshots")
 	fmt.Fprintln(w, "  q) Quit")
 	fmt.Fprintln(w)
 }
@@ -332,6 +367,182 @@ func menuIP(in *bufio.Reader, out io.Writer) (*savable, error) {
 				report.RenderIPInfoHTML(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
 			default:
 				report.RenderIPInfo(w, label, details, fromHost, resolveTook)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuHeaders prompts for a URL and runs the security-header audit.
+func menuHeaders(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "URL: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := loadedConfig.Timeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildHeaders(ctx, strings.TrimSpace(raw), timeout, false)
+	report.RenderHeaders(out, j)
+
+	return &savable{
+		Kind: "headers",
+		Host: j.URL,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderHeadersMD(w, j)
+			case FormatHTML:
+				report.RenderHeadersHTML(w, j)
+			default:
+				report.RenderHeaders(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuTech prompts for a URL and runs the tech-fingerprint detection.
+func menuTech(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "URL: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := loadedConfig.Timeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildTech(ctx, strings.TrimSpace(raw), timeout, false)
+	report.RenderTech(out, j)
+
+	return &savable{
+		Kind: "tech",
+		Host: j.URL,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderTechMD(w, j)
+			case FormatHTML:
+				report.RenderTechHTML(w, j)
+			default:
+				report.RenderTech(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuSubs prompts for a domain and runs CT-log subdomain enumeration.
+func menuSubs(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "Domain: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := subsDefaultTimeout(loadedConfig.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildSubs(ctx, strings.TrimSpace(raw), timeout)
+	report.RenderSubs(out, j)
+
+	return &savable{
+		Kind: "subs",
+		Host: j.Domain,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderSubsMD(w, j)
+			case FormatHTML:
+				report.RenderSubsHTML(w, j)
+			default:
+				report.RenderSubs(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuReverse prompts for an IP and runs reverse-IP enumeration.
+func menuReverse(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "IP: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := reverseDefaultTimeout(loadedConfig.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildReverse(ctx, strings.TrimSpace(raw), timeout)
+	report.RenderReverse(out, j)
+
+	return &savable{
+		Kind: "reverse",
+		Host: j.IP,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderReverseMD(w, j)
+			case FormatHTML:
+				report.RenderReverseHTML(w, j)
+			default:
+				report.RenderReverse(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuArch prompts for a domain and runs the Wayback CDX lookup.
+func menuArch(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "Domain: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := archDefaultTimeout(loadedConfig.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildArch(ctx, strings.TrimSpace(raw), timeout)
+	report.RenderArch(out, j)
+
+	return &savable{
+		Kind: "arch",
+		Host: j.Domain,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderArchMD(w, j)
+			case FormatHTML:
+				report.RenderArchHTML(w, j)
+			default:
+				report.RenderArch(w, j)
 			}
 			return nil
 		},

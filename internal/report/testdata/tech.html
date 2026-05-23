@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
-<title>netcheck dns — example.com</title>
+<title>netcheck tech — https://example.com/</title>
 <style>body { font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1.5em; color: #1d1d1f; }
 h1 { font-size: 1.6em; margin: 0 0 0.2em; }
 h2 { font-size: 1.15em; margin-top: 1.6em; border-bottom: 1px solid #e0e0e6; padding-bottom: 0.2em; }
@@ -22,18 +22,16 @@ ul.kv li b { display: inline-block; min-width: 130px; color: #4a4a52; font-weigh
 .warn { background: #fff8e1; border-left: 3px solid #f4b400; padding: 0.5em 0.8em; margin: 0.8em 0; font-size: 0.95em; }
 </style>
 </head><body>
-<h1>netcheck dns compare</h1>
-<p class="meta">Host: <code>example.com</code> · 2026-05-21T19:30:45Z</p>
-<h2>A records</h2>
-<table><thead><tr><th>Resolver</th><th>Address</th><th>Time</th><th>Answer</th></tr></thead><tbody>
-<tr><td>Cloudflare</td><td><code>1.1.1.1:53</code></td><td>12ms</td><td><code>1.1.1.1</code></td></tr>
-<tr><td>Google</td><td><code>8.8.8.8:53</code></td><td>18ms</td><td><code>1.1.1.1</code></td></tr>
-<tr><td>Quad9</td><td><code>9.9.9.9:53</code></td><td>14ms</td><td><code>2.2.2.2</code></td></tr>
-<tr><td>Failing</td><td><code>0.0.0.0:53</code></td><td>5000ms</td><td class="fail">error: timeout</td></tr>
+<h1>netcheck tech</h1>
+<p class="meta">URL: <code>https://example.com/</code> · 2026-05-21T19:30:45Z · 312ms · status 200</p>
+<p><b>5 match(es)</b></p>
+<table>
+<thead><tr><th>Technology</th><th>Category</th><th>Version</th><th>Confidence</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>WordPress</td><td><code>cms</code></td><td>6.4.2</td><td><span class="ok">high</span></td><td>&lt;meta name=&#34;generator&#34; content=&#34;WordPress ...&#34;&gt;</td></tr>
+<tr><td>PHP</td><td><code>language</code></td><td>8.2.1</td><td><span class="ok">high</span></td><td>X-Powered-By: PHP/8.2.1</td></tr>
+<tr><td>nginx</td><td><code>server</code></td><td>1.25.3</td><td><span class="ok">high</span></td><td>Server: nginx/1.25.3</td></tr>
+<tr><td>Cloudflare</td><td><code>cdn</code></td><td><span class="muted">—</span></td><td><span class="ok">high</span></td><td>CF-Ray header</td></tr>
+<tr><td>jQuery</td><td><code>library</code></td><td>3.6.0</td><td><span class="weak">medium</span></td><td>jquery*.js in HTML</td></tr>
 </tbody></table>
-<p><b>Verdict:</b> resolvers disagree (2 distinct answer sets)</p>
-<ul>
-<li>Set 1 (Cloudflare, Google): <code>1.1.1.1</code></li>
-<li>Set 2 (Quad9): <code>2.2.2.2</code></li>
-</ul>
 </body></html>
