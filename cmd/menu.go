@@ -81,6 +81,12 @@ func RunMenu(args []string) {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
 			s = res
+		case "6":
+			res, err := menuTech(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
@@ -101,6 +107,7 @@ func printMenu(w io.Writer) {
 	fmt.Fprintln(w, "  3) Route (traceroute + per-hop ASN)")
 	fmt.Fprintln(w, "  4) IP / ASN info")
 	fmt.Fprintln(w, "  5) Security headers audit")
+	fmt.Fprintln(w, "  6) Tech fingerprint (CMS / framework / server / CDN)")
 	fmt.Fprintln(w, "  q) Quit")
 	fmt.Fprintln(w)
 }
@@ -376,6 +383,43 @@ func menuHeaders(in *bufio.Reader, out io.Writer) (*savable, error) {
 				report.RenderHeadersHTML(w, j)
 			default:
 				report.RenderHeaders(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuTech prompts for a URL and runs the tech-fingerprint detection.
+func menuTech(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "URL: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := loadedConfig.Timeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildTech(ctx, strings.TrimSpace(raw), timeout, false)
+	report.RenderTech(out, j)
+
+	return &savable{
+		Kind: "tech",
+		Host: j.URL,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderTechMD(w, j)
+			case FormatHTML:
+				report.RenderTechHTML(w, j)
+			default:
+				report.RenderTech(w, j)
 			}
 			return nil
 		},

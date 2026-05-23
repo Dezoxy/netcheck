@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>netcheck tech — https://example.com/</title>
+<style>body { font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 900px; margin: 2em auto; padding: 0 1.5em; color: #1d1d1f; }
+h1 { font-size: 1.6em; margin: 0 0 0.2em; }
+h2 { font-size: 1.15em; margin-top: 1.6em; border-bottom: 1px solid #e0e0e6; padding-bottom: 0.2em; }
+p.meta { color: #6a6a72; margin-top: 0; }
+table { border-collapse: collapse; width: 100%; margin: 0.6em 0 1.2em; }
+th, td { border: 1px solid #e0e0e6; padding: 6px 10px; text-align: left; vertical-align: top; }
+th { background: #f7f7fa; font-weight: 600; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+code { background: #f4f4f8; padding: 1px 5px; border-radius: 3px; }
+.ok { color: #0a7d28; font-weight: 600; }
+.fail { color: #b00020; font-weight: 600; }
+.weak { color: #b86200; font-weight: 600; }
+.muted { color: #8a8a92; }
+.info { color: #555560; font-weight: 600; }
+ul.kv { list-style: none; padding: 0; margin: 0.4em 0 1em; }
+ul.kv li { margin: 0.15em 0; }
+ul.kv li b { display: inline-block; min-width: 130px; color: #4a4a52; font-weight: 500; }
+.warn { background: #fff8e1; border-left: 3px solid #f4b400; padding: 0.5em 0.8em; margin: 0.8em 0; font-size: 0.95em; }
+</style>
+</head><body>
+<h1>netcheck tech</h1>
+<p class="meta">URL: <code>https://example.com/</code> · 2026-05-21T19:30:45Z · 312ms · status 200</p>
+<p><b>5 match(es)</b></p>
+<table>
+<thead><tr><th>Technology</th><th>Category</th><th>Version</th><th>Confidence</th><th>Evidence</th></tr></thead>
+<tbody>
+<tr><td>WordPress</td><td><code>cms</code></td><td>6.4.2</td><td><span class="ok">high</span></td><td>&lt;meta name=&#34;generator&#34; content=&#34;WordPress ...&#34;&gt;</td></tr>
+<tr><td>PHP</td><td><code>language</code></td><td>8.2.1</td><td><span class="ok">high</span></td><td>X-Powered-By: PHP/8.2.1</td></tr>
+<tr><td>nginx</td><td><code>server</code></td><td>1.25.3</td><td><span class="ok">high</span></td><td>Server: nginx/1.25.3</td></tr>
+<tr><td>Cloudflare</td><td><code>cdn</code></td><td><span class="muted">—</span></td><td><span class="ok">high</span></td><td>CF-Ray header</td></tr>
+<tr><td>jQuery</td><td><code>library</code></td><td>3.6.0</td><td><span class="weak">medium</span></td><td>jquery*.js in HTML</td></tr>
+</tbody></table>
+</body></html>

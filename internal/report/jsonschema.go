@@ -12,6 +12,7 @@ import (
 	"netcheck/internal/route"
 	"netcheck/internal/secheaders"
 	"netcheck/internal/target"
+	"netcheck/internal/techdetect"
 )
 
 // SchemaVersion is the netcheck JSON schema version. Bump on any breaking
@@ -246,6 +247,28 @@ type HeadersSummaryJSON struct {
 	Info    int `json:"info"`
 }
 
+// TechJSON is the JSON representation of a `netcheck tech` fingerprint run.
+type TechJSON struct {
+	NetcheckVersion string      `json:"netcheck_version"`
+	Kind            string      `json:"kind"` // "tech"
+	URL             string      `json:"url"`
+	FinalURL        string      `json:"final_url,omitempty"`
+	Status          int         `json:"status,omitempty"`
+	StartedAt       time.Time   `json:"started_at"`
+	TookMS          int64       `json:"took_ms"`
+	Matches         []TechMatch `json:"matches,omitempty"`
+	Error           string      `json:"error,omitempty"`
+}
+
+// TechMatch is one detected technology.
+type TechMatch struct {
+	Name       string `json:"name"`
+	Category   string `json:"category"`
+	Version    string `json:"version,omitempty"`
+	Confidence string `json:"confidence"`
+	Evidence   string `json:"evidence,omitempty"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -361,6 +384,33 @@ func ToHeadersJSON(r secheaders.Result) HeadersJSON {
 	}
 	p, w, m, i := r.Summary()
 	out.Summary = HeadersSummaryJSON{Pass: p, Weak: w, Missing: m, Info: i}
+	return out
+}
+
+// ToTechJSON projects a techdetect.Result into TechJSON.
+func ToTechJSON(r techdetect.Result) TechJSON {
+	out := TechJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "tech",
+		URL:             r.URL,
+		FinalURL:        r.FinalURL,
+		Status:          r.Status,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, m := range r.Matches {
+		out.Matches = append(out.Matches, TechMatch{
+			Name:       m.Name,
+			Category:   string(m.Category),
+			Version:    m.Version,
+			Confidence: m.Confidence,
+			Evidence:   m.Evidence,
+		})
+	}
 	return out
 }
 

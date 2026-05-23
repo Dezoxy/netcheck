@@ -78,6 +78,7 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck route <host>` | What's the network path to this host, and who owns each hop? |
 | `netcheck ip <ip\|host>` | Who owns this IP? What's its ASN, reverse DNS, RDAP record, CDN affiliation? |
 | `netcheck headers <url>` | Is the site sending the security headers (HSTS, CSP, X-Frame-Options, etc.) it should be? |
+| `netcheck tech <url>` | What's behind this site? CMS, JS framework, server, CDN, language — fingerprinted from one passive GET. |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
@@ -141,6 +142,21 @@ Grades the major security-relevant response headers (HSTS, Content-Security-Poli
 X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) and
 flags information-disclosure headers (Server, X-Powered-By). One HTTP GET — passive,
 indistinguishable from a normal browser visit.
+
+### Tech fingerprint
+
+```bash
+netcheck tech https://wordpress.org
+netcheck tech --output json https://shopify.com | jq '.matches[] | {name, category}'
+```
+
+Identifies the stack from one passive GET — CMS (WordPress, Drupal, Ghost, Magento,
+Shopify, WooCommerce), JS framework (Next.js, Nuxt, Angular, React, Vue), server
+(nginx, Apache, Caddy, IIS, LiteSpeed), CDN (Cloudflare, Fastly, CloudFront, Akamai,
+BunnyCDN), language / web framework (PHP, Laravel, Django, Rails, ASP.NET), and
+common libraries (jQuery, Bootstrap). Each match comes with a confidence tier and the
+evidence that triggered it. Catalogue grows over time — not part of the v1.x JSON
+stability promise.
 
 ### Pipe into other tools
 

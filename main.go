@@ -10,6 +10,7 @@ import (
 	"netcheck/internal/check"
 	"netcheck/internal/ipinfo"
 	"netcheck/internal/secheaders"
+	"netcheck/internal/techdetect"
 )
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 	ipinfo.SetUserAgent(ua)
 	check.SetUserAgent(ua)
 	secheaders.SetUserAgent(ua)
+	techdetect.SetUserAgent(ua)
 
 	cmd.Run()
 }

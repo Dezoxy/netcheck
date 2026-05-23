@@ -355,3 +355,37 @@ func gradeMD(g string) string {
 func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
+
+// RenderTechMD writes the tech-detection result as Markdown.
+func RenderTechMD(w io.Writer, d TechJSON) {
+	fmt.Fprintf(w, "# netcheck tech — `%s`\n\n", d.URL)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "- **Final URL:** `%s`\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "- **Status:** %d\n", d.Status)
+	}
+	if d.Error != "" {
+		fmt.Fprintf(w, "\n> **Detect failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Matches:** %d\n\n", len(d.Matches))
+
+	if len(d.Matches) == 0 {
+		fmt.Fprintln(w, "_(no known technologies fingerprinted)_")
+		return
+	}
+
+	fmt.Fprintln(w, "| Technology | Category | Version | Confidence | Evidence |")
+	fmt.Fprintln(w, "|---|---|---|---|---|")
+	for _, m := range d.Matches {
+		ver := m.Version
+		if ver == "" {
+			ver = "—"
+		}
+		fmt.Fprintf(w, "| %s | `%s` | %s | %s | %s |\n",
+			m.Name, m.Category, ver, m.Confidence, mdEscapePipes(m.Evidence))
+	}
+	fmt.Fprintln(w)
+}

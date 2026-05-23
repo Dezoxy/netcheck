@@ -388,6 +388,83 @@ func TestRenderHeadersHTMLErr(t *testing.T) {
 	}
 }
 
+// ─── Tech ─────────────────────────────────────────────────────────────────
+
+func fixtureTech() TechJSON {
+	return TechJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "tech",
+		URL:             "https://example.com/",
+		FinalURL:        "https://example.com/",
+		Status:          200,
+		StartedAt:       fixedTime,
+		TookMS:          312,
+		Matches: []TechMatch{
+			{Name: "WordPress", Category: "cms", Version: "6.4.2", Confidence: "high", Evidence: `<meta name="generator" content="WordPress ...">`},
+			{Name: "PHP", Category: "language", Version: "8.2.1", Confidence: "high", Evidence: "X-Powered-By: PHP/8.2.1"},
+			{Name: "nginx", Category: "server", Version: "1.25.3", Confidence: "high", Evidence: "Server: nginx/1.25.3"},
+			{Name: "Cloudflare", Category: "cdn", Confidence: "high", Evidence: "CF-Ray header"},
+			{Name: "jQuery", Category: "library", Version: "3.6.0", Confidence: "medium", Evidence: "jquery*.js in HTML"},
+		},
+	}
+}
+
+func TestRenderTechText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderTech(&buf, fixtureTech())
+	assertGolden(t, "tech.txt", buf.Bytes())
+}
+
+func TestRenderTechMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderTechMD(&buf, fixtureTech())
+	assertGolden(t, "tech.md", buf.Bytes())
+}
+
+func TestRenderTechHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderTechHTML(&buf, fixtureTech())
+	assertGolden(t, "tech.html", buf.Bytes())
+}
+
+func TestRenderTechEmpty(t *testing.T) {
+	d := TechJSON{URL: "https://nothing.example/", StartedAt: fixedTime}
+	var buf bytes.Buffer
+	RenderTech(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no known technologies")) {
+		t.Errorf("empty text path should say 'no known technologies':\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no known technologies")) {
+		t.Errorf("empty md path should say so:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no known technologies")) {
+		t.Errorf("empty html path should say so:\n%s", buf.String())
+	}
+}
+
+func TestRenderTechErr(t *testing.T) {
+	d := TechJSON{URL: "https://nope.invalid/", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderTech(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("detect failed")) {
+		t.Errorf("text error path should mention 'detect failed':\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Detect failed")) {
+		t.Errorf("md error path should mention 'Detect failed':\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderTechHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Detect failed")) {
+		t.Errorf("html error path should mention 'Detect failed':\n%s", buf.String())
+	}
+}
+
 // ─── JSON ─────────────────────────────────────────────────────────────────
 
 func TestWriteJSON(t *testing.T) {

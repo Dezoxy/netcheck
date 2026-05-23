@@ -336,6 +336,42 @@ func RenderHeaders(w io.Writer, d HeadersJSON) {
 		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
 }
 
+// RenderTech writes the tech-detection result as text.
+func RenderTech(w io.Writer, d TechJSON) {
+	fmt.Fprintln(w, "TECH FINGERPRINT")
+	fmt.Fprintf(w, "URL:      %s\n", d.URL)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "Final:    %s\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "Status:   %d\n", d.Status)
+	}
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s detect failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Matches) == 0 {
+		fmt.Fprintln(w, "  (no known technologies fingerprinted)")
+		return
+	}
+
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  NAME\tCATEGORY\tVERSION\tCONFIDENCE\tEVIDENCE")
+	for _, m := range d.Matches {
+		ver := m.Version
+		if ver == "" {
+			ver = "-"
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\t%s\n", m.Name, m.Category, ver, m.Confidence, m.Evidence)
+	}
+	tw.Flush()
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Total: %d match(es)\n", len(d.Matches))
+}
+
 // gradeText renders the grade as a fixed-width tag for the text report.
 func gradeText(g string) string {
 	switch g {

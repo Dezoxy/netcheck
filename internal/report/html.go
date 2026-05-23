@@ -378,6 +378,66 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderTechHTML writes a single-file HTML rendering of the tech detection.
+func RenderTechHTML(w io.Writer, d TechJSON) {
+	htmlHead(w, "netcheck tech — "+d.URL)
+	fmt.Fprintf(w, "<h1>netcheck tech</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">URL: <code>%s</code> · %s · %dms",
+		html.EscapeString(d.URL), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, " · final <code>%s</code>", html.EscapeString(d.FinalURL))
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, " · status %d", d.Status)
+	}
+	fmt.Fprintln(w, "</p>")
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Detect failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>%d match(es)</b></p>\n", len(d.Matches))
+
+	if len(d.Matches) == 0 {
+		fmt.Fprintln(w, "<p class=\"muted\">(no known technologies fingerprinted)</p>")
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Technology</th><th>Category</th><th>Version</th><th>Confidence</th><th>Evidence</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, m := range d.Matches {
+		ver := html.EscapeString(m.Version)
+		if ver == "" {
+			ver = "<span class=\"muted\">—</span>"
+		}
+		fmt.Fprintf(w, "<tr><td>%s</td><td><code>%s</code></td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+			html.EscapeString(m.Name),
+			html.EscapeString(m.Category),
+			ver,
+			confidenceHTML(m.Confidence),
+			html.EscapeString(m.Evidence))
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+	htmlTail(w)
+}
+
+func confidenceHTML(c string) string {
+	switch c {
+	case "high":
+		return `<span class="ok">high</span>`
+	case "medium":
+		return `<span class="weak">medium</span>`
+	case "low":
+		return `<span class="muted">low</span>`
+	default:
+		return html.EscapeString(c)
+	}
+}
+
 func gradeHTML(g string) string {
 	switch g {
 	case "pass":
