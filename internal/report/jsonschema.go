@@ -338,17 +338,17 @@ type SnapshotJSON struct {
 
 // TLSAuditJSON is the JSON representation of a `netcheck tls` audit.
 type TLSAuditJSON struct {
-	NetcheckVersion string                  `json:"netcheck_version"`
-	Kind            string                  `json:"kind"` // "tls-audit"
-	Host            string                  `json:"host"`
-	Port            string                  `json:"port"`
-	StartedAt       time.Time               `json:"started_at"`
-	TookMS          int64                   `json:"took_ms"`
-	Protocols       []TLSProtocolJSON       `json:"protocols,omitempty"`
-	Ciphers         []TLSCipherJSON         `json:"ciphers,omitempty"`
-	Cert            *TLSCertJSON            `json:"cert,omitempty"`
-	Findings        []TLSAuditFindingJSON   `json:"findings,omitempty"`
-	Error           string                  `json:"error,omitempty"`
+	NetcheckVersion string                `json:"netcheck_version"`
+	Kind            string                `json:"kind"` // "tls-audit"
+	Host            string                `json:"host"`
+	Port            string                `json:"port"`
+	StartedAt       time.Time             `json:"started_at"`
+	TookMS          int64                 `json:"took_ms"`
+	Protocols       []TLSProtocolJSON     `json:"protocols,omitempty"`
+	Ciphers         []TLSCipherJSON       `json:"ciphers,omitempty"`
+	Cert            *TLSCertJSON          `json:"cert,omitempty"`
+	Findings        []TLSAuditFindingJSON `json:"findings,omitempty"`
+	Error           string                `json:"error,omitempty"`
 }
 
 // TLSProtocolJSON is one TLS version probe result.
@@ -413,15 +413,15 @@ type TakeoverFindingJSON struct {
 
 // PortScanJSON is the JSON representation of a `netcheck ports` scan.
 type PortScanJSON struct {
-	NetcheckVersion string         `json:"netcheck_version"`
-	Kind            string         `json:"kind"` // "ports"
-	Host            string         `json:"host"`
-	IP              string         `json:"ip,omitempty"`
-	StartedAt       time.Time      `json:"started_at"`
-	TookMS          int64          `json:"took_ms"`
-	Ports           []PortJSON     `json:"ports,omitempty"` // open ports only
-	Stats           PortStatsJSON  `json:"stats"`
-	Error           string         `json:"error,omitempty"`
+	NetcheckVersion string        `json:"netcheck_version"`
+	Kind            string        `json:"kind"` // "ports"
+	Host            string        `json:"host"`
+	IP              string        `json:"ip,omitempty"`
+	StartedAt       time.Time     `json:"started_at"`
+	TookMS          int64         `json:"took_ms"`
+	Ports           []PortJSON    `json:"ports,omitempty"` // open ports only
+	Stats           PortStatsJSON `json:"stats"`
+	Error           string        `json:"error,omitempty"`
 }
 
 // PortJSON is one open port.

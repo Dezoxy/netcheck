@@ -951,7 +951,7 @@ The "stop adding things and ship what you have" release.
 - `.gitignore` + Makefile guards against macOS Finder / iCloud conflict
   copies leaking into `internal/webui/dist/`
 
-## v1.4 — Passive recon (planned)
+## v1.4 — Passive recon (shipped)
 
 The pentest-tooling direction starts here. Everything in v1.4 is **passive**:
 public-data lookups only, no authenticated probes, no active scanning of the
@@ -991,13 +991,64 @@ Suggested shipping order — smallest blast radius first:
 4. `reverse` — multiple sources, dedupe logic
 5. `arch` — archive.org pagination is the only fiddly bit
 
-## v1.5+ — Unscheduled
+## v1.5 — Active scanning (planned)
 
-Held back until v1.4 is solid and the ethics-gate story for active
-scanning is documented:
+The pentest direction graduates to commands that actually probe the
+target. All four require explicit user confirmation (`--i-have-authorization`
+flag or `NETCHECK_AUTHORIZED=1` env var) before doing anything. The
+refusal banner names the command, both opt-in mechanisms, and points
+the user at [docs/ETHICS.md](ETHICS.md) for what "authorized" means.
 
-- Active scanning suite (`ports`, `tls`, `enum`, `takeover`) — requires
-  `--i-have-authorization` gate + `docs/ETHICS.md`
+| Command | What it does | Probe shape |
+|---|---|---|
+| `netcheck tls <host>` | Probes every TLS version (1.0–1.3) and every cipher suite Go knows about against the target. Grades deprecated protocols, weak ciphers, expired/expiring/self-signed certs. | ~30 TCP+TLS handshakes, parallel, cipher phase capped at 10 concurrent. |
+| `netcheck takeover <domain>` | Resolves CNAME, matches against a built-in catalog of takeover-able services (GitHub Pages, S3, Heroku, Azure, Shopify, Fastly, Bitbucket Cloud, Ghost), and verifies with one HTTP GET. Verdicts: vulnerable / unverifiable / safe / unknown. | 1 DNS lookup + 1 HTTP GET. Gated despite the small surface because the OUTPUT identifies a vulnerability with exploit-ready detail. |
+| `netcheck ports <host>` | TCP connect scan, default top-100 nmap-ordered ports. Open ports annotated with service hints from a builtin map. | Parallel TCP handshakes (50-way default). No SYN scan, no UDP. |
+| `netcheck enum <url>` | HTTP path enumeration against a builtin or user-supplied wordlist. Categorizes by status: found / redirect / blocked / auth-required / server-error. 404s and 410s are dropped. | One HTTP GET per wordlist entry (10-way default). Builtin list is ~70 high-signal paths; `--wordlist` overrides. |
+
+Design constraints:
+
+- Authorization gate is enforced at the CLI layer (`cmd/authz.go`). The
+  inner Go packages (`internal/tlsaudit`, `takeover`, `portscan`,
+  `pathenum`) have no notion of authorization — they're library code
+  callable from tests and a future HTTP API surface; the gate is the
+  CLI's job. This is the standard "guard at the entry point" pattern.
+- Refusal exit code is `2` (bad invocation), same as missing positional
+  arguments. The refusal banner is human-readable, not part of the
+  stable contract. The flag/env-var existence and exit code ARE part
+  of the contract — see STABILITY.md.
+- New JSON `"kind"` discriminators: `"tls-audit"`, `"takeover"`,
+  `"ports"`, `"enum"`. Additive — no `SchemaVersion` bump.
+- No raw-socket dependence. SYN scans, ICMP active probing, and
+  similar require root and unsanitized OS dependencies. We stay in
+  the `net.Dial` happy path.
+- `internal/tlsaudit` and `internal/portscan` don't have a SetUserAgent
+  hook — they speak raw TCP/TLS, no HTTP headers to set. Other v1.5
+  packages do.
+
+Suggested shipping order — same logic as v1.4, smallest blast radius
+first; this is the order the implementation went:
+
+1. **Ethics gate + ETHICS.md** — the prerequisite for everything else.
+2. **`tls`** — well-defined finite probe surface, no wordlist or catalog
+   to maintain.
+3. **`takeover`** — small catalog (8 providers), the rest is fingerprint
+   matching.
+4. **`ports`** — straightforward parallel `net.Dial`; embedded port list.
+5. **`enum`** — needs the builtin wordlist + `--wordlist` plumbing.
+
+Verified during implementation:
+- `tls` against cloudflare.com revealed they accept TLS 1.0/1.1 and
+  several weak RSA-KEX ciphers. Real signal.
+- `takeover` against `www.netflix.com` returned "unknown" — their CNAME
+  is internal CDN, not in our catalog. Correct conservative output.
+- `ports --top 20 scanme.nmap.org` returned 22/ssh + 80/http exactly as
+  Nmap's "you may scan this" test target documents.
+- `enum http://scanme.nmap.org` found a 403 on `.svn/entries` — Apache
+  default config has the rule even though the file doesn't exist.
+
+## v1.6+ — Unscheduled
+
 - HTTP/3 / QUIC test
 - Prometheus exporter
 - TUI mode
@@ -1005,6 +1056,8 @@ scanning is documented:
 - Proxy / VPN detection
 - Browser-like mode (HSTS cache, cookies, HTTP/3, extensions)
 - Native TCP traceroute (avoids needing system `traceroute`)
+- Banner-grab option for `ports` (read first line of response from open
+  ports to identify service version)
 
 Out of scope, full stop — these are owned by other tools and adding them
 would dilute the netcheck story:

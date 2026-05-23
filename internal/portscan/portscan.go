@@ -117,9 +117,9 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 	}
 
 	type portRes struct {
-		port    int
-		open    bool
-		errStr  string
+		port   int
+		open   bool
+		errStr string
 	}
 	results := make([]portRes, len(ports))
 	sem := make(chan struct{}, conc)

@@ -134,10 +134,10 @@ var providers = []Provider{
 type Verdict string
 
 const (
-	VerdictVulnerable    Verdict = "vulnerable"     // matches signature → can be taken over
-	VerdictUnverifiable  Verdict = "unverifiable"   // CNAME matches provider but probe didn't confirm or failed
-	VerdictSafe          Verdict = "safe"           // CNAME matches provider but service responded with content
-	VerdictUnknown       Verdict = "unknown"        // no provider match (the CNAME points at something we don't track)
+	VerdictVulnerable   Verdict = "vulnerable"   // matches signature → can be taken over
+	VerdictUnverifiable Verdict = "unverifiable" // CNAME matches provider but probe didn't confirm or failed
+	VerdictSafe         Verdict = "safe"         // CNAME matches provider but service responded with content
+	VerdictUnknown      Verdict = "unknown"      // no provider match (the CNAME points at something we don't track)
 )
 
 // Finding is the takeover-check result for one CNAME chain.

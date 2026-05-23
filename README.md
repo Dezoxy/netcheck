@@ -82,6 +82,10 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck subs <domain>` | Which subdomains exist? Enumerated from Certificate Transparency logs (crt.sh + CertSpotter). |
 | `netcheck reverse <ip>` | What else lives on this IP? Reverse DNS + Hackertarget + optional Shodan (via API key in config). |
 | `netcheck arch <domain>` | What does the Wayback Machine remember about this domain? First/last seen, total snapshots, recent URLs. |
+| `netcheck tls <host>` | Full TLS audit: protocol matrix, cipher suites, cert chain, expiry. *Active — requires `--i-have-authorization`.* |
+| `netcheck takeover <domain>` | Is this domain's CNAME pointing at an unclaimed third-party service? *Active — requires `--i-have-authorization`.* |
+| `netcheck ports <host>` | Parallel TCP connect scan (top-100 by default). *Active — requires `--i-have-authorization`.* |
+| `netcheck enum <url>` | HTTP path enumeration against a wordlist. *Active — requires `--i-have-authorization`.* |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
@@ -202,6 +206,35 @@ the most-recent unique URLs the Wayback Machine has indexed. Useful for finding
 abandoned admin paths, old API endpoints, or historical hostnames that no longer
 resolve. No API key needed.
 
+### Active scanning (v1.5)
+
+**Active commands send traffic to the target.** They refuse to run unless you
+confirm authorization — pass `--i-have-authorization` (or set
+`NETCHECK_AUTHORIZED=1`). Running these against systems you do not own and do
+not have permission to test is illegal in most jurisdictions. See
+[docs/ETHICS.md](docs/ETHICS.md) for the legal landscape and what
+"authorized" means in this project.
+
+```bash
+# TLS audit — protocols, ciphers, cert chain.
+netcheck tls --i-have-authorization cloudflare.com
+
+# Subdomain takeover — checks the CNAME against a catalog of services
+# (GitHub Pages, S3, Heroku, Azure, Shopify, Fastly, Bitbucket Cloud, Ghost).
+netcheck takeover --i-have-authorization foo.example.com
+
+# TCP port scan (default: top-100 nmap-style ports, 50-way concurrent).
+netcheck ports --i-have-authorization scanme.nmap.org
+netcheck ports --i-have-authorization --ports 22,80,443,8000-8010 host.example.com
+
+# HTTP path enumeration (~70-entry builtin wordlist, or --wordlist file).
+netcheck enum --i-have-authorization https://target.example.com
+netcheck enum --i-have-authorization --wordlist /path/to/SecLists/Discovery/Web-Content/common.txt https://target.example.com
+```
+
+Once you've thought about it, `export NETCHECK_AUTHORIZED=1` for the session
+instead of typing `--i-have-authorization` on every call.
+
 ### Pipe into other tools
 
 ```bash
@@ -304,7 +337,8 @@ The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes 
 | v1.1.0 | shipped | Local React/PWA workbench via `netcheck app`; same full-check Go engine exposed through the local JSON API. |
 | v1.2.0 | shipped | Web app: DNS / Route / IP tabs wired end-to-end, saved-reports CRUD, recent rerun |
 | v1.3.x | shipped | Build & release hardening: `make app` leaves `./bin/netcheck`, npm-ci stamp, goreleaser-in-same-workflow as release-please |
-| **v1.4** | **planned** | **Passive recon: `subs` (CT logs), `reverse` (reverse DNS / Hackertarget), `tech` (Wappalyzer-style fingerprint), `headers` (security-header report card), `arch` (archive.org CDX)** |
-| v1.5+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode, active scanning (ports / TLS audit / path enum / takeover detection) |
+| v1.4 | shipped | Passive recon: `subs` (CT logs), `reverse` (reverse DNS / Hackertarget / optional Shodan), `tech` (Wappalyzer-style), `headers` (security-header report card), `arch` (archive.org CDX) |
+| **v1.5** | **planned** | **Active scanning behind an `--i-have-authorization` gate + [ETHICS.md](docs/ETHICS.md): `tls` (protocol/cipher matrix audit), `takeover` (CNAME-takeover detection), `ports` (parallel TCP connect scan), `enum` (HTTP path wordlist)** |
+| v1.6+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
 
 </details>

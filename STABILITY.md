@@ -16,11 +16,12 @@ These flag names, their semantics, and the commands they're attached to are stab
 
 | Flag | Commands | Behavior |
 |---|---|---|
-| `--config <path>` | full, dns, route, ip, headers, tech, subs, reverse, arch, config show | Override config file lookup |
-| `--output text\|json\|markdown\|html` | full, dns, route, ip, headers, tech, subs, reverse, arch, config show | Output format |
-| `--out <file>` | full, dns, route, ip, headers, tech, subs, reverse, arch, config show | Write to file instead of stdout |
-| `--timeout <duration>` | full, dns, route, ip, headers, tech, subs, reverse, arch | Per-check or overall timeout (semantic varies by command, documented in `--help`) |
-| `--insecure` | full, headers, tech | Skip TLS verification |
+| `--config <path>` | full, dns, route, ip, headers, tech, subs, reverse, arch, tls, takeover, ports, enum, config show | Override config file lookup |
+| `--output text\|json\|markdown\|html` | full, dns, route, ip, headers, tech, subs, reverse, arch, tls, takeover, ports, enum, config show | Output format |
+| `--out <file>` | full, dns, route, ip, headers, tech, subs, reverse, arch, tls, takeover, ports, enum, config show | Write to file instead of stdout |
+| `--timeout <duration>` | full, dns, route, ip, headers, tech, subs, reverse, arch, tls, takeover, ports, enum | Per-check or overall timeout (semantic varies by command, documented in `--help`) |
+| `--insecure` | full, headers, tech, enum | Skip TLS verification |
+| `--i-have-authorization` | tls, takeover, ports, enum | Confirm authorization to actively probe the target (also: `NETCHECK_AUTHORIZED=1`). See [docs/ETHICS.md](docs/ETHICS.md). |
 | `--type <list>` | dns | Comma-separated record types |
 | `--resolver <addr>` | dns | Additional resolver (repeatable; URL syntax supported) |
 | `--no-system` | dns | Skip the system resolver |
@@ -35,7 +36,7 @@ These flag names, their semantics, and the commands they're attached to are stab
 
 ### Subcommands
 
-`full` (default), `dns`, `route`, `ip`, `headers`, `tech`, `subs`, `reverse`, `arch`, `app`, `menu`, `config show`, `help`, `version` — all stable.
+`full` (default), `dns`, `route`, `ip`, `headers`, `tech`, `subs`, `reverse`, `arch`, `tls`, `takeover`, `ports`, `enum`, `app`, `menu`, `config show`, `help`, `version` — all stable.
 
 ### Web app HTTP API (`netcheck app`)
 
@@ -67,7 +68,7 @@ The schema version is in every JSON output as `"netcheck_version"`. The current 
 - Fields won't be removed.
 - New **optional** fields may be added — JSON consumers should ignore unknown fields.
 
-The `"kind"` discriminator (`"full"` / `"dns"` / `"route"` / `"ip"` / `"headers"` / `"tech"` / `"subs"` / `"reverse"` / `"arch"` / `"config"`) is stable.
+The `"kind"` discriminator (`"full"` / `"dns"` / `"route"` / `"ip"` / `"headers"` / `"tech"` / `"subs"` / `"reverse"` / `"arch"` / `"tls-audit"` / `"takeover"` / `"ports"` / `"enum"` / `"config"`) is stable.
 
 If a breaking schema change becomes necessary, the schema version bumps (e.g. to `"1.0.0"`) and the old version stays available behind an opt-out flag for at least one minor release.
 
@@ -92,6 +93,17 @@ These can change between any two releases:
 - **`netcheck tech` fingerprint catalogue.** New detectors get added; existing ones may have their `name`, `category`, or `confidence` adjusted as we improve the rules. The JSON envelope (`kind`, `url`, `matches[]`, field names) is stable; the *contents* of `matches` aren't.
 - **`netcheck subs` source list.** We currently query crt.sh and CertSpotter. New sources may be added; existing ones may be removed if they go away. The JSON envelope (`kind`, `domain`, `subdomains[]`, `source_errors`, field names) is stable; which sources contribute to the `sources[]` field per subdomain isn't.
 - **`netcheck reverse` source list.** Same as subs — the set of reverse-IP sources (currently `ptr`, `hackertarget`, optionally `shodan`) can grow or shrink. JSON envelope stable, source contents aren't.
+- **`netcheck takeover` provider catalog.** The list of services we fingerprint for subdomain takeover (currently GitHub Pages, S3, Heroku, Azure, Shopify, Fastly, Bitbucket Cloud, Ghost) grows as more services are documented as takeover-able. New providers may be added; CNAME-pattern regex of existing providers may be refined. JSON envelope is stable, the `provider` and `verdict` values per finding aren't pinned to today's catalog.
+- **`netcheck ports` builtin port list.** `TopPorts(N)` returns the first N of the nmap top-1000 ordering we embed. The list itself is frozen for reproducibility, but if a future release ships nmap's newer ordering, the bytes will change. `--ports` explicit lists are obviously stable in shape.
+- **`netcheck enum` builtin wordlist.** The default wordlist is curated for high-signal coverage of the common exposures and will be revised. The output schema is stable; the *list of paths we probe by default* isn't. Point `--wordlist` at a fixed file for reproducible enumerations.
+
+### Active-scanning gate
+
+`netcheck tls`, `takeover`, `ports`, and `enum` refuse to run without either:
+- `--i-have-authorization` on the command line, OR
+- `NETCHECK_AUTHORIZED=1` (also `true` / `yes`, case-insensitive) in the environment.
+
+This is a stable contract — neither variant will be removed in `v1.x`. The refusal banner text isn't stable (it's human prose); the exit code (2) and the existence of the gate are.
 
 ## Deprecation policy
 

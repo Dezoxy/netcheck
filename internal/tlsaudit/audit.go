@@ -30,12 +30,12 @@ type Result struct {
 
 // ProtocolResult is the outcome of one version-pinned handshake.
 type ProtocolResult struct {
-	Name        string // "TLS 1.0", "TLS 1.3"
-	Version     uint16
-	Supported   bool
-	Cipher      string // negotiated cipher on success
-	Error       string // when not supported
-	Deprecated  bool   // TLS 1.0 / 1.1
+	Name       string // "TLS 1.0", "TLS 1.3"
+	Version    uint16
+	Supported  bool
+	Cipher     string // negotiated cipher on success
+	Error      string // when not supported
+	Deprecated bool   // TLS 1.0 / 1.1
 }
 
 // CipherResult is the outcome of probing one cipher suite. We only probe
