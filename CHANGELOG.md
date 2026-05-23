@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.3.3](https://github.com/Dezoxy/netcheck/compare/v1.3.2...v1.3.3) (2026-05-23)
+
+
+### Documentation
+
+* **roadmap:** add v1.4 passive recon plan ([#32](https://github.com/Dezoxy/netcheck/issues/32)) ([0ed5b05](https://github.com/Dezoxy/netcheck/commit/0ed5b05e131d287162e9e1d34242cbc1cdcaae2a))
+
 ## [1.3.2](https://github.com/Dezoxy/netcheck/compare/v1.3.1...v1.3.2) (2026-05-22)
 
 
