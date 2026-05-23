@@ -304,3 +304,50 @@ func formatCDN(match ipinfo.CDNMatch) string {
 	}
 	return fmt.Sprintf("%s (%s confidence - %s)", match.Provider, match.Confidence, match.Reason)
 }
+
+// RenderHeaders writes the security-header audit as text.
+func RenderHeaders(w io.Writer, d HeadersJSON) {
+	fmt.Fprintln(w, "SECURITY HEADERS")
+	fmt.Fprintf(w, "URL:      %s\n", d.URL)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "Final:    %s\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "Status:   %d\n", d.Status)
+	}
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s audit failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	for _, f := range d.Findings {
+		fmt.Fprintf(w, "  %s %s\n", gradeText(f.Grade), f.Name)
+		if f.Value != "" {
+			fmt.Fprintf(w, "      value: %s\n", f.Value)
+		}
+		if f.Comment != "" {
+			fmt.Fprintf(w, "      note:  %s\n", f.Comment)
+		}
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Summary: %d pass · %d weak · %d missing · %d info\n",
+		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
+}
+
+// gradeText renders the grade as a fixed-width tag for the text report.
+func gradeText(g string) string {
+	switch g {
+	case "pass":
+		return "[PASS   ]"
+	case "weak":
+		return "[WEAK   ]"
+	case "missing":
+		return "[MISSING]"
+	case "info":
+		return "[INFO   ]"
+	default:
+		return "[       ]"
+	}
+}

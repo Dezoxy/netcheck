@@ -16,11 +16,11 @@ These flag names, their semantics, and the commands they're attached to are stab
 
 | Flag | Commands | Behavior |
 |---|---|---|
-| `--config <path>` | full, dns, route, ip, config show | Override config file lookup |
-| `--output text\|json\|markdown\|html` | full, dns, route, ip, config show | Output format |
-| `--out <file>` | full, dns, route, ip, config show | Write to file instead of stdout |
-| `--timeout <duration>` | full, dns, route, ip | Per-check or overall timeout (semantic varies by command, documented in `--help`) |
-| `--insecure` | full | Skip TLS verification |
+| `--config <path>` | full, dns, route, ip, headers, config show | Override config file lookup |
+| `--output text\|json\|markdown\|html` | full, dns, route, ip, headers, config show | Output format |
+| `--out <file>` | full, dns, route, ip, headers, config show | Write to file instead of stdout |
+| `--timeout <duration>` | full, dns, route, ip, headers | Per-check or overall timeout (semantic varies by command, documented in `--help`) |
+| `--insecure` | full, headers | Skip TLS verification |
 | `--type <list>` | dns | Comma-separated record types |
 | `--resolver <addr>` | dns | Additional resolver (repeatable; URL syntax supported) |
 | `--no-system` | dns | Skip the system resolver |
@@ -35,7 +35,7 @@ These flag names, their semantics, and the commands they're attached to are stab
 
 ### Subcommands
 
-`full` (default), `dns`, `route`, `ip`, `app`, `menu`, `config show`, `help`, `version` — all stable.
+`full` (default), `dns`, `route`, `ip`, `headers`, `app`, `menu`, `config show`, `help`, `version` — all stable.
 
 ### Web app HTTP API (`netcheck app`)
 
@@ -67,7 +67,7 @@ The schema version is in every JSON output as `"netcheck_version"`. The current 
 - Fields won't be removed.
 - New **optional** fields may be added — JSON consumers should ignore unknown fields.
 
-The `"kind"` discriminator (`"full"` / `"dns"` / `"route"` / `"ip"` / `"config"`) is stable.
+The `"kind"` discriminator (`"full"` / `"dns"` / `"route"` / `"ip"` / `"headers"` / `"config"`) is stable.
 
 If a breaking schema change becomes necessary, the schema version bumps (e.g. to `"1.0.0"`) and the old version stays available behind an opt-out flag for at least one minor release.
 

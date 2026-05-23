@@ -97,6 +97,8 @@ func Run() {
 		os.Exit(RunRoute(os.Args[2:]))
 	case "ip":
 		os.Exit(RunIP(os.Args[2:]))
+	case "headers":
+		os.Exit(RunHeaders(os.Args[2:]))
 	case "config":
 		os.Exit(runConfigCmd(os.Args[2:]))
 	case "-h", "--help", "help":
@@ -139,6 +141,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck dns <host>            compare DNS resolvers")
 	fmt.Fprintln(os.Stderr, "  netcheck route <host>          trace the network path with per-hop ASN")
 	fmt.Fprintln(os.Stderr, "  netcheck ip <ip|host>          show IP ownership, RDAP, reverse DNS, and CDN hints")
+	fmt.Fprintln(os.Stderr, "  netcheck headers <url>         security-header report card (HSTS, CSP, XFO, etc.)")
 	fmt.Fprintln(os.Stderr, "  netcheck config show           print the active config (source path, resolvers, defaults)")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
@@ -153,6 +156,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck route --no-asn --max-hops 20 1.1.1.1")
 	fmt.Fprintln(os.Stderr, "  netcheck ip cloudflare.com")
 	fmt.Fprintln(os.Stderr, "  netcheck ip 8.8.8.8")
+	fmt.Fprintln(os.Stderr, "  netcheck headers https://news.ycombinator.com")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver tls://1.1.1.1 cloudflare.com   # DoT")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver https://cloudflare-dns.com/dns-query cloudflare.com   # DoH")
 	fmt.Fprintln(os.Stderr)

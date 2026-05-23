@@ -304,3 +304,54 @@ func rdapAbuse(r *RDAPJSON) string {
 	}
 	return r.AbuseEmail
 }
+
+// RenderHeadersMD writes the security-header audit as Markdown.
+func RenderHeadersMD(w io.Writer, d HeadersJSON) {
+	fmt.Fprintf(w, "# netcheck headers — `%s`\n\n", d.URL)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, "- **Final URL:** `%s`\n", d.FinalURL)
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, "- **Status:** %d\n", d.Status)
+	}
+	if d.Error != "" {
+		fmt.Fprintf(w, "\n> **Audit failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Summary:** %d pass · %d weak · %d missing · %d info\n\n",
+		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
+
+	fmt.Fprintln(w, "| Header | Grade | Value | Note |")
+	fmt.Fprintln(w, "|---|---|---|---|")
+	for _, f := range d.Findings {
+		val := f.Value
+		if val == "" {
+			val = "—"
+		} else {
+			val = "`" + val + "`"
+		}
+		fmt.Fprintf(w, "| %s | %s | %s | %s |\n", f.Name, gradeMD(f.Grade), val, mdEscapePipes(f.Comment))
+	}
+	fmt.Fprintln(w)
+}
+
+func gradeMD(g string) string {
+	switch g {
+	case "pass":
+		return "**PASS**"
+	case "weak":
+		return "_weak_"
+	case "missing":
+		return "_missing_"
+	case "info":
+		return "_info_"
+	default:
+		return g
+	}
+}
+
+// mdEscapePipes escapes "|" so it doesn't break a markdown table row.
+func mdEscapePipes(s string) string {
+	return strings.ReplaceAll(s, "|", `\|`)
+}

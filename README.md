@@ -77,6 +77,7 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck dns <host>` | Do Cloudflare, Google, Quad9, my system resolver, and any DoH/DoT resolver agree on this hostname's IPs? |
 | `netcheck route <host>` | What's the network path to this host, and who owns each hop? |
 | `netcheck ip <ip\|host>` | Who owns this IP? What's its ASN, reverse DNS, RDAP record, CDN affiliation? |
+| `netcheck headers <url>` | Is the site sending the security headers (HSTS, CSP, X-Frame-Options, etc.) it should be? |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
@@ -128,6 +129,18 @@ netcheck route --max-hops 20 --no-asn 1.1.1.1
 netcheck ip 1.1.1.1
 netcheck ip cloudflare.com    # resolves the host and reports each IP
 ```
+
+### Security headers report card
+
+```bash
+netcheck headers https://news.ycombinator.com
+netcheck headers --output json https://github.com | jq '.summary'
+```
+
+Grades the major security-relevant response headers (HSTS, Content-Security-Policy,
+X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy) and
+flags information-disclosure headers (Server, X-Powered-By). One HTTP GET — passive,
+indistinguishable from a normal browser visit.
 
 ### Pipe into other tools
 

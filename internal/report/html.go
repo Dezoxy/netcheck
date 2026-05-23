@@ -21,7 +21,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospac
 code { background: #f4f4f8; padding: 1px 5px; border-radius: 3px; }
 .ok { color: #0a7d28; font-weight: 600; }
 .fail { color: #b00020; font-weight: 600; }
+.weak { color: #b86200; font-weight: 600; }
 .muted { color: #8a8a92; }
+.info { color: #555560; font-weight: 600; }
 ul.kv { list-style: none; padding: 0; margin: 0.4em 0 1em; }
 ul.kv li { margin: 0.15em 0; }
 ul.kv li b { display: inline-block; min-width: 130px; color: #4a4a52; font-weight: 500; }
@@ -330,4 +332,63 @@ func htmlHopRTT(h HopJSON) string {
 		parts = append(parts, fmt.Sprintf("%.2f", p.RTTMS))
 	}
 	return "<code>" + html.EscapeString(strings.Join(parts, " / ")) + "</code>"
+}
+
+// RenderHeadersHTML writes a single-file HTML rendering of the headers audit.
+func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
+	htmlHead(w, "netcheck headers — "+d.URL)
+	fmt.Fprintf(w, "<h1>netcheck headers</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">URL: <code>%s</code> · %s · %dms",
+		html.EscapeString(d.URL), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+	if d.FinalURL != "" && d.FinalURL != d.URL {
+		fmt.Fprintf(w, " · final <code>%s</code>", html.EscapeString(d.FinalURL))
+	}
+	if d.Status != 0 {
+		fmt.Fprintf(w, " · status %d", d.Status)
+	}
+	fmt.Fprintln(w, "</p>")
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Audit failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>Summary:</b> "+
+		"<span class=\"ok\">%d pass</span> · "+
+		"<span class=\"weak\">%d weak</span> · "+
+		"<span class=\"fail\">%d missing</span> · "+
+		"<span class=\"info\">%d info</span></p>\n",
+		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
+
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Header</th><th>Grade</th><th>Value</th><th>Note</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, f := range d.Findings {
+		val := html.EscapeString(f.Value)
+		if val == "" {
+			val = "<span class=\"muted\">—</span>"
+		} else {
+			val = "<code>" + val + "</code>"
+		}
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+			html.EscapeString(f.Name), gradeHTML(f.Grade), val, html.EscapeString(f.Comment))
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+	htmlTail(w)
+}
+
+func gradeHTML(g string) string {
+	switch g {
+	case "pass":
+		return `<span class="ok">PASS</span>`
+	case "weak":
+		return `<span class="weak">WEAK</span>`
+	case "missing":
+		return `<span class="fail">MISSING</span>`
+	case "info":
+		return `<span class="info">INFO</span>`
+	default:
+		return html.EscapeString(g)
+	}
 }

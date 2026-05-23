@@ -10,6 +10,7 @@ import (
 	"netcheck/internal/dnscompare"
 	"netcheck/internal/ipinfo"
 	"netcheck/internal/route"
+	"netcheck/internal/secheaders"
 	"netcheck/internal/target"
 )
 
@@ -215,6 +216,36 @@ type RDAPJSON struct {
 	AbuseEmail string `json:"abuse_email,omitempty"`
 }
 
+// HeadersJSON is the JSON representation of a `netcheck headers` audit.
+type HeadersJSON struct {
+	NetcheckVersion string           `json:"netcheck_version"`
+	Kind            string           `json:"kind"` // "headers"
+	URL             string           `json:"url"`
+	FinalURL        string           `json:"final_url,omitempty"`
+	Status          int              `json:"status,omitempty"`
+	StartedAt       time.Time        `json:"started_at"`
+	TookMS          int64            `json:"took_ms"`
+	Findings        []FindingJSON    `json:"findings,omitempty"`
+	Summary         HeadersSummaryJSON `json:"summary"`
+	Error           string           `json:"error,omitempty"`
+}
+
+// FindingJSON is the per-header verdict.
+type FindingJSON struct {
+	Name    string `json:"name"`
+	Value   string `json:"value,omitempty"`
+	Grade   string `json:"grade"` // "pass" | "weak" | "missing" | "info"
+	Comment string `json:"comment,omitempty"`
+}
+
+// HeadersSummaryJSON is a quick count of findings by grade.
+type HeadersSummaryJSON struct {
+	Pass    int `json:"pass"`
+	Weak    int `json:"weak"`
+	Missing int `json:"missing"`
+	Info    int `json:"info"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -302,6 +333,34 @@ func ToIPInfoJSON(target string, startedAt time.Time, fromHost bool, resolveTook
 	for _, d := range details {
 		out.Details = append(out.Details, ipDetailsToJSON(d))
 	}
+	return out
+}
+
+// ToHeadersJSON projects a secheaders.Result into HeadersJSON.
+func ToHeadersJSON(r secheaders.Result) HeadersJSON {
+	out := HeadersJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "headers",
+		URL:             r.URL,
+		FinalURL:        r.FinalURL,
+		Status:          r.Status,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, FindingJSON{
+			Name:    f.Name,
+			Value:   f.Value,
+			Grade:   string(f.Grade),
+			Comment: f.Comment,
+		})
+	}
+	p, w, m, i := r.Summary()
+	out.Summary = HeadersSummaryJSON{Pass: p, Weak: w, Missing: m, Info: i}
 	return out
 }
 

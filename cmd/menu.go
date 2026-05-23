@@ -75,6 +75,12 @@ func RunMenu(args []string) {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
 			s = res
+		case "5":
+			res, err := menuHeaders(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
@@ -94,6 +100,7 @@ func printMenu(w io.Writer) {
 	fmt.Fprintln(w, "  2) DNS compare across resolvers")
 	fmt.Fprintln(w, "  3) Route (traceroute + per-hop ASN)")
 	fmt.Fprintln(w, "  4) IP / ASN info")
+	fmt.Fprintln(w, "  5) Security headers audit")
 	fmt.Fprintln(w, "  q) Quit")
 	fmt.Fprintln(w)
 }
@@ -332,6 +339,43 @@ func menuIP(in *bufio.Reader, out io.Writer) (*savable, error) {
 				report.RenderIPInfoHTML(w, report.ToIPInfoJSON(label, startedAt, fromHost, resolveTook, details))
 			default:
 				report.RenderIPInfo(w, label, details, fromHost, resolveTook)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuHeaders prompts for a URL and runs the security-header audit.
+func menuHeaders(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "URL: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := loadedConfig.Timeout
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildHeaders(ctx, strings.TrimSpace(raw), timeout, false)
+	report.RenderHeaders(out, j)
+
+	return &savable{
+		Kind: "headers",
+		Host: j.URL,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderHeadersMD(w, j)
+			case FormatHTML:
+				report.RenderHeadersHTML(w, j)
+			default:
+				report.RenderHeaders(w, j)
 			}
 			return nil
 		},

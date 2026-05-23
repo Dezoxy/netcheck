@@ -970,8 +970,11 @@ Design constraints:
 
 - Each command supports `--output text|json|markdown|html` and `--out <file>`,
   matching the v0.5+ contract.
-- New JSON schema variants extend the existing `kind` discriminator — bump
-  `netcheck_version` to `0.6.0` when v1.4 ships.
+- New JSON schema variants extend the existing `kind` discriminator (new
+  `"kind": "headers"`, `"kind": "subs"`, etc.). These are additive changes —
+  per the schema rule in `internal/report/jsonschema.go`, additive changes do
+  not bump `netcheck_version`. Only a breaking change (rename/remove/retype)
+  bumps it.
 - Web app modes added in step with the CLI commands so the workbench keeps
   feature parity.
 - HTTP-bound commands reuse `internal/check` plumbing (timeouts, redirects,

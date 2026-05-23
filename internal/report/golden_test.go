@@ -309,6 +309,85 @@ func TestRenderIPInfoHTML(t *testing.T) {
 	assertGolden(t, "ip_info.html", buf.Bytes())
 }
 
+// ─── Headers ──────────────────────────────────────────────────────────────
+
+// fixtureHeaders returns a HeadersJSON exercising every grade tier (pass,
+// weak, missing, info) so the renderers cover all branches.
+func fixtureHeaders() HeadersJSON {
+	return HeadersJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "headers",
+		URL:             "https://example.com/",
+		FinalURL:        "https://example.com/",
+		Status:          200,
+		StartedAt:       fixedTime,
+		TookMS:          145,
+		Findings: []FindingJSON{
+			{Name: "Strict-Transport-Security", Value: "max-age=31536000; includeSubDomains; preload", Grade: "pass", Comment: "Long max-age, includeSubDomains, preload directive present."},
+			{Name: "Content-Security-Policy", Value: "default-src 'self'; script-src 'unsafe-inline'", Grade: "weak", Comment: "Present but allows 'unsafe-inline' — these weaken the XSS protection. Use nonces or hashes where possible."},
+			{Name: "X-Frame-Options", Value: "DENY", Grade: "pass", Comment: "Set to a safe value."},
+			{Name: "X-Content-Type-Options", Value: "", Grade: "missing", Comment: "Missing — set `X-Content-Type-Options: nosniff` to prevent browsers from re-interpreting response bodies."},
+			{Name: "Referrer-Policy", Value: "strict-origin-when-cross-origin", Grade: "pass", Comment: "Set to a value that limits cross-origin referrer leakage."},
+			{Name: "Permissions-Policy", Value: "", Grade: "missing", Comment: "Missing — controls which browser features (camera, geolocation, etc.) a page can use. Set even a permissive policy to make the surface explicit."},
+			{Name: "Server", Value: "nginx/1.25.3", Grade: "info", Comment: "Server header exposes software identification — consider stripping or making it generic in production."},
+			{Name: "X-Powered-By", Value: "PHP/8.1.0", Grade: "weak", Comment: "X-Powered-By leaks the application stack — remove this header."},
+		},
+		Summary: HeadersSummaryJSON{Pass: 3, Weak: 2, Missing: 2, Info: 1},
+	}
+}
+
+func TestRenderHeadersText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderHeaders(&buf, fixtureHeaders())
+	assertGolden(t, "headers.txt", buf.Bytes())
+}
+
+func TestRenderHeadersMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderHeadersMD(&buf, fixtureHeaders())
+	assertGolden(t, "headers.md", buf.Bytes())
+}
+
+func TestRenderHeadersHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderHeadersHTML(&buf, fixtureHeaders())
+	assertGolden(t, "headers.html", buf.Bytes())
+}
+
+func TestRenderHeadersTextErr(t *testing.T) {
+	d := HeadersJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "headers",
+		URL:             "https://nope.invalid/",
+		StartedAt:       fixedTime,
+		TookMS:          12,
+		Error:           "dial tcp: lookup nope.invalid: no such host",
+	}
+	var buf bytes.Buffer
+	RenderHeaders(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("audit failed")) {
+		t.Errorf("text error path should mention 'audit failed':\n%s", buf.String())
+	}
+}
+
+func TestRenderHeadersMDErr(t *testing.T) {
+	d := HeadersJSON{URL: "https://nope.invalid/", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderHeadersMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Audit failed")) {
+		t.Errorf("md error path should mention 'Audit failed':\n%s", buf.String())
+	}
+}
+
+func TestRenderHeadersHTMLErr(t *testing.T) {
+	d := HeadersJSON{URL: "https://nope.invalid/", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderHeadersHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Audit failed")) {
+		t.Errorf("html error path should mention 'Audit failed':\n%s", buf.String())
+	}
+}
+
 // ─── JSON ─────────────────────────────────────────────────────────────────
 
 func TestWriteJSON(t *testing.T) {
