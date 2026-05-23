@@ -9,12 +9,16 @@ import (
 	"netcheck/internal/check"
 	"netcheck/internal/dnscompare"
 	"netcheck/internal/ipinfo"
+	"netcheck/internal/pathenum"
+	"netcheck/internal/portscan"
 	"netcheck/internal/reverseip"
 	"netcheck/internal/route"
 	"netcheck/internal/secheaders"
 	"netcheck/internal/subenum"
+	"netcheck/internal/takeover"
 	"netcheck/internal/target"
 	"netcheck/internal/techdetect"
+	"netcheck/internal/tlsaudit"
 	"netcheck/internal/wayback"
 )
 
@@ -332,6 +336,138 @@ type SnapshotJSON struct {
 	Status    int       `json:"status,omitempty"`
 }
 
+// TLSAuditJSON is the JSON representation of a `netcheck tls` audit.
+type TLSAuditJSON struct {
+	NetcheckVersion string                `json:"netcheck_version"`
+	Kind            string                `json:"kind"` // "tls-audit"
+	Host            string                `json:"host"`
+	Port            string                `json:"port"`
+	StartedAt       time.Time             `json:"started_at"`
+	TookMS          int64                 `json:"took_ms"`
+	Protocols       []TLSProtocolJSON     `json:"protocols,omitempty"`
+	Ciphers         []TLSCipherJSON       `json:"ciphers,omitempty"`
+	Cert            *TLSCertJSON          `json:"cert,omitempty"`
+	Findings        []TLSAuditFindingJSON `json:"findings,omitempty"`
+	Error           string                `json:"error,omitempty"`
+}
+
+// TLSProtocolJSON is one TLS version probe result.
+type TLSProtocolJSON struct {
+	Name       string `json:"name"`
+	Supported  bool   `json:"supported"`
+	Deprecated bool   `json:"deprecated,omitempty"`
+	Cipher     string `json:"cipher,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+// TLSCipherJSON is one cipher-suite probe result. Only supported=true rows
+// are included in the JSON output to keep the file small.
+type TLSCipherJSON struct {
+	Name      string `json:"name"`
+	Insecure  bool   `json:"insecure,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Supported bool   `json:"supported"`
+}
+
+// TLSCertJSON describes the leaf certificate.
+type TLSCertJSON struct {
+	Subject       string    `json:"subject"`
+	Issuer        string    `json:"issuer"`
+	DNSNames      []string  `json:"dns_names,omitempty"`
+	NotBefore     time.Time `json:"not_before"`
+	NotAfter      time.Time `json:"not_after"`
+	DaysRemaining int       `json:"days_remaining"`
+	ChainLen      int       `json:"chain_len"`
+	SelfSigned    bool      `json:"self_signed,omitempty"`
+	Expired       bool      `json:"expired,omitempty"`
+}
+
+// TLSAuditFindingJSON is one high-level audit verdict.
+type TLSAuditFindingJSON struct {
+	Severity string `json:"severity"`
+	Title    string `json:"title"`
+	Detail   string `json:"detail,omitempty"`
+}
+
+// TakeoverJSON is the JSON representation of a `netcheck takeover` check.
+type TakeoverJSON struct {
+	NetcheckVersion string                `json:"netcheck_version"`
+	Kind            string                `json:"kind"` // "takeover"
+	Domain          string                `json:"domain"`
+	HasCNAME        bool                  `json:"has_cname"`
+	StartedAt       time.Time             `json:"started_at"`
+	TookMS          int64                 `json:"took_ms"`
+	Findings        []TakeoverFindingJSON `json:"findings,omitempty"`
+	Error           string                `json:"error,omitempty"`
+}
+
+// TakeoverFindingJSON is one verdict on one CNAME chain.
+type TakeoverFindingJSON struct {
+	CNAME    string `json:"cname"`
+	Provider string `json:"provider,omitempty"`
+	Verdict  string `json:"verdict"` // vulnerable | unverifiable | safe | unknown
+	Status   int    `json:"status,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+	Notes    string `json:"notes,omitempty"`
+}
+
+// PortScanJSON is the JSON representation of a `netcheck ports` scan.
+type PortScanJSON struct {
+	NetcheckVersion string        `json:"netcheck_version"`
+	Kind            string        `json:"kind"` // "ports"
+	Host            string        `json:"host"`
+	IP              string        `json:"ip,omitempty"`
+	StartedAt       time.Time     `json:"started_at"`
+	TookMS          int64         `json:"took_ms"`
+	Ports           []PortJSON    `json:"ports,omitempty"` // open ports only
+	Stats           PortStatsJSON `json:"stats"`
+	Error           string        `json:"error,omitempty"`
+}
+
+// PortJSON is one open port.
+type PortJSON struct {
+	Port    int    `json:"port"`
+	Service string `json:"service,omitempty"`
+}
+
+// PortStatsJSON summarises the scan.
+type PortStatsJSON struct {
+	Total    int `json:"total"`
+	Open     int `json:"open"`
+	Closed   int `json:"closed"`
+	Filtered int `json:"filtered"`
+}
+
+// PathEnumJSON is the JSON representation of a `netcheck enum` run.
+type PathEnumJSON struct {
+	NetcheckVersion string            `json:"netcheck_version"`
+	Kind            string            `json:"kind"` // "enum"
+	BaseURL         string            `json:"base_url"`
+	StartedAt       time.Time         `json:"started_at"`
+	TookMS          int64             `json:"took_ms"`
+	Findings        []PathFindingJSON `json:"findings,omitempty"`
+	Stats           PathStatsJSON     `json:"stats"`
+	Error           string            `json:"error,omitempty"`
+}
+
+// PathFindingJSON is one interesting HTTP response.
+type PathFindingJSON struct {
+	Path     string `json:"path"`
+	URL      string `json:"url"`
+	Status   int    `json:"status"`
+	Length   int64  `json:"length,omitempty"`
+	Redirect string `json:"redirect,omitempty"`
+	Category string `json:"category"` // found | redirect | blocked | auth-required | server-error
+}
+
+// PathStatsJSON summarises the run.
+type PathStatsJSON struct {
+	Total       int `json:"total"`
+	Interesting int `json:"interesting"`
+	NotFound    int `json:"not_found"`
+	Errors      int `json:"errors"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -559,6 +695,150 @@ func ToArchJSON(r wayback.Result) ArchJSON {
 			Timestamp: s.Timestamp,
 			URL:       s.URL,
 			Status:    s.Status,
+		})
+	}
+	return out
+}
+
+// ToTLSAuditJSON projects a tlsaudit.Result into TLSAuditJSON. Only supported
+// cipher suites are included in the JSON output — the not-supported list is
+// large and noisy.
+func ToTLSAuditJSON(r tlsaudit.Result) TLSAuditJSON {
+	out := TLSAuditJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "tls-audit",
+		Host:            r.Host,
+		Port:            r.Port,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, p := range r.Protocols {
+		out.Protocols = append(out.Protocols, TLSProtocolJSON{
+			Name:       p.Name,
+			Supported:  p.Supported,
+			Deprecated: p.Deprecated,
+			Cipher:     p.Cipher,
+			Error:      p.Error,
+		})
+	}
+	for _, c := range r.Ciphers {
+		if !c.Supported {
+			continue
+		}
+		out.Ciphers = append(out.Ciphers, TLSCipherJSON{
+			Name:      c.Name,
+			Insecure:  c.Insecure,
+			Version:   c.Version,
+			Supported: c.Supported,
+		})
+	}
+	if r.Cert != nil {
+		out.Cert = &TLSCertJSON{
+			Subject:       r.Cert.Subject,
+			Issuer:        r.Cert.Issuer,
+			DNSNames:      r.Cert.DNSNames,
+			NotBefore:     r.Cert.NotBefore,
+			NotAfter:      r.Cert.NotAfter,
+			DaysRemaining: r.Cert.DaysRemaining,
+			ChainLen:      r.Cert.ChainLen,
+			SelfSigned:    r.Cert.SelfSigned,
+			Expired:       r.Cert.Expired,
+		}
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, TLSAuditFindingJSON{
+			Severity: f.Severity,
+			Title:    f.Title,
+			Detail:   f.Detail,
+		})
+	}
+	return out
+}
+
+// ToTakeoverJSON projects a takeover.Result into TakeoverJSON.
+func ToTakeoverJSON(r takeover.Result) TakeoverJSON {
+	out := TakeoverJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "takeover",
+		Domain:          r.Domain,
+		HasCNAME:        r.HasCNAME,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, TakeoverFindingJSON{
+			CNAME:    f.CNAME,
+			Provider: f.Provider,
+			Verdict:  string(f.Verdict),
+			Status:   f.Status,
+			Detail:   f.Detail,
+			Notes:    f.Notes,
+		})
+	}
+	return out
+}
+
+// ToPortScanJSON projects a portscan.Result into PortScanJSON.
+func ToPortScanJSON(r portscan.Result) PortScanJSON {
+	out := PortScanJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "ports",
+		Host:            r.Host,
+		IP:              r.IP,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+		Stats: PortStatsJSON{
+			Total:    r.Stats.Total,
+			Open:     r.Stats.Open,
+			Closed:   r.Stats.Closed,
+			Filtered: r.Stats.Filtered,
+		},
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, p := range r.Ports {
+		out.Ports = append(out.Ports, PortJSON{Port: p.Port, Service: p.Service})
+	}
+	return out
+}
+
+// ToPathEnumJSON projects a pathenum.Result into PathEnumJSON.
+func ToPathEnumJSON(r pathenum.Result) PathEnumJSON {
+	out := PathEnumJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "enum",
+		BaseURL:         r.BaseURL,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+		Stats: PathStatsJSON{
+			Total:       r.Stats.Total,
+			Interesting: r.Stats.Interesting,
+			NotFound:    r.Stats.NotFound,
+			Errors:      r.Stats.Errors,
+		},
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, PathFindingJSON{
+			Path:     f.Path,
+			URL:      f.URL,
+			Status:   f.Status,
+			Length:   f.Length,
+			Redirect: f.Redirect,
+			Category: f.Category,
 		})
 	}
 	return out

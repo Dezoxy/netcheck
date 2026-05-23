@@ -9,9 +9,11 @@ import (
 	"netcheck/cmd"
 	"netcheck/internal/check"
 	"netcheck/internal/ipinfo"
+	"netcheck/internal/pathenum"
 	"netcheck/internal/reverseip"
 	"netcheck/internal/secheaders"
 	"netcheck/internal/subenum"
+	"netcheck/internal/takeover"
 	"netcheck/internal/techdetect"
 	"netcheck/internal/wayback"
 )
@@ -32,6 +34,8 @@ func main() {
 	subenum.SetUserAgent(ua)
 	reverseip.SetUserAgent(ua)
 	wayback.SetUserAgent(ua)
+	takeover.SetUserAgent(ua)
+	pathenum.SetUserAgent(ua)
 
 	cmd.Run()
 }

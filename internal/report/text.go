@@ -336,6 +336,218 @@ func RenderHeaders(w io.Writer, d HeadersJSON) {
 		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
 }
 
+// RenderPathEnum writes the path-enumeration result as text.
+func RenderPathEnum(w io.Writer, d PathEnumJSON) {
+	fmt.Fprintln(w, "PATH ENUMERATION")
+	fmt.Fprintf(w, "Base URL: %s\n", d.BaseURL)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s enumeration failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Findings) == 0 {
+		fmt.Fprintln(w, "  (no interesting paths found)")
+	} else {
+		fmt.Fprintf(w, "Findings (%d):\n", len(d.Findings))
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  STATUS\tCATEGORY\tPATH\tNOTES")
+		for _, f := range d.Findings {
+			notes := ""
+			if f.Redirect != "" {
+				notes = "→ " + f.Redirect
+			} else if f.Length > 0 {
+				notes = fmt.Sprintf("%d bytes", f.Length)
+			}
+			fmt.Fprintf(tw, "  %d\t%s\t%s\t%s\n", f.Status, f.Category, f.Path, notes)
+		}
+		tw.Flush()
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Stats: %d scanned · %d interesting · %d not-found · %d errors\n",
+		d.Stats.Total, d.Stats.Interesting, d.Stats.NotFound, d.Stats.Errors)
+}
+
+// RenderPortScan writes the port-scan result as text.
+func RenderPortScan(w io.Writer, d PortScanJSON) {
+	fmt.Fprintln(w, "PORT SCAN")
+	if d.IP != "" && d.IP != d.Host {
+		fmt.Fprintf(w, "Host:     %s (%s)\n", d.Host, d.IP)
+	} else {
+		fmt.Fprintf(w, "Host:     %s\n", d.Host)
+	}
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s scan failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Ports) == 0 {
+		fmt.Fprintln(w, "  (no open ports found)")
+	} else {
+		fmt.Fprintf(w, "Open ports (%d):\n", len(d.Ports))
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  PORT\tSERVICE")
+		for _, p := range d.Ports {
+			svc := p.Service
+			if svc == "" {
+				svc = "-"
+			}
+			fmt.Fprintf(tw, "  %d\t%s\n", p.Port, svc)
+		}
+		tw.Flush()
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Stats: %d scanned · %d open · %d closed · %d filtered\n",
+		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+}
+
+// RenderTakeover writes the takeover-check result as text.
+func RenderTakeover(w io.Writer, d TakeoverJSON) {
+	fmt.Fprintln(w, "TAKEOVER CHECK")
+	fmt.Fprintf(w, "Domain:   %s\n", d.Domain)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s check failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if !d.HasCNAME {
+		fmt.Fprintln(w, "  No CNAME record on this domain. Nothing to check.")
+		return
+	}
+	for _, f := range d.Findings {
+		fmt.Fprintf(w, "  CNAME:    %s\n", f.CNAME)
+		fmt.Fprintf(w, "  Provider: %s\n", orDash(f.Provider))
+		fmt.Fprintf(w, "  Verdict:  %s\n", takeoverTag(f.Verdict))
+		if f.Status != 0 {
+			fmt.Fprintf(w, "  Status:   %d\n", f.Status)
+		}
+		if f.Detail != "" {
+			fmt.Fprintf(w, "  Detail:   %s\n", f.Detail)
+		}
+		if f.Notes != "" {
+			fmt.Fprintf(w, "  Notes:    %s\n", f.Notes)
+		}
+	}
+}
+
+// takeoverTag formats the verdict for the text report.
+func takeoverTag(v string) string {
+	switch v {
+	case "vulnerable":
+		return "VULNERABLE — this CNAME can be taken over"
+	case "unverifiable":
+		return "UNVERIFIABLE — CNAME matches a takeover-able provider, but probe failed"
+	case "safe":
+		return "safe — provider matched, resource appears claimed"
+	case "unknown":
+		return "unknown — CNAME target not in catalog"
+	default:
+		return v
+	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}
+
+// RenderTLSAudit writes the TLS audit result as text.
+func RenderTLSAudit(w io.Writer, d TLSAuditJSON) {
+	fmt.Fprintln(w, "TLS AUDIT")
+	fmt.Fprintf(w, "Host:     %s:%s\n", d.Host, d.Port)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s audit failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	// Protocol matrix.
+	fmt.Fprintln(w, "Protocols")
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	for _, p := range d.Protocols {
+		mark := "[ -- ]"
+		extra := ""
+		if p.Supported {
+			mark = "[ OK ]"
+			extra = "  cipher=" + p.Cipher
+		}
+		if p.Deprecated {
+			mark = mark + "  DEPRECATED"
+		}
+		fmt.Fprintf(tw, "  %s\t%s%s\n", mark, p.Name, extra)
+	}
+	tw.Flush()
+	fmt.Fprintln(w)
+
+	// Supported ciphers (already filtered to supported only).
+	if len(d.Ciphers) > 0 {
+		fmt.Fprintf(w, "Supported cipher suites (%d):\n", len(d.Ciphers))
+		tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		for _, c := range d.Ciphers {
+			tag := ""
+			if c.Insecure {
+				tag = "  WEAK"
+			}
+			fmt.Fprintf(tw, "  %s\t%s%s\n", c.Version, c.Name, tag)
+		}
+		tw.Flush()
+		fmt.Fprintln(w)
+	}
+
+	// Certificate.
+	if d.Cert != nil {
+		fmt.Fprintln(w, "Certificate")
+		tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintf(tw, "  Subject\t%s\n", d.Cert.Subject)
+		fmt.Fprintf(tw, "  Issuer\t%s\n", d.Cert.Issuer)
+		if len(d.Cert.DNSNames) > 0 {
+			fmt.Fprintf(tw, "  Names\t%s\n", strings.Join(d.Cert.DNSNames, ", "))
+		}
+		fmt.Fprintf(tw, "  Not before\t%s\n", d.Cert.NotBefore.Format("2006-01-02"))
+		fmt.Fprintf(tw, "  Not after\t%s (%d days)\n", d.Cert.NotAfter.Format("2006-01-02"), d.Cert.DaysRemaining)
+		fmt.Fprintf(tw, "  Chain length\t%d\n", d.Cert.ChainLen)
+		if d.Cert.SelfSigned {
+			fmt.Fprintln(tw, "  Self-signed\ttrue")
+		}
+		if d.Cert.Expired {
+			fmt.Fprintln(tw, "  Expired\ttrue")
+		}
+		tw.Flush()
+		fmt.Fprintln(w)
+	}
+
+	// Findings.
+	fmt.Fprintln(w, "Findings")
+	for _, f := range d.Findings {
+		fmt.Fprintf(w, "  [%s] %s\n", severityTag(f.Severity), f.Title)
+		if f.Detail != "" {
+			fmt.Fprintf(w, "         %s\n", f.Detail)
+		}
+	}
+}
+
+// severityTag formats a severity as a 6-char tag for the text report.
+func severityTag(s string) string {
+	switch s {
+	case "high":
+		return "HIGH  "
+	case "medium":
+		return "MEDIUM"
+	case "info":
+		return "INFO  "
+	default:
+		return "      "
+	}
+}
+
 // RenderReverse writes the reverse-IP result as text.
 func RenderReverse(w io.Writer, d ReverseJSON) {
 	fmt.Fprintln(w, "REVERSE IP LOOKUP")

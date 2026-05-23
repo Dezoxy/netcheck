@@ -356,6 +356,182 @@ func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
+// RenderPathEnumMD writes the path-enumeration result as Markdown.
+func RenderPathEnumMD(w io.Writer, d PathEnumJSON) {
+	fmt.Fprintf(w, "# netcheck enum — `%s`\n\n", d.BaseURL)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Enumeration failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Scanned:** %d · **Interesting:** %d · **404s:** %d · **Errors:** %d\n\n",
+		d.Stats.Total, d.Stats.Interesting, d.Stats.NotFound, d.Stats.Errors)
+
+	if len(d.Findings) == 0 {
+		fmt.Fprintln(w, "_(no interesting paths found)_")
+		return
+	}
+	fmt.Fprintln(w, "| Status | Category | Path | Notes |")
+	fmt.Fprintln(w, "|---|---|---|---|")
+	for _, f := range d.Findings {
+		notes := ""
+		if f.Redirect != "" {
+			notes = "→ `" + f.Redirect + "`"
+		} else if f.Length > 0 {
+			notes = fmt.Sprintf("%d bytes", f.Length)
+		}
+		fmt.Fprintf(w, "| %d | %s | `%s` | %s |\n", f.Status, f.Category, f.Path, mdEscapePipes(notes))
+	}
+	fmt.Fprintln(w)
+}
+
+// RenderPortScanMD writes the port-scan result as Markdown.
+func RenderPortScanMD(w io.Writer, d PortScanJSON) {
+	fmt.Fprintf(w, "# netcheck ports — `%s`", d.Host)
+	if d.IP != "" && d.IP != d.Host {
+		fmt.Fprintf(w, " (`%s`)", d.IP)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Scan failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Scanned:** %d · **Open:** %d · **Closed:** %d · **Filtered:** %d\n\n",
+		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+
+	if len(d.Ports) == 0 {
+		fmt.Fprintln(w, "_(no open ports found)_")
+		return
+	}
+	fmt.Fprintln(w, "| Port | Service |")
+	fmt.Fprintln(w, "|---|---|")
+	for _, p := range d.Ports {
+		svc := p.Service
+		if svc == "" {
+			svc = "—"
+		}
+		fmt.Fprintf(w, "| %d | %s |\n", p.Port, svc)
+	}
+	fmt.Fprintln(w)
+}
+
+// RenderTakeoverMD writes the takeover-check result as Markdown.
+func RenderTakeoverMD(w io.Writer, d TakeoverJSON) {
+	fmt.Fprintf(w, "# netcheck takeover — `%s`\n\n", d.Domain)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Check failed:** %s\n", d.Error)
+		return
+	}
+	if !d.HasCNAME {
+		fmt.Fprintln(w, "_No CNAME record on this domain. Nothing to check._")
+		return
+	}
+	for _, f := range d.Findings {
+		verdict := f.Verdict
+		if verdict == "vulnerable" {
+			verdict = "**VULNERABLE**"
+		}
+		fmt.Fprintf(w, "- **CNAME:** `%s`\n", f.CNAME)
+		if f.Provider != "" {
+			fmt.Fprintf(w, "- **Provider:** %s\n", f.Provider)
+		}
+		fmt.Fprintf(w, "- **Verdict:** %s\n", verdict)
+		if f.Status != 0 {
+			fmt.Fprintf(w, "- **Status:** %d\n", f.Status)
+		}
+		if f.Detail != "" {
+			fmt.Fprintf(w, "- **Detail:** %s\n", mdEscapePipes(f.Detail))
+		}
+		if f.Notes != "" {
+			fmt.Fprintf(w, "- **Notes:** %s\n", mdEscapePipes(f.Notes))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
+// RenderTLSAuditMD writes the TLS audit result as Markdown.
+func RenderTLSAuditMD(w io.Writer, d TLSAuditJSON) {
+	fmt.Fprintf(w, "# netcheck tls — `%s:%s`\n\n", d.Host, d.Port)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Audit failed:** %s\n", d.Error)
+		return
+	}
+
+	fmt.Fprintln(w, "## Protocols")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "| Protocol | Supported | Deprecated | Cipher |")
+	fmt.Fprintln(w, "|---|---|---|---|")
+	for _, p := range d.Protocols {
+		sup := "no"
+		if p.Supported {
+			sup = "**yes**"
+		}
+		dep := ""
+		if p.Deprecated {
+			dep = "yes"
+		}
+		c := p.Cipher
+		if c == "" {
+			c = "—"
+		}
+		fmt.Fprintf(w, "| %s | %s | %s | %s |\n", p.Name, sup, dep, c)
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Ciphers) > 0 {
+		fmt.Fprintf(w, "## Supported cipher suites (%d)\n\n", len(d.Ciphers))
+		fmt.Fprintln(w, "| Version | Suite | Notes |")
+		fmt.Fprintln(w, "|---|---|---|")
+		for _, c := range d.Ciphers {
+			notes := ""
+			if c.Insecure {
+				notes = "**weak**"
+			}
+			fmt.Fprintf(w, "| %s | `%s` | %s |\n", c.Version, c.Name, notes)
+		}
+		fmt.Fprintln(w)
+	}
+
+	if d.Cert != nil {
+		fmt.Fprintln(w, "## Certificate")
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "- **Subject:** `%s`\n", d.Cert.Subject)
+		fmt.Fprintf(w, "- **Issuer:** `%s`\n", d.Cert.Issuer)
+		if len(d.Cert.DNSNames) > 0 {
+			fmt.Fprintf(w, "- **Names:** %s\n", strings.Join(d.Cert.DNSNames, ", "))
+		}
+		fmt.Fprintf(w, "- **Validity:** %s → %s (%d days remaining)\n",
+			d.Cert.NotBefore.Format("2006-01-02"),
+			d.Cert.NotAfter.Format("2006-01-02"),
+			d.Cert.DaysRemaining)
+		fmt.Fprintf(w, "- **Chain length:** %d\n", d.Cert.ChainLen)
+		if d.Cert.SelfSigned {
+			fmt.Fprintln(w, "- **Self-signed:** yes")
+		}
+		if d.Cert.Expired {
+			fmt.Fprintln(w, "- **Expired:** yes")
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(d.Findings) > 0 {
+		fmt.Fprintln(w, "## Findings")
+		fmt.Fprintln(w)
+		for _, f := range d.Findings {
+			fmt.Fprintf(w, "- **[%s]** %s", strings.ToUpper(f.Severity), f.Title)
+			if f.Detail != "" {
+				fmt.Fprintf(w, " — %s", mdEscapePipes(f.Detail))
+			}
+			fmt.Fprintln(w)
+		}
+		fmt.Fprintln(w)
+	}
+}
+
 // RenderReverseMD writes the reverse-IP result as Markdown.
 func RenderReverseMD(w io.Writer, d ReverseJSON) {
 	fmt.Fprintf(w, "# netcheck reverse — `%s`\n\n", d.IP)

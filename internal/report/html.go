@@ -378,6 +378,250 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderPathEnumHTML writes a single-file HTML rendering of path enumeration.
+func RenderPathEnumHTML(w io.Writer, d PathEnumJSON) {
+	htmlHead(w, "netcheck enum — "+d.BaseURL)
+	fmt.Fprintf(w, "<h1>netcheck enum</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Base: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.BaseURL), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Enumeration failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>Scanned:</b> %d · <span class=\"ok\">%d interesting</span> · "+
+		"<span class=\"muted\">%d not-found</span> · <span class=\"weak\">%d errors</span></p>\n",
+		d.Stats.Total, d.Stats.Interesting, d.Stats.NotFound, d.Stats.Errors)
+
+	if len(d.Findings) == 0 {
+		fmt.Fprintln(w, `<p class="muted">(no interesting paths found)</p>`)
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Status</th><th>Category</th><th>Path</th><th>Notes</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, f := range d.Findings {
+		notes := ""
+		if f.Redirect != "" {
+			notes = "→ <code>" + html.EscapeString(f.Redirect) + "</code>"
+		} else if f.Length > 0 {
+			notes = fmt.Sprintf("%d bytes", f.Length)
+		}
+		fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>\n",
+			f.Status, html.EscapeString(f.Category), html.EscapeString(f.Path), notes)
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+	htmlTail(w)
+}
+
+// RenderPortScanHTML writes a single-file HTML rendering of the port scan.
+func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
+	htmlHead(w, "netcheck ports — "+d.Host)
+	fmt.Fprintf(w, "<h1>netcheck ports</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Host: <code>%s</code>", html.EscapeString(d.Host))
+	if d.IP != "" && d.IP != d.Host {
+		fmt.Fprintf(w, " (<code>%s</code>)", html.EscapeString(d.IP))
+	}
+	fmt.Fprintf(w, " · %s · %dms</p>\n",
+		html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Scan failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>Scanned:</b> %d · <span class=\"ok\">%d open</span> · "+
+		"<span class=\"muted\">%d closed</span> · <span class=\"weak\">%d filtered</span></p>\n",
+		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+
+	if len(d.Ports) == 0 {
+		fmt.Fprintln(w, `<p class="muted">(no open ports found)</p>`)
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Port</th><th>Service</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, p := range d.Ports {
+		svc := p.Service
+		if svc == "" {
+			svc = `<span class="muted">—</span>`
+		} else {
+			svc = html.EscapeString(svc)
+		}
+		fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td></tr>\n", p.Port, svc)
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+	htmlTail(w)
+}
+
+// RenderTakeoverHTML writes a single-file HTML rendering of the takeover
+// check.
+func RenderTakeoverHTML(w io.Writer, d TakeoverJSON) {
+	htmlHead(w, "netcheck takeover — "+d.Domain)
+	fmt.Fprintf(w, "<h1>netcheck takeover</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Domain: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.Domain), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Check failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	if !d.HasCNAME {
+		fmt.Fprintln(w, `<p class="muted">No CNAME record on this domain. Nothing to check.</p>`)
+		htmlTail(w)
+		return
+	}
+
+	for _, f := range d.Findings {
+		fmt.Fprintln(w, "<ul class=\"kv\">")
+		fmt.Fprintf(w, "<li><b>CNAME:</b> <code>%s</code></li>\n", html.EscapeString(f.CNAME))
+		if f.Provider != "" {
+			fmt.Fprintf(w, "<li><b>Provider:</b> %s</li>\n", html.EscapeString(f.Provider))
+		}
+		fmt.Fprintf(w, "<li><b>Verdict:</b> %s</li>\n", takeoverVerdictHTML(f.Verdict))
+		if f.Status != 0 {
+			fmt.Fprintf(w, "<li><b>Status:</b> %d</li>\n", f.Status)
+		}
+		if f.Detail != "" {
+			fmt.Fprintf(w, "<li><b>Detail:</b> %s</li>\n", html.EscapeString(f.Detail))
+		}
+		if f.Notes != "" {
+			fmt.Fprintf(w, "<li><b>Notes:</b> %s</li>\n", html.EscapeString(f.Notes))
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+	htmlTail(w)
+}
+
+func takeoverVerdictHTML(v string) string {
+	switch v {
+	case "vulnerable":
+		return `<span class="fail">VULNERABLE</span>`
+	case "unverifiable":
+		return `<span class="weak">unverifiable</span>`
+	case "safe":
+		return `<span class="ok">safe</span>`
+	case "unknown":
+		return `<span class="muted">unknown</span>`
+	default:
+		return html.EscapeString(v)
+	}
+}
+
+// RenderTLSAuditHTML writes a single-file HTML rendering of the TLS audit.
+func RenderTLSAuditHTML(w io.Writer, d TLSAuditJSON) {
+	htmlHead(w, "netcheck tls — "+d.Host+":"+d.Port)
+	fmt.Fprintf(w, "<h1>netcheck tls</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Host: <code>%s:%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.Host), html.EscapeString(d.Port),
+		html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Audit failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<h2>Protocols</h2>")
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Protocol</th><th>Supported</th><th>Deprecated</th><th>Cipher</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, p := range d.Protocols {
+		sup := `<span class="muted">no</span>`
+		if p.Supported {
+			sup = `<span class="ok">yes</span>`
+		}
+		dep := ""
+		if p.Deprecated {
+			dep = `<span class="fail">deprecated</span>`
+		}
+		c := p.Cipher
+		if c == "" {
+			c = `<span class="muted">—</span>`
+		} else {
+			c = "<code>" + html.EscapeString(c) + "</code>"
+		}
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+			html.EscapeString(p.Name), sup, dep, c)
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+
+	if len(d.Ciphers) > 0 {
+		fmt.Fprintf(w, "<h2>Supported cipher suites (%d)</h2>\n", len(d.Ciphers))
+		fmt.Fprintln(w, "<table>")
+		fmt.Fprintln(w, "<thead><tr><th>Version</th><th>Suite</th><th>Notes</th></tr></thead>")
+		fmt.Fprintln(w, "<tbody>")
+		for _, c := range d.Ciphers {
+			notes := ""
+			if c.Insecure {
+				notes = `<span class="weak">weak</span>`
+			}
+			fmt.Fprintf(w, "<tr><td>%s</td><td><code>%s</code></td><td>%s</td></tr>\n",
+				html.EscapeString(c.Version), html.EscapeString(c.Name), notes)
+		}
+		fmt.Fprintln(w, "</tbody></table>")
+	}
+
+	if d.Cert != nil {
+		fmt.Fprintln(w, "<h2>Certificate</h2>")
+		fmt.Fprintln(w, "<ul class=\"kv\">")
+		fmt.Fprintf(w, "<li><b>Subject:</b> <code>%s</code></li>\n", html.EscapeString(d.Cert.Subject))
+		fmt.Fprintf(w, "<li><b>Issuer:</b> <code>%s</code></li>\n", html.EscapeString(d.Cert.Issuer))
+		if len(d.Cert.DNSNames) > 0 {
+			fmt.Fprintf(w, "<li><b>Names:</b> %s</li>\n", html.EscapeString(strings.Join(d.Cert.DNSNames, ", ")))
+		}
+		fmt.Fprintf(w, "<li><b>Validity:</b> %s → %s (%d days)</li>\n",
+			html.EscapeString(d.Cert.NotBefore.Format("2006-01-02")),
+			html.EscapeString(d.Cert.NotAfter.Format("2006-01-02")),
+			d.Cert.DaysRemaining)
+		fmt.Fprintf(w, "<li><b>Chain length:</b> %d</li>\n", d.Cert.ChainLen)
+		if d.Cert.SelfSigned {
+			fmt.Fprintln(w, `<li><b>Self-signed:</b> <span class="weak">yes</span></li>`)
+		}
+		if d.Cert.Expired {
+			fmt.Fprintln(w, `<li><b>Expired:</b> <span class="fail">yes</span></li>`)
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+
+	if len(d.Findings) > 0 {
+		fmt.Fprintln(w, "<h2>Findings</h2>")
+		fmt.Fprintln(w, "<ul>")
+		for _, f := range d.Findings {
+			fmt.Fprintf(w, "<li><b>%s</b> %s",
+				severityHTML(f.Severity), html.EscapeString(f.Title))
+			if f.Detail != "" {
+				fmt.Fprintf(w, " — %s", html.EscapeString(f.Detail))
+			}
+			fmt.Fprintln(w, "</li>")
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+	htmlTail(w)
+}
+
+func severityHTML(s string) string {
+	switch s {
+	case "high":
+		return `<span class="fail">[HIGH]</span>`
+	case "medium":
+		return `<span class="weak">[MEDIUM]</span>`
+	case "info":
+		return `<span class="info">[INFO]</span>`
+	default:
+		return "[" + html.EscapeString(s) + "]"
+	}
+}
+
 // RenderReverseHTML writes a single-file HTML rendering of the reverse-IP
 // result.
 func RenderReverseHTML(w io.Writer, d ReverseJSON) {
