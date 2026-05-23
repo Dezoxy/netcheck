@@ -378,6 +378,47 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderSubsHTML writes a single-file HTML rendering of the subdomain
+// enumeration result.
+func RenderSubsHTML(w io.Writer, d SubsJSON) {
+	htmlHead(w, "netcheck subs — "+d.Domain)
+	fmt.Fprintf(w, "<h1>netcheck subs</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Domain: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.Domain), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Enumeration failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>%d subdomain(s)</b></p>\n", len(d.Subdomains))
+
+	if len(d.Subdomains) == 0 {
+		fmt.Fprintln(w, "<p class=\"muted\">(no subdomains found in CT logs)</p>")
+	} else {
+		fmt.Fprintln(w, "<table>")
+		fmt.Fprintln(w, "<thead><tr><th>Name</th><th>Sources</th></tr></thead>")
+		fmt.Fprintln(w, "<tbody>")
+		for _, s := range d.Subdomains {
+			fmt.Fprintf(w, "<tr><td><code>%s</code></td><td>%s</td></tr>\n",
+				html.EscapeString(s.Name), html.EscapeString(strings.Join(s.Sources, ", ")))
+		}
+		fmt.Fprintln(w, "</tbody></table>")
+	}
+
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w, "<h2>Source errors</h2>")
+		fmt.Fprintln(w, "<ul>")
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "<li><b>%s:</b> %s</li>\n", html.EscapeString(name), html.EscapeString(err))
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+
+	htmlTail(w)
+}
+
 // RenderTechHTML writes a single-file HTML rendering of the tech detection.
 func RenderTechHTML(w io.Writer, d TechJSON) {
 	htmlHead(w, "netcheck tech — "+d.URL)

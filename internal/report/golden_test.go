@@ -465,6 +465,95 @@ func TestRenderTechErr(t *testing.T) {
 	}
 }
 
+// ─── Subs ─────────────────────────────────────────────────────────────────
+
+func fixtureSubs() SubsJSON {
+	return SubsJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "subs",
+		Domain:          "example.com",
+		StartedAt:       fixedTime,
+		TookMS:          1234,
+		Subdomains: []SubdomainJSON{
+			{Name: "*.example.com", Wildcard: true, Sources: []string{"crt.sh"}},
+			{Name: "api.example.com", Sources: []string{"certspotter", "crt.sh"}},
+			{Name: "docs.example.com", Sources: []string{"certspotter"}},
+			{Name: "example.com", Sources: []string{"certspotter", "crt.sh"}},
+			{Name: "www.example.com", Sources: []string{"certspotter"}},
+		},
+	}
+}
+
+func TestRenderSubsText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderSubs(&buf, fixtureSubs())
+	assertGolden(t, "subs.txt", buf.Bytes())
+}
+
+func TestRenderSubsMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderSubsMD(&buf, fixtureSubs())
+	assertGolden(t, "subs.md", buf.Bytes())
+}
+
+func TestRenderSubsHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderSubsHTML(&buf, fixtureSubs())
+	assertGolden(t, "subs.html", buf.Bytes())
+}
+
+func TestRenderSubsEmpty(t *testing.T) {
+	d := SubsJSON{Domain: "example.com", StartedAt: fixedTime, Kind: "subs"}
+	var buf bytes.Buffer
+	RenderSubs(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no subdomains found in CT logs")) {
+		t.Errorf("empty text path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no subdomains found")) {
+		t.Errorf("empty md path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no subdomains found")) {
+		t.Errorf("empty html path:\n%s", buf.String())
+	}
+}
+
+func TestRenderSubsAllSourcesFailed(t *testing.T) {
+	d := SubsJSON{
+		Domain:       "example.com",
+		Kind:         "subs",
+		StartedAt:    fixedTime,
+		SourceErrors: map[string]string{"crt.sh": "rate limited", "certspotter": "rate limited"},
+	}
+	var buf bytes.Buffer
+	RenderSubs(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("every source errored")) {
+		t.Errorf("text should call out the all-sources-down state:\n%s", buf.String())
+	}
+}
+
+func TestRenderSubsTopLevelError(t *testing.T) {
+	d := SubsJSON{Domain: "", Kind: "subs", StartedAt: fixedTime, Error: "empty domain"}
+	var buf bytes.Buffer
+	RenderSubs(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("enumeration failed")) {
+		t.Errorf("text err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Enumeration failed")) {
+		t.Errorf("md err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderSubsHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Enumeration failed")) {
+		t.Errorf("html err path:\n%s", buf.String())
+	}
+}
+
 // ─── JSON ─────────────────────────────────────────────────────────────────
 
 func TestWriteJSON(t *testing.T) {

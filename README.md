@@ -79,6 +79,7 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck ip <ip\|host>` | Who owns this IP? What's its ASN, reverse DNS, RDAP record, CDN affiliation? |
 | `netcheck headers <url>` | Is the site sending the security headers (HSTS, CSP, X-Frame-Options, etc.) it should be? |
 | `netcheck tech <url>` | What's behind this site? CMS, JS framework, server, CDN, language — fingerprinted from one passive GET. |
+| `netcheck subs <domain>` | Which subdomains exist? Enumerated from Certificate Transparency logs (crt.sh + CertSpotter). |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
@@ -157,6 +158,20 @@ BunnyCDN), language / web framework (PHP, Laravel, Django, Rails, ASP.NET), and
 common libraries (jQuery, Bootstrap). Each match comes with a confidence tier and the
 evidence that triggered it. Catalogue grows over time — not part of the v1.x JSON
 stability promise.
+
+### Subdomain enumeration
+
+```bash
+netcheck subs example.com
+netcheck subs --output json microsoft.com | jq '.subdomains | length'
+```
+
+Queries public Certificate Transparency log aggregators (crt.sh and CertSpotter) in
+parallel, dedupes the union, filters to names that actually belong to the target
+domain, and lists each subdomain with which source(s) reported it. Passive — netcheck
+never talks to the target. If one source is flaking (crt.sh notoriously 502s), the
+run still succeeds with the surviving source and the failure shows up in the
+"Source errors" section.
 
 ### Pipe into other tools
 

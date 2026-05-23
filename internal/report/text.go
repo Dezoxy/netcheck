@@ -336,6 +336,47 @@ func RenderHeaders(w io.Writer, d HeadersJSON) {
 		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
 }
 
+// RenderSubs writes the subdomain enumeration result as text.
+func RenderSubs(w io.Writer, d SubsJSON) {
+	fmt.Fprintln(w, "SUBDOMAIN ENUMERATION")
+	fmt.Fprintf(w, "Domain:   %s\n", d.Domain)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s enumeration failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Subdomains) == 0 && len(d.SourceErrors) == len(allSubsSources()) {
+		fmt.Fprintln(w, "  (no subdomains found — every source errored)")
+	} else if len(d.Subdomains) == 0 {
+		fmt.Fprintln(w, "  (no subdomains found in CT logs)")
+	} else {
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  NAME\tSOURCES")
+		for _, s := range d.Subdomains {
+			fmt.Fprintf(tw, "  %s\t%s\n", s.Name, strings.Join(s.Sources, ", "))
+		}
+		tw.Flush()
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Total: %d subdomain(s)\n", len(d.Subdomains))
+	}
+
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Source errors:")
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "  %s: %s\n", name, err)
+		}
+	}
+}
+
+// allSubsSources returns the names of every CT source we query — used by the
+// text renderer to decide whether "no results" means "no findings" vs
+// "everything was down". The strings here have to match the Name()
+// returned by each subenum.Source implementation.
+func allSubsSources() []string { return []string{"crt.sh", "certspotter"} }
+
 // RenderTech writes the tech-detection result as text.
 func RenderTech(w io.Writer, d TechJSON) {
 	fmt.Fprintln(w, "TECH FINGERPRINT")

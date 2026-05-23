@@ -87,6 +87,12 @@ func RunMenu(args []string) {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
 			s = res
+		case "7":
+			res, err := menuSubs(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
@@ -108,6 +114,7 @@ func printMenu(w io.Writer) {
 	fmt.Fprintln(w, "  4) IP / ASN info")
 	fmt.Fprintln(w, "  5) Security headers audit")
 	fmt.Fprintln(w, "  6) Tech fingerprint (CMS / framework / server / CDN)")
+	fmt.Fprintln(w, "  7) Subdomain enumeration (CT logs)")
 	fmt.Fprintln(w, "  q) Quit")
 	fmt.Fprintln(w)
 }
@@ -420,6 +427,40 @@ func menuTech(in *bufio.Reader, out io.Writer) (*savable, error) {
 				report.RenderTechHTML(w, j)
 			default:
 				report.RenderTech(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuSubs prompts for a domain and runs CT-log subdomain enumeration.
+func menuSubs(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "Domain: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := subsDefaultTimeout(loadedConfig.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildSubs(ctx, strings.TrimSpace(raw), timeout)
+	report.RenderSubs(out, j)
+
+	return &savable{
+		Kind: "subs",
+		Host: j.Domain,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderSubsMD(w, j)
+			case FormatHTML:
+				report.RenderSubsHTML(w, j)
+			default:
+				report.RenderSubs(w, j)
 			}
 			return nil
 		},

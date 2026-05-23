@@ -356,6 +356,37 @@ func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
+// RenderSubsMD writes the subdomain enumeration result as Markdown.
+func RenderSubsMD(w io.Writer, d SubsJSON) {
+	fmt.Fprintf(w, "# netcheck subs — `%s`\n\n", d.Domain)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Enumeration failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Subdomains:** %d\n\n", len(d.Subdomains))
+
+	if len(d.Subdomains) == 0 {
+		fmt.Fprintln(w, "_(no subdomains found in CT logs)_")
+	} else {
+		fmt.Fprintln(w, "| Name | Sources |")
+		fmt.Fprintln(w, "|---|---|")
+		for _, s := range d.Subdomains {
+			fmt.Fprintf(w, "| `%s` | %s |\n", s.Name, strings.Join(s.Sources, ", "))
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w, "## Source errors")
+		fmt.Fprintln(w)
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "- **%s:** %s\n", name, mdEscapePipes(err))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
 // RenderTechMD writes the tech-detection result as Markdown.
 func RenderTechMD(w io.Writer, d TechJSON) {
 	fmt.Fprintf(w, "# netcheck tech — `%s`\n\n", d.URL)
