@@ -111,6 +111,8 @@ func Run() {
 		os.Exit(RunTLSAudit(os.Args[2:]))
 	case "takeover":
 		os.Exit(RunTakeover(os.Args[2:]))
+	case "ports":
+		os.Exit(RunPorts(os.Args[2:]))
 	case "config":
 		os.Exit(runConfigCmd(os.Args[2:]))
 	case "-h", "--help", "help":
@@ -160,6 +162,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck arch <domain>         Wayback Machine snapshots and historical URLs")
 	fmt.Fprintln(os.Stderr, "  netcheck tls <host[:port]>     TLS protocol+cipher matrix audit (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck takeover <domain>     subdomain-takeover check on CNAME (ACTIVE — requires --i-have-authorization)")
+	fmt.Fprintln(os.Stderr, "  netcheck ports <host>          TCP connect scan (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck config show           print the active config (source path, resolvers, defaults)")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")

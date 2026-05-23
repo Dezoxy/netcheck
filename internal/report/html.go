@@ -378,6 +378,49 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderPortScanHTML writes a single-file HTML rendering of the port scan.
+func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
+	htmlHead(w, "netcheck ports — "+d.Host)
+	fmt.Fprintf(w, "<h1>netcheck ports</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Host: <code>%s</code>", html.EscapeString(d.Host))
+	if d.IP != "" && d.IP != d.Host {
+		fmt.Fprintf(w, " (<code>%s</code>)", html.EscapeString(d.IP))
+	}
+	fmt.Fprintf(w, " · %s · %dms</p>\n",
+		html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Scan failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>Scanned:</b> %d · <span class=\"ok\">%d open</span> · "+
+		"<span class=\"muted\">%d closed</span> · <span class=\"weak\">%d filtered</span></p>\n",
+		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+
+	if len(d.Ports) == 0 {
+		fmt.Fprintln(w, `<p class="muted">(no open ports found)</p>`)
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Port</th><th>Service</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, p := range d.Ports {
+		svc := p.Service
+		if svc == "" {
+			svc = `<span class="muted">—</span>`
+		} else {
+			svc = html.EscapeString(svc)
+		}
+		fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td></tr>\n", p.Port, svc)
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+	htmlTail(w)
+}
+
 // RenderTakeoverHTML writes a single-file HTML rendering of the takeover
 // check.
 func RenderTakeoverHTML(w io.Writer, d TakeoverJSON) {

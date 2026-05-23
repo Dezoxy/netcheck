@@ -356,6 +356,38 @@ func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
+// RenderPortScanMD writes the port-scan result as Markdown.
+func RenderPortScanMD(w io.Writer, d PortScanJSON) {
+	fmt.Fprintf(w, "# netcheck ports — `%s`", d.Host)
+	if d.IP != "" && d.IP != d.Host {
+		fmt.Fprintf(w, " (`%s`)", d.IP)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Scan failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Scanned:** %d · **Open:** %d · **Closed:** %d · **Filtered:** %d\n\n",
+		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+
+	if len(d.Ports) == 0 {
+		fmt.Fprintln(w, "_(no open ports found)_")
+		return
+	}
+	fmt.Fprintln(w, "| Port | Service |")
+	fmt.Fprintln(w, "|---|---|")
+	for _, p := range d.Ports {
+		svc := p.Service
+		if svc == "" {
+			svc = "—"
+		}
+		fmt.Fprintf(w, "| %d | %s |\n", p.Port, svc)
+	}
+	fmt.Fprintln(w)
+}
+
 // RenderTakeoverMD writes the takeover-check result as Markdown.
 func RenderTakeoverMD(w io.Writer, d TakeoverJSON) {
 	fmt.Fprintf(w, "# netcheck takeover — `%s`\n\n", d.Domain)

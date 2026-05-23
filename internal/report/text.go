@@ -336,6 +336,41 @@ func RenderHeaders(w io.Writer, d HeadersJSON) {
 		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
 }
 
+// RenderPortScan writes the port-scan result as text.
+func RenderPortScan(w io.Writer, d PortScanJSON) {
+	fmt.Fprintln(w, "PORT SCAN")
+	if d.IP != "" && d.IP != d.Host {
+		fmt.Fprintf(w, "Host:     %s (%s)\n", d.Host, d.IP)
+	} else {
+		fmt.Fprintf(w, "Host:     %s\n", d.Host)
+	}
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s scan failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Ports) == 0 {
+		fmt.Fprintln(w, "  (no open ports found)")
+	} else {
+		fmt.Fprintf(w, "Open ports (%d):\n", len(d.Ports))
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  PORT\tSERVICE")
+		for _, p := range d.Ports {
+			svc := p.Service
+			if svc == "" {
+				svc = "-"
+			}
+			fmt.Fprintf(tw, "  %d\t%s\n", p.Port, svc)
+		}
+		tw.Flush()
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Stats: %d scanned · %d open · %d closed · %d filtered\n",
+		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+}
+
 // RenderTakeover writes the takeover-check result as text.
 func RenderTakeover(w io.Writer, d TakeoverJSON) {
 	fmt.Fprintln(w, "TAKEOVER CHECK")

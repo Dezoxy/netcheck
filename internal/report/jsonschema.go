@@ -9,6 +9,7 @@ import (
 	"netcheck/internal/check"
 	"netcheck/internal/dnscompare"
 	"netcheck/internal/ipinfo"
+	"netcheck/internal/portscan"
 	"netcheck/internal/reverseip"
 	"netcheck/internal/route"
 	"netcheck/internal/secheaders"
@@ -409,6 +410,33 @@ type TakeoverFindingJSON struct {
 	Notes    string `json:"notes,omitempty"`
 }
 
+// PortScanJSON is the JSON representation of a `netcheck ports` scan.
+type PortScanJSON struct {
+	NetcheckVersion string         `json:"netcheck_version"`
+	Kind            string         `json:"kind"` // "ports"
+	Host            string         `json:"host"`
+	IP              string         `json:"ip,omitempty"`
+	StartedAt       time.Time      `json:"started_at"`
+	TookMS          int64          `json:"took_ms"`
+	Ports           []PortJSON     `json:"ports,omitempty"` // open ports only
+	Stats           PortStatsJSON  `json:"stats"`
+	Error           string         `json:"error,omitempty"`
+}
+
+// PortJSON is one open port.
+type PortJSON struct {
+	Port    int    `json:"port"`
+	Service string `json:"service,omitempty"`
+}
+
+// PortStatsJSON summarises the scan.
+type PortStatsJSON struct {
+	Total    int `json:"total"`
+	Open     int `json:"open"`
+	Closed   int `json:"closed"`
+	Filtered int `json:"filtered"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -723,6 +751,32 @@ func ToTakeoverJSON(r takeover.Result) TakeoverJSON {
 			Detail:   f.Detail,
 			Notes:    f.Notes,
 		})
+	}
+	return out
+}
+
+// ToPortScanJSON projects a portscan.Result into PortScanJSON.
+func ToPortScanJSON(r portscan.Result) PortScanJSON {
+	out := PortScanJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "ports",
+		Host:            r.Host,
+		IP:              r.IP,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+		Stats: PortStatsJSON{
+			Total:    r.Stats.Total,
+			Open:     r.Stats.Open,
+			Closed:   r.Stats.Closed,
+			Filtered: r.Stats.Filtered,
+		},
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, p := range r.Ports {
+		out.Ports = append(out.Ports, PortJSON{Port: p.Port, Service: p.Service})
 	}
 	return out
 }
