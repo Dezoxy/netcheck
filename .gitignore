@@ -16,3 +16,9 @@ coverage.out
 
 # go-winres output — regenerated at build time
 rsrc_windows_*.syso
+
+# macOS Finder / iCloud Drive conflict-copy pattern: a "foo 2.txt" / "foo 3.html"
+# appears next to the real "foo.txt" when sync resolves a conflict. Without this
+# rule the dupes get embedded into the Go binary via go:embed internal/webui/dist/*,
+# served at URLs like /index 2.html, and picked up by `git add .`.
+* [0-9].*

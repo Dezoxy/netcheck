@@ -76,6 +76,11 @@ $(WEB_NM): $(WEB_DIR)/package-lock.json $(WEB_DIR)/package.json
 
 web-build: $(WEB_NM)
 	cd $(WEB_DIR) && npm run build
+	@# Defensive sweep: vite's emptyOutDir handles its own clean, but macOS
+	@# Finder / iCloud Drive can drop "index 2.html" style conflict copies
+	@# into internal/webui/dist after the fact. Those get embedded into the
+	@# binary via go:embed, so clear them here.
+	@find internal/webui/dist -type f -name '* [0-9].*' -delete 2>/dev/null || true
 
 ## winres: generate Windows version-info .syso files for amd64 and arm64
 winres:
