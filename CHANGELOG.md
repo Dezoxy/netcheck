@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.4.0](https://github.com/Dezoxy/netcheck/compare/v1.3.3...v1.4.0) (2026-05-23)
+
+
+### Features
+
+* v1.5 active scanning (tls, takeover, ports, enum) behind --i-have-authorization gate ([#34](https://github.com/Dezoxy/netcheck/issues/34)) ([1eadaae](https://github.com/Dezoxy/netcheck/commit/1eadaaeea1681425f139c4808d46ed278633d87b))
+
 ## [1.3.3](https://github.com/Dezoxy/netcheck/compare/v1.3.2...v1.3.3) (2026-05-23)
 
 
