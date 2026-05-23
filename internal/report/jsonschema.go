@@ -13,6 +13,7 @@ import (
 	"netcheck/internal/route"
 	"netcheck/internal/secheaders"
 	"netcheck/internal/subenum"
+	"netcheck/internal/takeover"
 	"netcheck/internal/target"
 	"netcheck/internal/techdetect"
 	"netcheck/internal/tlsaudit"
@@ -386,6 +387,28 @@ type TLSAuditFindingJSON struct {
 	Detail   string `json:"detail,omitempty"`
 }
 
+// TakeoverJSON is the JSON representation of a `netcheck takeover` check.
+type TakeoverJSON struct {
+	NetcheckVersion string                `json:"netcheck_version"`
+	Kind            string                `json:"kind"` // "takeover"
+	Domain          string                `json:"domain"`
+	HasCNAME        bool                  `json:"has_cname"`
+	StartedAt       time.Time             `json:"started_at"`
+	TookMS          int64                 `json:"took_ms"`
+	Findings        []TakeoverFindingJSON `json:"findings,omitempty"`
+	Error           string                `json:"error,omitempty"`
+}
+
+// TakeoverFindingJSON is one verdict on one CNAME chain.
+type TakeoverFindingJSON struct {
+	CNAME    string `json:"cname"`
+	Provider string `json:"provider,omitempty"`
+	Verdict  string `json:"verdict"` // vulnerable | unverifiable | safe | unknown
+	Status   int    `json:"status,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+	Notes    string `json:"notes,omitempty"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -672,6 +695,33 @@ func ToTLSAuditJSON(r tlsaudit.Result) TLSAuditJSON {
 			Severity: f.Severity,
 			Title:    f.Title,
 			Detail:   f.Detail,
+		})
+	}
+	return out
+}
+
+// ToTakeoverJSON projects a takeover.Result into TakeoverJSON.
+func ToTakeoverJSON(r takeover.Result) TakeoverJSON {
+	out := TakeoverJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "takeover",
+		Domain:          r.Domain,
+		HasCNAME:        r.HasCNAME,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, TakeoverFindingJSON{
+			CNAME:    f.CNAME,
+			Provider: f.Provider,
+			Verdict:  string(f.Verdict),
+			Status:   f.Status,
+			Detail:   f.Detail,
+			Notes:    f.Notes,
 		})
 	}
 	return out

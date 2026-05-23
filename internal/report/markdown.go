@@ -356,6 +356,41 @@ func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
+// RenderTakeoverMD writes the takeover-check result as Markdown.
+func RenderTakeoverMD(w io.Writer, d TakeoverJSON) {
+	fmt.Fprintf(w, "# netcheck takeover — `%s`\n\n", d.Domain)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Check failed:** %s\n", d.Error)
+		return
+	}
+	if !d.HasCNAME {
+		fmt.Fprintln(w, "_No CNAME record on this domain. Nothing to check._")
+		return
+	}
+	for _, f := range d.Findings {
+		verdict := f.Verdict
+		if verdict == "vulnerable" {
+			verdict = "**VULNERABLE**"
+		}
+		fmt.Fprintf(w, "- **CNAME:** `%s`\n", f.CNAME)
+		if f.Provider != "" {
+			fmt.Fprintf(w, "- **Provider:** %s\n", f.Provider)
+		}
+		fmt.Fprintf(w, "- **Verdict:** %s\n", verdict)
+		if f.Status != 0 {
+			fmt.Fprintf(w, "- **Status:** %d\n", f.Status)
+		}
+		if f.Detail != "" {
+			fmt.Fprintf(w, "- **Detail:** %s\n", mdEscapePipes(f.Detail))
+		}
+		if f.Notes != "" {
+			fmt.Fprintf(w, "- **Notes:** %s\n", mdEscapePipes(f.Notes))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
 // RenderTLSAuditMD writes the TLS audit result as Markdown.
 func RenderTLSAuditMD(w io.Writer, d TLSAuditJSON) {
 	fmt.Fprintf(w, "# netcheck tls — `%s:%s`\n\n", d.Host, d.Port)

@@ -378,6 +378,62 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderTakeoverHTML writes a single-file HTML rendering of the takeover
+// check.
+func RenderTakeoverHTML(w io.Writer, d TakeoverJSON) {
+	htmlHead(w, "netcheck takeover — "+d.Domain)
+	fmt.Fprintf(w, "<h1>netcheck takeover</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Domain: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.Domain), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Check failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	if !d.HasCNAME {
+		fmt.Fprintln(w, `<p class="muted">No CNAME record on this domain. Nothing to check.</p>`)
+		htmlTail(w)
+		return
+	}
+
+	for _, f := range d.Findings {
+		fmt.Fprintln(w, "<ul class=\"kv\">")
+		fmt.Fprintf(w, "<li><b>CNAME:</b> <code>%s</code></li>\n", html.EscapeString(f.CNAME))
+		if f.Provider != "" {
+			fmt.Fprintf(w, "<li><b>Provider:</b> %s</li>\n", html.EscapeString(f.Provider))
+		}
+		fmt.Fprintf(w, "<li><b>Verdict:</b> %s</li>\n", takeoverVerdictHTML(f.Verdict))
+		if f.Status != 0 {
+			fmt.Fprintf(w, "<li><b>Status:</b> %d</li>\n", f.Status)
+		}
+		if f.Detail != "" {
+			fmt.Fprintf(w, "<li><b>Detail:</b> %s</li>\n", html.EscapeString(f.Detail))
+		}
+		if f.Notes != "" {
+			fmt.Fprintf(w, "<li><b>Notes:</b> %s</li>\n", html.EscapeString(f.Notes))
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+	htmlTail(w)
+}
+
+func takeoverVerdictHTML(v string) string {
+	switch v {
+	case "vulnerable":
+		return `<span class="fail">VULNERABLE</span>`
+	case "unverifiable":
+		return `<span class="weak">unverifiable</span>`
+	case "safe":
+		return `<span class="ok">safe</span>`
+	case "unknown":
+		return `<span class="muted">unknown</span>`
+	default:
+		return html.EscapeString(v)
+	}
+}
+
 // RenderTLSAuditHTML writes a single-file HTML rendering of the TLS audit.
 func RenderTLSAuditHTML(w io.Writer, d TLSAuditJSON) {
 	htmlHead(w, "netcheck tls — "+d.Host+":"+d.Port)

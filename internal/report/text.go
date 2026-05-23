@@ -336,6 +336,60 @@ func RenderHeaders(w io.Writer, d HeadersJSON) {
 		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
 }
 
+// RenderTakeover writes the takeover-check result as text.
+func RenderTakeover(w io.Writer, d TakeoverJSON) {
+	fmt.Fprintln(w, "TAKEOVER CHECK")
+	fmt.Fprintf(w, "Domain:   %s\n", d.Domain)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s check failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if !d.HasCNAME {
+		fmt.Fprintln(w, "  No CNAME record on this domain. Nothing to check.")
+		return
+	}
+	for _, f := range d.Findings {
+		fmt.Fprintf(w, "  CNAME:    %s\n", f.CNAME)
+		fmt.Fprintf(w, "  Provider: %s\n", orDash(f.Provider))
+		fmt.Fprintf(w, "  Verdict:  %s\n", takeoverTag(f.Verdict))
+		if f.Status != 0 {
+			fmt.Fprintf(w, "  Status:   %d\n", f.Status)
+		}
+		if f.Detail != "" {
+			fmt.Fprintf(w, "  Detail:   %s\n", f.Detail)
+		}
+		if f.Notes != "" {
+			fmt.Fprintf(w, "  Notes:    %s\n", f.Notes)
+		}
+	}
+}
+
+// takeoverTag formats the verdict for the text report.
+func takeoverTag(v string) string {
+	switch v {
+	case "vulnerable":
+		return "VULNERABLE — this CNAME can be taken over"
+	case "unverifiable":
+		return "UNVERIFIABLE — CNAME matches a takeover-able provider, but probe failed"
+	case "safe":
+		return "safe — provider matched, resource appears claimed"
+	case "unknown":
+		return "unknown — CNAME target not in catalog"
+	default:
+		return v
+	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}
+
 // RenderTLSAudit writes the TLS audit result as text.
 func RenderTLSAudit(w io.Writer, d TLSAuditJSON) {
 	fmt.Fprintln(w, "TLS AUDIT")
