@@ -378,6 +378,111 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderTLSAuditHTML writes a single-file HTML rendering of the TLS audit.
+func RenderTLSAuditHTML(w io.Writer, d TLSAuditJSON) {
+	htmlHead(w, "netcheck tls — "+d.Host+":"+d.Port)
+	fmt.Fprintf(w, "<h1>netcheck tls</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Host: <code>%s:%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.Host), html.EscapeString(d.Port),
+		html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Audit failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<h2>Protocols</h2>")
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Protocol</th><th>Supported</th><th>Deprecated</th><th>Cipher</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, p := range d.Protocols {
+		sup := `<span class="muted">no</span>`
+		if p.Supported {
+			sup = `<span class="ok">yes</span>`
+		}
+		dep := ""
+		if p.Deprecated {
+			dep = `<span class="fail">deprecated</span>`
+		}
+		c := p.Cipher
+		if c == "" {
+			c = `<span class="muted">—</span>`
+		} else {
+			c = "<code>" + html.EscapeString(c) + "</code>"
+		}
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+			html.EscapeString(p.Name), sup, dep, c)
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+
+	if len(d.Ciphers) > 0 {
+		fmt.Fprintf(w, "<h2>Supported cipher suites (%d)</h2>\n", len(d.Ciphers))
+		fmt.Fprintln(w, "<table>")
+		fmt.Fprintln(w, "<thead><tr><th>Version</th><th>Suite</th><th>Notes</th></tr></thead>")
+		fmt.Fprintln(w, "<tbody>")
+		for _, c := range d.Ciphers {
+			notes := ""
+			if c.Insecure {
+				notes = `<span class="weak">weak</span>`
+			}
+			fmt.Fprintf(w, "<tr><td>%s</td><td><code>%s</code></td><td>%s</td></tr>\n",
+				html.EscapeString(c.Version), html.EscapeString(c.Name), notes)
+		}
+		fmt.Fprintln(w, "</tbody></table>")
+	}
+
+	if d.Cert != nil {
+		fmt.Fprintln(w, "<h2>Certificate</h2>")
+		fmt.Fprintln(w, "<ul class=\"kv\">")
+		fmt.Fprintf(w, "<li><b>Subject:</b> <code>%s</code></li>\n", html.EscapeString(d.Cert.Subject))
+		fmt.Fprintf(w, "<li><b>Issuer:</b> <code>%s</code></li>\n", html.EscapeString(d.Cert.Issuer))
+		if len(d.Cert.DNSNames) > 0 {
+			fmt.Fprintf(w, "<li><b>Names:</b> %s</li>\n", html.EscapeString(strings.Join(d.Cert.DNSNames, ", ")))
+		}
+		fmt.Fprintf(w, "<li><b>Validity:</b> %s → %s (%d days)</li>\n",
+			html.EscapeString(d.Cert.NotBefore.Format("2006-01-02")),
+			html.EscapeString(d.Cert.NotAfter.Format("2006-01-02")),
+			d.Cert.DaysRemaining)
+		fmt.Fprintf(w, "<li><b>Chain length:</b> %d</li>\n", d.Cert.ChainLen)
+		if d.Cert.SelfSigned {
+			fmt.Fprintln(w, `<li><b>Self-signed:</b> <span class="weak">yes</span></li>`)
+		}
+		if d.Cert.Expired {
+			fmt.Fprintln(w, `<li><b>Expired:</b> <span class="fail">yes</span></li>`)
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+
+	if len(d.Findings) > 0 {
+		fmt.Fprintln(w, "<h2>Findings</h2>")
+		fmt.Fprintln(w, "<ul>")
+		for _, f := range d.Findings {
+			fmt.Fprintf(w, "<li><b>%s</b> %s",
+				severityHTML(f.Severity), html.EscapeString(f.Title))
+			if f.Detail != "" {
+				fmt.Fprintf(w, " — %s", html.EscapeString(f.Detail))
+			}
+			fmt.Fprintln(w, "</li>")
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+	htmlTail(w)
+}
+
+func severityHTML(s string) string {
+	switch s {
+	case "high":
+		return `<span class="fail">[HIGH]</span>`
+	case "medium":
+		return `<span class="weak">[MEDIUM]</span>`
+	case "info":
+		return `<span class="info">[INFO]</span>`
+	default:
+		return "[" + html.EscapeString(s) + "]"
+	}
+}
+
 // RenderReverseHTML writes a single-file HTML rendering of the reverse-IP
 // result.
 func RenderReverseHTML(w io.Writer, d ReverseJSON) {

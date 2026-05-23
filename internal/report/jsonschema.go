@@ -15,6 +15,7 @@ import (
 	"netcheck/internal/subenum"
 	"netcheck/internal/target"
 	"netcheck/internal/techdetect"
+	"netcheck/internal/tlsaudit"
 	"netcheck/internal/wayback"
 )
 
@@ -332,6 +333,59 @@ type SnapshotJSON struct {
 	Status    int       `json:"status,omitempty"`
 }
 
+// TLSAuditJSON is the JSON representation of a `netcheck tls` audit.
+type TLSAuditJSON struct {
+	NetcheckVersion string                  `json:"netcheck_version"`
+	Kind            string                  `json:"kind"` // "tls-audit"
+	Host            string                  `json:"host"`
+	Port            string                  `json:"port"`
+	StartedAt       time.Time               `json:"started_at"`
+	TookMS          int64                   `json:"took_ms"`
+	Protocols       []TLSProtocolJSON       `json:"protocols,omitempty"`
+	Ciphers         []TLSCipherJSON         `json:"ciphers,omitempty"`
+	Cert            *TLSCertJSON            `json:"cert,omitempty"`
+	Findings        []TLSAuditFindingJSON   `json:"findings,omitempty"`
+	Error           string                  `json:"error,omitempty"`
+}
+
+// TLSProtocolJSON is one TLS version probe result.
+type TLSProtocolJSON struct {
+	Name       string `json:"name"`
+	Supported  bool   `json:"supported"`
+	Deprecated bool   `json:"deprecated,omitempty"`
+	Cipher     string `json:"cipher,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
+// TLSCipherJSON is one cipher-suite probe result. Only supported=true rows
+// are included in the JSON output to keep the file small.
+type TLSCipherJSON struct {
+	Name      string `json:"name"`
+	Insecure  bool   `json:"insecure,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Supported bool   `json:"supported"`
+}
+
+// TLSCertJSON describes the leaf certificate.
+type TLSCertJSON struct {
+	Subject       string    `json:"subject"`
+	Issuer        string    `json:"issuer"`
+	DNSNames      []string  `json:"dns_names,omitempty"`
+	NotBefore     time.Time `json:"not_before"`
+	NotAfter      time.Time `json:"not_after"`
+	DaysRemaining int       `json:"days_remaining"`
+	ChainLen      int       `json:"chain_len"`
+	SelfSigned    bool      `json:"self_signed,omitempty"`
+	Expired       bool      `json:"expired,omitempty"`
+}
+
+// TLSAuditFindingJSON is one high-level audit verdict.
+type TLSAuditFindingJSON struct {
+	Severity string `json:"severity"`
+	Title    string `json:"title"`
+	Detail   string `json:"detail,omitempty"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -559,6 +613,65 @@ func ToArchJSON(r wayback.Result) ArchJSON {
 			Timestamp: s.Timestamp,
 			URL:       s.URL,
 			Status:    s.Status,
+		})
+	}
+	return out
+}
+
+// ToTLSAuditJSON projects a tlsaudit.Result into TLSAuditJSON. Only supported
+// cipher suites are included in the JSON output — the not-supported list is
+// large and noisy.
+func ToTLSAuditJSON(r tlsaudit.Result) TLSAuditJSON {
+	out := TLSAuditJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "tls-audit",
+		Host:            r.Host,
+		Port:            r.Port,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, p := range r.Protocols {
+		out.Protocols = append(out.Protocols, TLSProtocolJSON{
+			Name:       p.Name,
+			Supported:  p.Supported,
+			Deprecated: p.Deprecated,
+			Cipher:     p.Cipher,
+			Error:      p.Error,
+		})
+	}
+	for _, c := range r.Ciphers {
+		if !c.Supported {
+			continue
+		}
+		out.Ciphers = append(out.Ciphers, TLSCipherJSON{
+			Name:      c.Name,
+			Insecure:  c.Insecure,
+			Version:   c.Version,
+			Supported: c.Supported,
+		})
+	}
+	if r.Cert != nil {
+		out.Cert = &TLSCertJSON{
+			Subject:       r.Cert.Subject,
+			Issuer:        r.Cert.Issuer,
+			DNSNames:      r.Cert.DNSNames,
+			NotBefore:     r.Cert.NotBefore,
+			NotAfter:      r.Cert.NotAfter,
+			DaysRemaining: r.Cert.DaysRemaining,
+			ChainLen:      r.Cert.ChainLen,
+			SelfSigned:    r.Cert.SelfSigned,
+			Expired:       r.Cert.Expired,
+		}
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, TLSAuditFindingJSON{
+			Severity: f.Severity,
+			Title:    f.Title,
+			Detail:   f.Detail,
 		})
 	}
 	return out

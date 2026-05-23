@@ -356,6 +356,86 @@ func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
+// RenderTLSAuditMD writes the TLS audit result as Markdown.
+func RenderTLSAuditMD(w io.Writer, d TLSAuditJSON) {
+	fmt.Fprintf(w, "# netcheck tls — `%s:%s`\n\n", d.Host, d.Port)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Audit failed:** %s\n", d.Error)
+		return
+	}
+
+	fmt.Fprintln(w, "## Protocols")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "| Protocol | Supported | Deprecated | Cipher |")
+	fmt.Fprintln(w, "|---|---|---|---|")
+	for _, p := range d.Protocols {
+		sup := "no"
+		if p.Supported {
+			sup = "**yes**"
+		}
+		dep := ""
+		if p.Deprecated {
+			dep = "yes"
+		}
+		c := p.Cipher
+		if c == "" {
+			c = "—"
+		}
+		fmt.Fprintf(w, "| %s | %s | %s | %s |\n", p.Name, sup, dep, c)
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Ciphers) > 0 {
+		fmt.Fprintf(w, "## Supported cipher suites (%d)\n\n", len(d.Ciphers))
+		fmt.Fprintln(w, "| Version | Suite | Notes |")
+		fmt.Fprintln(w, "|---|---|---|")
+		for _, c := range d.Ciphers {
+			notes := ""
+			if c.Insecure {
+				notes = "**weak**"
+			}
+			fmt.Fprintf(w, "| %s | `%s` | %s |\n", c.Version, c.Name, notes)
+		}
+		fmt.Fprintln(w)
+	}
+
+	if d.Cert != nil {
+		fmt.Fprintln(w, "## Certificate")
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "- **Subject:** `%s`\n", d.Cert.Subject)
+		fmt.Fprintf(w, "- **Issuer:** `%s`\n", d.Cert.Issuer)
+		if len(d.Cert.DNSNames) > 0 {
+			fmt.Fprintf(w, "- **Names:** %s\n", strings.Join(d.Cert.DNSNames, ", "))
+		}
+		fmt.Fprintf(w, "- **Validity:** %s → %s (%d days remaining)\n",
+			d.Cert.NotBefore.Format("2006-01-02"),
+			d.Cert.NotAfter.Format("2006-01-02"),
+			d.Cert.DaysRemaining)
+		fmt.Fprintf(w, "- **Chain length:** %d\n", d.Cert.ChainLen)
+		if d.Cert.SelfSigned {
+			fmt.Fprintln(w, "- **Self-signed:** yes")
+		}
+		if d.Cert.Expired {
+			fmt.Fprintln(w, "- **Expired:** yes")
+		}
+		fmt.Fprintln(w)
+	}
+
+	if len(d.Findings) > 0 {
+		fmt.Fprintln(w, "## Findings")
+		fmt.Fprintln(w)
+		for _, f := range d.Findings {
+			fmt.Fprintf(w, "- **[%s]** %s", strings.ToUpper(f.Severity), f.Title)
+			if f.Detail != "" {
+				fmt.Fprintf(w, " — %s", mdEscapePipes(f.Detail))
+			}
+			fmt.Fprintln(w)
+		}
+		fmt.Fprintln(w)
+	}
+}
+
 // RenderReverseMD writes the reverse-IP result as Markdown.
 func RenderReverseMD(w io.Writer, d ReverseJSON) {
 	fmt.Fprintf(w, "# netcheck reverse — `%s`\n\n", d.IP)
