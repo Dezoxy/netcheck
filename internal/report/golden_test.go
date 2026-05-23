@@ -554,6 +554,141 @@ func TestRenderSubsTopLevelError(t *testing.T) {
 	}
 }
 
+// ─── Reverse ──────────────────────────────────────────────────────────────
+
+func fixtureReverse() ReverseJSON {
+	return ReverseJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "reverse",
+		IP:              "1.1.1.1",
+		StartedAt:       fixedTime,
+		TookMS:          456,
+		Hostnames: []HostnameJSON{
+			{Name: "one.one.one.one", Sources: []string{"ptr"}},
+			{Name: "shared.example.com", Sources: []string{"hackertarget", "shodan"}},
+			{Name: "ht-only.example.com", Sources: []string{"hackertarget"}},
+		},
+	}
+}
+
+func TestRenderReverseText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderReverse(&buf, fixtureReverse())
+	assertGolden(t, "reverse.txt", buf.Bytes())
+}
+
+func TestRenderReverseMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderReverseMD(&buf, fixtureReverse())
+	assertGolden(t, "reverse.md", buf.Bytes())
+}
+
+func TestRenderReverseHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderReverseHTML(&buf, fixtureReverse())
+	assertGolden(t, "reverse.html", buf.Bytes())
+}
+
+func TestRenderReverseEmpty(t *testing.T) {
+	d := ReverseJSON{IP: "1.2.3.4", Kind: "reverse", StartedAt: fixedTime, SourceDisabled: []string{"shodan"}}
+	var buf bytes.Buffer
+	RenderReverse(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("no hostnames found")) {
+		t.Errorf("text empty path:\n%s", buf.String())
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("Disabled (no API key): shodan")) {
+		t.Errorf("text should mention disabled source:\n%s", buf.String())
+	}
+}
+
+func TestRenderReverseErr(t *testing.T) {
+	d := ReverseJSON{IP: "bad", Kind: "reverse", StartedAt: fixedTime, Error: "not an IP"}
+	var buf bytes.Buffer
+	RenderReverse(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("lookup failed")) {
+		t.Errorf("text err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderReverseMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("md err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderReverseHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("html err path:\n%s", buf.String())
+	}
+}
+
+// ─── Arch (Wayback) ───────────────────────────────────────────────────────
+
+func fixtureArch() ArchJSON {
+	first := time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC)
+	last := time.Date(2023, 6, 15, 12, 0, 0, 0, time.UTC)
+	return ArchJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "arch",
+		Domain:          "example.com",
+		StartedAt:       fixedTime,
+		TookMS:          2345,
+		Total:           3,
+		UniqueURLs:      3,
+		First:           &first,
+		Last:            &last,
+		RecentSamples: []SnapshotJSON{
+			{Timestamp: last, URL: "https://example.com/foo", Status: 404},
+			{Timestamp: time.Date(2020, 5, 1, 0, 0, 0, 0, time.UTC), URL: "https://example.com/about", Status: 200},
+			{Timestamp: first, URL: "https://example.com/", Status: 200},
+		},
+	}
+}
+
+func TestRenderArchText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderArch(&buf, fixtureArch())
+	assertGolden(t, "arch.txt", buf.Bytes())
+}
+
+func TestRenderArchMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderArchMD(&buf, fixtureArch())
+	assertGolden(t, "arch.md", buf.Bytes())
+}
+
+func TestRenderArchHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderArchHTML(&buf, fixtureArch())
+	assertGolden(t, "arch.html", buf.Bytes())
+}
+
+func TestRenderArchEmpty(t *testing.T) {
+	d := ArchJSON{Domain: "empty.example", Kind: "arch", StartedAt: fixedTime}
+	var buf bytes.Buffer
+	RenderArch(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Total snapshots: 0")) {
+		t.Errorf("text empty path:\n%s", buf.String())
+	}
+}
+
+func TestRenderArchErr(t *testing.T) {
+	d := ArchJSON{Domain: "bad", Kind: "arch", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderArch(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("lookup failed")) {
+		t.Errorf("text err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderArchMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("md err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderArchHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("html err path:\n%s", buf.String())
+	}
+}
+
 // ─── JSON ─────────────────────────────────────────────────────────────────
 
 func TestWriteJSON(t *testing.T) {

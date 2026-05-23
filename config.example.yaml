@@ -39,3 +39,12 @@ resolvers:
   - name: nextdns-example
     address: https://dns.nextdns.io/abcdef
     type: doh
+
+# Optional API keys for third-party sources used by passive-recon commands.
+# Every key is optional — commands skip the source silently when the key is
+# absent and surface it in the output's "source_disabled" list.
+apis:
+  # Shodan: enables Shodan as a source for `netcheck reverse`. Get a key at
+  # https://account.shodan.io/ — the free tier works (limited monthly credits),
+  # the $59/year membership is the sweet spot for pentest work.
+  # shodan_api_key: your-key-here

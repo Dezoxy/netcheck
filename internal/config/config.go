@@ -21,10 +21,22 @@ type Config struct {
 	MaxRedirects    int             `yaml:"max_redirects"`
 	PreferIPv6      bool            `yaml:"prefer_ipv6"`
 	Resolvers       []ResolverEntry `yaml:"resolvers"`
+	APIs            APIs            `yaml:"apis"`
 
 	// Source records where the config came from, for `netcheck config show`
 	// and debugging. Empty when no file loaded — built-in defaults only.
 	Source string `yaml:"-"`
+}
+
+// APIs holds optional API keys for third-party sources used by passive-recon
+// commands. Every field is optional; commands degrade gracefully when a key
+// is absent (the source is skipped, the others run, the missing source shows
+// up as "(disabled — no API key)" in the output).
+type APIs struct {
+	// ShodanAPIKey enables Shodan as a source for `netcheck reverse`.
+	// Get one at https://account.shodan.io/. Free tier works with limited
+	// monthly credits.
+	ShodanAPIKey string `yaml:"shodan_api_key,omitempty"`
 }
 
 // ResolverEntry is one named DNS resolver loaded from config.

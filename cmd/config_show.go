@@ -68,6 +68,13 @@ type configShowJSON struct {
 	MaxRedirects    int                    `json:"max_redirects"`
 	PreferIPv6      bool                   `json:"prefer_ipv6"`
 	Resolvers       []config.ResolverEntry `json:"resolvers,omitempty"`
+	APIs            configShowAPIs         `json:"apis"`
+}
+
+// configShowAPIs reports which API keys are configured WITHOUT leaking the
+// actual key. "set" / "" — never the value itself.
+type configShowAPIs struct {
+	Shodan string `json:"shodan_api_key"` // "set" | ""
 }
 
 func writeConfigJSON(w io.Writer) error {
@@ -82,6 +89,9 @@ func writeConfigJSON(w io.Writer) error {
 		MaxRedirects:    c.MaxRedirects,
 		PreferIPv6:      c.PreferIPv6,
 		Resolvers:       c.Resolvers,
+		APIs: configShowAPIs{
+			Shodan: maskedAPIKey(c.APIs.ShodanAPIKey),
+		},
 	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
@@ -113,21 +123,46 @@ func writeConfigText(w io.Writer) {
 	if len(c.Resolvers) == 0 {
 		fmt.Fprintln(w, "Resolvers (from config): none")
 		fmt.Fprintln(w, "  Built-in resolvers (Cloudflare/Google/Quad9) and system /etc/resolv.conf are always available.")
-		return
+	} else {
+		fmt.Fprintf(w, "Resolvers (from config — %d):\n", len(c.Resolvers))
+		tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  NAME\tADDRESS\tTYPE")
+		for _, r := range c.Resolvers {
+			t := r.Type
+			if t == "" {
+				t = "udp"
+			}
+			name := r.Name
+			if name == "" {
+				name = "(unnamed)"
+			}
+			fmt.Fprintf(tw, "  %s\t%s\t%s\n", name, r.Address, t)
+		}
+		tw.Flush()
 	}
-	fmt.Fprintf(w, "Resolvers (from config — %d):\n", len(c.Resolvers))
+
+	// API keys — show set/unset only, never the value itself.
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "API keys")
 	tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "  NAME\tADDRESS\tTYPE")
-	for _, r := range c.Resolvers {
-		t := r.Type
-		if t == "" {
-			t = "udp"
-		}
-		name := r.Name
-		if name == "" {
-			name = "(unnamed)"
-		}
-		fmt.Fprintf(tw, "  %s\t%s\t%s\n", name, r.Address, t)
-	}
+	fmt.Fprintf(tw, "  Shodan\t%s\n", apiKeyStatus(c.APIs.ShodanAPIKey))
 	tw.Flush()
+}
+
+// maskedAPIKey returns "set" when v is non-empty, "" otherwise. We never
+// surface the actual key value — `config show` output gets pasted into chat
+// and tickets.
+func maskedAPIKey(v string) string {
+	if v != "" {
+		return "set"
+	}
+	return ""
+}
+
+// apiKeyStatus is the human-text variant used by writeConfigText.
+func apiKeyStatus(v string) string {
+	if v != "" {
+		return "set"
+	}
+	return "(not set)"
 }

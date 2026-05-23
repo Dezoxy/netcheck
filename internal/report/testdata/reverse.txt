@@ -1,0 +1,10 @@
+REVERSE IP LOOKUP
+IP:       1.1.1.1
+Time:     2026-05-21 19:30:45 (456ms)
+
+  HOSTNAME             SOURCES
+  one.one.one.one      ptr
+  shared.example.com   hackertarget, shodan
+  ht-only.example.com  hackertarget
+
+Total: 3 hostname(s)

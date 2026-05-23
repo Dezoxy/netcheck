@@ -93,6 +93,18 @@ func RunMenu(args []string) {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
 			s = res
+		case "8":
+			res, err := menuReverse(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
+		case "9":
+			res, err := menuArch(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
@@ -115,6 +127,8 @@ func printMenu(w io.Writer) {
 	fmt.Fprintln(w, "  5) Security headers audit")
 	fmt.Fprintln(w, "  6) Tech fingerprint (CMS / framework / server / CDN)")
 	fmt.Fprintln(w, "  7) Subdomain enumeration (CT logs)")
+	fmt.Fprintln(w, "  8) Reverse IP lookup (other hostnames on this IP)")
+	fmt.Fprintln(w, "  9) Wayback / archive.org historical snapshots")
 	fmt.Fprintln(w, "  q) Quit")
 	fmt.Fprintln(w)
 }
@@ -461,6 +475,74 @@ func menuSubs(in *bufio.Reader, out io.Writer) (*savable, error) {
 				report.RenderSubsHTML(w, j)
 			default:
 				report.RenderSubs(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuReverse prompts for an IP and runs reverse-IP enumeration.
+func menuReverse(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "IP: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := reverseDefaultTimeout(loadedConfig.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildReverse(ctx, strings.TrimSpace(raw), timeout)
+	report.RenderReverse(out, j)
+
+	return &savable{
+		Kind: "reverse",
+		Host: j.IP,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderReverseMD(w, j)
+			case FormatHTML:
+				report.RenderReverseHTML(w, j)
+			default:
+				report.RenderReverse(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuArch prompts for a domain and runs the Wayback CDX lookup.
+func menuArch(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "Domain: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := archDefaultTimeout(loadedConfig.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildArch(ctx, strings.TrimSpace(raw), timeout)
+	report.RenderArch(out, j)
+
+	return &savable{
+		Kind: "arch",
+		Host: j.Domain,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderArchMD(w, j)
+			case FormatHTML:
+				report.RenderArchHTML(w, j)
+			default:
+				report.RenderArch(w, j)
 			}
 			return nil
 		},

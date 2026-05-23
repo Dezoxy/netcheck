@@ -336,6 +336,79 @@ func RenderHeaders(w io.Writer, d HeadersJSON) {
 		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
 }
 
+// RenderReverse writes the reverse-IP result as text.
+func RenderReverse(w io.Writer, d ReverseJSON) {
+	fmt.Fprintln(w, "REVERSE IP LOOKUP")
+	fmt.Fprintf(w, "IP:       %s\n", d.IP)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s lookup failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Hostnames) == 0 {
+		fmt.Fprintln(w, "  (no hostnames found)")
+	} else {
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  HOSTNAME\tSOURCES")
+		for _, h := range d.Hostnames {
+			fmt.Fprintf(tw, "  %s\t%s\n", h.Name, strings.Join(h.Sources, ", "))
+		}
+		tw.Flush()
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Total: %d hostname(s)\n", len(d.Hostnames))
+	}
+
+	if len(d.SourceDisabled) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Disabled (no API key): %s\n", strings.Join(d.SourceDisabled, ", "))
+	}
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Source errors:")
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "  %s: %s\n", name, err)
+		}
+	}
+}
+
+// RenderArch writes the Wayback / archive.org result as text.
+func RenderArch(w io.Writer, d ArchJSON) {
+	fmt.Fprintln(w, "WAYBACK ARCHIVE")
+	fmt.Fprintf(w, "Domain:   %s\n", d.Domain)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s lookup failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Total snapshots: %d\n", d.Total)
+	fmt.Fprintf(w, "Unique URLs:     %d\n", d.UniqueURLs)
+	if d.First != nil {
+		fmt.Fprintf(w, "First seen:      %s\n", d.First.Format("2006-01-02"))
+	}
+	if d.Last != nil {
+		fmt.Fprintf(w, "Last seen:       %s\n", d.Last.Format("2006-01-02"))
+	}
+
+	if len(d.RecentSamples) == 0 {
+		return
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Recent snapshots (showing %d, newest first):\n", len(d.RecentSamples))
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "  DATE\tSTATUS\tURL")
+	for _, s := range d.RecentSamples {
+		status := "-"
+		if s.Status > 0 {
+			status = fmt.Sprintf("%d", s.Status)
+		}
+		fmt.Fprintf(tw, "  %s\t%s\t%s\n", s.Timestamp.Format("2006-01-02"), status, s.URL)
+	}
+	tw.Flush()
+}
+
 // RenderSubs writes the subdomain enumeration result as text.
 func RenderSubs(w io.Writer, d SubsJSON) {
 	fmt.Fprintln(w, "SUBDOMAIN ENUMERATION")

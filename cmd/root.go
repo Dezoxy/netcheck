@@ -103,6 +103,10 @@ func Run() {
 		os.Exit(RunTech(os.Args[2:]))
 	case "subs":
 		os.Exit(RunSubs(os.Args[2:]))
+	case "reverse":
+		os.Exit(RunReverse(os.Args[2:]))
+	case "arch":
+		os.Exit(RunArch(os.Args[2:]))
 	case "config":
 		os.Exit(runConfigCmd(os.Args[2:]))
 	case "-h", "--help", "help":
@@ -148,6 +152,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck headers <url>         security-header report card (HSTS, CSP, XFO, etc.)")
 	fmt.Fprintln(os.Stderr, "  netcheck tech <url>            fingerprint CMS, JS framework, server, CDN, language")
 	fmt.Fprintln(os.Stderr, "  netcheck subs <domain>         enumerate subdomains via Certificate Transparency logs")
+	fmt.Fprintln(os.Stderr, "  netcheck reverse <ip>          other hostnames on this IP (reverse DNS / Hackertarget / Shodan)")
+	fmt.Fprintln(os.Stderr, "  netcheck arch <domain>         Wayback Machine snapshots and historical URLs")
 	fmt.Fprintln(os.Stderr, "  netcheck config show           print the active config (source path, resolvers, defaults)")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
@@ -165,6 +171,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck headers https://news.ycombinator.com")
 	fmt.Fprintln(os.Stderr, "  netcheck tech https://wordpress.org")
 	fmt.Fprintln(os.Stderr, "  netcheck subs example.com")
+	fmt.Fprintln(os.Stderr, "  netcheck reverse 1.1.1.1")
+	fmt.Fprintln(os.Stderr, "  netcheck arch example.com")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver tls://1.1.1.1 cloudflare.com   # DoT")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver https://cloudflare-dns.com/dns-query cloudflare.com   # DoH")
 	fmt.Fprintln(os.Stderr)

@@ -378,6 +378,97 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderReverseHTML writes a single-file HTML rendering of the reverse-IP
+// result.
+func RenderReverseHTML(w io.Writer, d ReverseJSON) {
+	htmlHead(w, "netcheck reverse — "+d.IP)
+	fmt.Fprintf(w, "<h1>netcheck reverse</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">IP: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.IP), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Lookup failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>%d hostname(s)</b></p>\n", len(d.Hostnames))
+
+	if len(d.Hostnames) == 0 {
+		fmt.Fprintln(w, "<p class=\"muted\">(no hostnames found)</p>")
+	} else {
+		fmt.Fprintln(w, "<table>")
+		fmt.Fprintln(w, "<thead><tr><th>Hostname</th><th>Sources</th></tr></thead>")
+		fmt.Fprintln(w, "<tbody>")
+		for _, h := range d.Hostnames {
+			fmt.Fprintf(w, "<tr><td><code>%s</code></td><td>%s</td></tr>\n",
+				html.EscapeString(h.Name), html.EscapeString(strings.Join(h.Sources, ", ")))
+		}
+		fmt.Fprintln(w, "</tbody></table>")
+	}
+
+	if len(d.SourceDisabled) > 0 {
+		fmt.Fprintf(w, "<p class=\"muted\"><i>Disabled (no API key): %s</i></p>\n",
+			html.EscapeString(strings.Join(d.SourceDisabled, ", ")))
+	}
+	if len(d.SourceErrors) > 0 {
+		fmt.Fprintln(w, "<h2>Source errors</h2>")
+		fmt.Fprintln(w, "<ul>")
+		for name, err := range d.SourceErrors {
+			fmt.Fprintf(w, "<li><b>%s:</b> %s</li>\n", html.EscapeString(name), html.EscapeString(err))
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+
+	htmlTail(w)
+}
+
+// RenderArchHTML writes a single-file HTML rendering of the Wayback result.
+func RenderArchHTML(w io.Writer, d ArchJSON) {
+	htmlHead(w, "netcheck arch — "+d.Domain)
+	fmt.Fprintf(w, "<h1>netcheck arch</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Domain: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.Domain), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Lookup failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<ul class=\"kv\">")
+	fmt.Fprintf(w, "<li><b>Total snapshots:</b> %d</li>\n", d.Total)
+	fmt.Fprintf(w, "<li><b>Unique URLs:</b> %d</li>\n", d.UniqueURLs)
+	if d.First != nil {
+		fmt.Fprintf(w, "<li><b>First seen:</b> %s</li>\n", html.EscapeString(d.First.Format("2006-01-02")))
+	}
+	if d.Last != nil {
+		fmt.Fprintf(w, "<li><b>Last seen:</b> %s</li>\n", html.EscapeString(d.Last.Format("2006-01-02")))
+	}
+	fmt.Fprintln(w, "</ul>")
+
+	if len(d.RecentSamples) == 0 {
+		htmlTail(w)
+		return
+	}
+	fmt.Fprintf(w, "<h2>Recent snapshots (%d, newest first)</h2>\n", len(d.RecentSamples))
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Date</th><th>Status</th><th>URL</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, s := range d.RecentSamples {
+		status := "<span class=\"muted\">—</span>"
+		if s.Status > 0 {
+			status = fmt.Sprintf("%d", s.Status)
+		}
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td><code>%s</code></td></tr>\n",
+			html.EscapeString(s.Timestamp.Format("2006-01-02")),
+			status,
+			html.EscapeString(s.URL))
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+	htmlTail(w)
+}
+
 // RenderSubsHTML writes a single-file HTML rendering of the subdomain
 // enumeration result.
 func RenderSubsHTML(w io.Writer, d SubsJSON) {

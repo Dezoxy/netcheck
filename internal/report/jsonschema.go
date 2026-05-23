@@ -9,11 +9,13 @@ import (
 	"netcheck/internal/check"
 	"netcheck/internal/dnscompare"
 	"netcheck/internal/ipinfo"
+	"netcheck/internal/reverseip"
 	"netcheck/internal/route"
 	"netcheck/internal/secheaders"
 	"netcheck/internal/subenum"
 	"netcheck/internal/target"
 	"netcheck/internal/techdetect"
+	"netcheck/internal/wayback"
 )
 
 // SchemaVersion is the netcheck JSON schema version. Bump on any breaking
@@ -289,6 +291,47 @@ type SubdomainJSON struct {
 	Sources  []string `json:"sources"`
 }
 
+// ReverseJSON is the JSON representation of a `netcheck reverse` lookup.
+type ReverseJSON struct {
+	NetcheckVersion string            `json:"netcheck_version"`
+	Kind            string            `json:"kind"` // "reverse"
+	IP              string            `json:"ip"`
+	StartedAt       time.Time         `json:"started_at"`
+	TookMS          int64             `json:"took_ms"`
+	Hostnames       []HostnameJSON    `json:"hostnames,omitempty"`
+	SourceErrors    map[string]string `json:"source_errors,omitempty"`
+	SourceDisabled  []string          `json:"source_disabled,omitempty"`
+	Error           string            `json:"error,omitempty"`
+}
+
+// HostnameJSON is one reverse-IP hit plus the sources that reported it.
+type HostnameJSON struct {
+	Name    string   `json:"name"`
+	Sources []string `json:"sources"`
+}
+
+// ArchJSON is the JSON representation of a `netcheck arch` Wayback lookup.
+type ArchJSON struct {
+	NetcheckVersion string         `json:"netcheck_version"`
+	Kind            string         `json:"kind"` // "arch"
+	Domain          string         `json:"domain"`
+	StartedAt       time.Time      `json:"started_at"`
+	TookMS          int64          `json:"took_ms"`
+	Total           int            `json:"total"`
+	UniqueURLs      int            `json:"unique_urls"`
+	First           *time.Time     `json:"first,omitempty"`
+	Last            *time.Time     `json:"last,omitempty"`
+	RecentSamples   []SnapshotJSON `json:"recent_samples,omitempty"`
+	Error           string         `json:"error,omitempty"`
+}
+
+// SnapshotJSON is one indexed capture from the Wayback CDX.
+type SnapshotJSON struct {
+	Timestamp time.Time `json:"timestamp"`
+	URL       string    `json:"url"`
+	Status    int       `json:"status,omitempty"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -456,6 +499,67 @@ func ToSubsJSON(r subenum.Result) SubsJSON {
 	}
 	if len(r.SourceErrors) > 0 {
 		out.SourceErrors = r.SourceErrors
+	}
+	return out
+}
+
+// ToReverseJSON projects a reverseip.Result into ReverseJSON.
+func ToReverseJSON(r reverseip.Result) ReverseJSON {
+	out := ReverseJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "reverse",
+		IP:              r.IP,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, h := range r.Hostnames {
+		out.Hostnames = append(out.Hostnames, HostnameJSON{
+			Name:    h.Name,
+			Sources: h.Sources,
+		})
+	}
+	if len(r.SourceErrors) > 0 {
+		out.SourceErrors = r.SourceErrors
+	}
+	if len(r.SourceDisabled) > 0 {
+		out.SourceDisabled = r.SourceDisabled
+	}
+	return out
+}
+
+// ToArchJSON projects a wayback.Result into ArchJSON.
+func ToArchJSON(r wayback.Result) ArchJSON {
+	out := ArchJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "arch",
+		Domain:          r.Domain,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+		Total:           r.Total,
+		UniqueURLs:      r.UniqueURLs,
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	if !r.First.IsZero() {
+		f := r.First
+		out.First = &f
+	}
+	if !r.Last.IsZero() {
+		l := r.Last
+		out.Last = &l
+	}
+	for _, s := range r.RecentSamples {
+		out.RecentSamples = append(out.RecentSamples, SnapshotJSON{
+			Timestamp: s.Timestamp,
+			URL:       s.URL,
+			Status:    s.Status,
+		})
 	}
 	return out
 }

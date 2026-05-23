@@ -80,6 +80,8 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck headers <url>` | Is the site sending the security headers (HSTS, CSP, X-Frame-Options, etc.) it should be? |
 | `netcheck tech <url>` | What's behind this site? CMS, JS framework, server, CDN, language — fingerprinted from one passive GET. |
 | `netcheck subs <domain>` | Which subdomains exist? Enumerated from Certificate Transparency logs (crt.sh + CertSpotter). |
+| `netcheck reverse <ip>` | What else lives on this IP? Reverse DNS + Hackertarget + optional Shodan (via API key in config). |
+| `netcheck arch <domain>` | What does the Wayback Machine remember about this domain? First/last seen, total snapshots, recent URLs. |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
@@ -172,6 +174,33 @@ domain, and lists each subdomain with which source(s) reported it. Passive — n
 never talks to the target. If one source is flaking (crt.sh notoriously 502s), the
 run still succeeds with the surviving source and the failure shows up in the
 "Source errors" section.
+
+### Reverse IP lookup
+
+```bash
+netcheck reverse 1.1.1.1
+netcheck reverse --output json 8.8.8.8 | jq '.hostnames | length'
+```
+
+Lists other hostnames pointing at the given IP. Sources: system reverse DNS (`PTR`),
+Hackertarget's free reverse-IP API, and **optionally Shodan** when
+`apis.shodan_api_key` is set in `~/.config/netcheck/config.yaml`. Shodan adds the
+most signal (its scan database tracks hostnames seen on the IP), so it's worth
+getting a free key at https://account.shodan.io/ if you do this often. Same
+resilience as `subs` — one source failing doesn't fail the run.
+
+### Wayback / historical snapshots
+
+```bash
+netcheck arch example.com
+netcheck arch --output json example.com | jq '.first, .last, .total'
+```
+
+Queries archive.org's CDX API for historical snapshots of the domain and its
+subdomains. Returns total snapshot count, first/last seen dates, and a sample of
+the most-recent unique URLs the Wayback Machine has indexed. Useful for finding
+abandoned admin paths, old API endpoints, or historical hostnames that no longer
+resolve. No API key needed.
 
 ### Pipe into other tools
 
