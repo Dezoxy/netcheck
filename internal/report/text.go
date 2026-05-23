@@ -336,6 +336,39 @@ func RenderHeaders(w io.Writer, d HeadersJSON) {
 		d.Summary.Pass, d.Summary.Weak, d.Summary.Missing, d.Summary.Info)
 }
 
+// RenderPathEnum writes the path-enumeration result as text.
+func RenderPathEnum(w io.Writer, d PathEnumJSON) {
+	fmt.Fprintln(w, "PATH ENUMERATION")
+	fmt.Fprintf(w, "Base URL: %s\n", d.BaseURL)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s enumeration failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Findings) == 0 {
+		fmt.Fprintln(w, "  (no interesting paths found)")
+	} else {
+		fmt.Fprintf(w, "Findings (%d):\n", len(d.Findings))
+		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(tw, "  STATUS\tCATEGORY\tPATH\tNOTES")
+		for _, f := range d.Findings {
+			notes := ""
+			if f.Redirect != "" {
+				notes = "→ " + f.Redirect
+			} else if f.Length > 0 {
+				notes = fmt.Sprintf("%d bytes", f.Length)
+			}
+			fmt.Fprintf(tw, "  %d\t%s\t%s\t%s\n", f.Status, f.Category, f.Path, notes)
+		}
+		tw.Flush()
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Stats: %d scanned · %d interesting · %d not-found · %d errors\n",
+		d.Stats.Total, d.Stats.Interesting, d.Stats.NotFound, d.Stats.Errors)
+}
+
 // RenderPortScan writes the port-scan result as text.
 func RenderPortScan(w io.Writer, d PortScanJSON) {
 	fmt.Fprintln(w, "PORT SCAN")

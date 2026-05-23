@@ -356,6 +356,35 @@ func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
+// RenderPathEnumMD writes the path-enumeration result as Markdown.
+func RenderPathEnumMD(w io.Writer, d PathEnumJSON) {
+	fmt.Fprintf(w, "# netcheck enum — `%s`\n\n", d.BaseURL)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Enumeration failed:** %s\n", d.Error)
+		return
+	}
+	fmt.Fprintf(w, "- **Scanned:** %d · **Interesting:** %d · **404s:** %d · **Errors:** %d\n\n",
+		d.Stats.Total, d.Stats.Interesting, d.Stats.NotFound, d.Stats.Errors)
+
+	if len(d.Findings) == 0 {
+		fmt.Fprintln(w, "_(no interesting paths found)_")
+		return
+	}
+	fmt.Fprintln(w, "| Status | Category | Path | Notes |")
+	fmt.Fprintln(w, "|---|---|---|---|")
+	for _, f := range d.Findings {
+		notes := ""
+		if f.Redirect != "" {
+			notes = "→ `" + f.Redirect + "`"
+		} else if f.Length > 0 {
+			notes = fmt.Sprintf("%d bytes", f.Length)
+		}
+		fmt.Fprintf(w, "| %d | %s | `%s` | %s |\n", f.Status, f.Category, f.Path, mdEscapePipes(notes))
+	}
+	fmt.Fprintln(w)
+}
+
 // RenderPortScanMD writes the port-scan result as Markdown.
 func RenderPortScanMD(w io.Writer, d PortScanJSON) {
 	fmt.Fprintf(w, "# netcheck ports — `%s`", d.Host)

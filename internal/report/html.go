@@ -378,6 +378,46 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderPathEnumHTML writes a single-file HTML rendering of path enumeration.
+func RenderPathEnumHTML(w io.Writer, d PathEnumJSON) {
+	htmlHead(w, "netcheck enum — "+d.BaseURL)
+	fmt.Fprintf(w, "<h1>netcheck enum</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Base: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.BaseURL), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Enumeration failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintf(w, "<p><b>Scanned:</b> %d · <span class=\"ok\">%d interesting</span> · "+
+		"<span class=\"muted\">%d not-found</span> · <span class=\"weak\">%d errors</span></p>\n",
+		d.Stats.Total, d.Stats.Interesting, d.Stats.NotFound, d.Stats.Errors)
+
+	if len(d.Findings) == 0 {
+		fmt.Fprintln(w, `<p class="muted">(no interesting paths found)</p>`)
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Status</th><th>Category</th><th>Path</th><th>Notes</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	for _, f := range d.Findings {
+		notes := ""
+		if f.Redirect != "" {
+			notes = "→ <code>" + html.EscapeString(f.Redirect) + "</code>"
+		} else if f.Length > 0 {
+			notes = fmt.Sprintf("%d bytes", f.Length)
+		}
+		fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td><td><code>%s</code></td><td>%s</td></tr>\n",
+			f.Status, html.EscapeString(f.Category), html.EscapeString(f.Path), notes)
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+	htmlTail(w)
+}
+
 // RenderPortScanHTML writes a single-file HTML rendering of the port scan.
 func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
 	htmlHead(w, "netcheck ports — "+d.Host)

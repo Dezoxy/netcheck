@@ -9,6 +9,7 @@ import (
 	"netcheck/internal/check"
 	"netcheck/internal/dnscompare"
 	"netcheck/internal/ipinfo"
+	"netcheck/internal/pathenum"
 	"netcheck/internal/portscan"
 	"netcheck/internal/reverseip"
 	"netcheck/internal/route"
@@ -437,6 +438,36 @@ type PortStatsJSON struct {
 	Filtered int `json:"filtered"`
 }
 
+// PathEnumJSON is the JSON representation of a `netcheck enum` run.
+type PathEnumJSON struct {
+	NetcheckVersion string            `json:"netcheck_version"`
+	Kind            string            `json:"kind"` // "enum"
+	BaseURL         string            `json:"base_url"`
+	StartedAt       time.Time         `json:"started_at"`
+	TookMS          int64             `json:"took_ms"`
+	Findings        []PathFindingJSON `json:"findings,omitempty"`
+	Stats           PathStatsJSON     `json:"stats"`
+	Error           string            `json:"error,omitempty"`
+}
+
+// PathFindingJSON is one interesting HTTP response.
+type PathFindingJSON struct {
+	Path     string `json:"path"`
+	URL      string `json:"url"`
+	Status   int    `json:"status"`
+	Length   int64  `json:"length,omitempty"`
+	Redirect string `json:"redirect,omitempty"`
+	Category string `json:"category"` // found | redirect | blocked | auth-required | server-error
+}
+
+// PathStatsJSON summarises the run.
+type PathStatsJSON struct {
+	Total       int `json:"total"`
+	Interesting int `json:"interesting"`
+	NotFound    int `json:"not_found"`
+	Errors      int `json:"errors"`
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------
@@ -777,6 +808,38 @@ func ToPortScanJSON(r portscan.Result) PortScanJSON {
 	}
 	for _, p := range r.Ports {
 		out.Ports = append(out.Ports, PortJSON{Port: p.Port, Service: p.Service})
+	}
+	return out
+}
+
+// ToPathEnumJSON projects a pathenum.Result into PathEnumJSON.
+func ToPathEnumJSON(r pathenum.Result) PathEnumJSON {
+	out := PathEnumJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "enum",
+		BaseURL:         r.BaseURL,
+		StartedAt:       r.StartedAt,
+		TookMS:          r.Took.Milliseconds(),
+		Stats: PathStatsJSON{
+			Total:       r.Stats.Total,
+			Interesting: r.Stats.Interesting,
+			NotFound:    r.Stats.NotFound,
+			Errors:      r.Stats.Errors,
+		},
+	}
+	if r.Err != nil {
+		out.Error = r.Err.Error()
+		return out
+	}
+	for _, f := range r.Findings {
+		out.Findings = append(out.Findings, PathFindingJSON{
+			Path:     f.Path,
+			URL:      f.URL,
+			Status:   f.Status,
+			Length:   f.Length,
+			Redirect: f.Redirect,
+			Category: f.Category,
+		})
 	}
 	return out
 }
