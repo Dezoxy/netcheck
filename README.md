@@ -229,6 +229,9 @@ The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes 
 | **v1.0** | **shipped** | **Stability promise** |
 | v1.0.1 | shipped | Test coverage 20.8% → 85.4% project-wide; every package above 82%. Run* functions return exit codes; no more direct os.Exit. |
 | v1.1.0 | shipped | Local React/PWA workbench via `netcheck app`; same full-check Go engine exposed through the local JSON API. |
-| v1.2+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
+| v1.2.0 | shipped | Web app: DNS / Route / IP tabs wired end-to-end, saved-reports CRUD, recent rerun |
+| v1.3.x | shipped | Build & release hardening: `make app` leaves `./bin/netcheck`, npm-ci stamp, goreleaser-in-same-workflow as release-please |
+| **v1.4** | **planned** | **Passive recon: `subs` (CT logs), `reverse` (reverse DNS / Hackertarget), `tech` (Wappalyzer-style fingerprint), `headers` (security-header report card), `arch` (archive.org CDX)** |
+| v1.5+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode, active scanning (ports / TLS audit / path enum / takeover detection) |
 
 </details>

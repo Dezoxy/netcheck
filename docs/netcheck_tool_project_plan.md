@@ -931,10 +931,70 @@ The "stop adding things and ship what you have" release.
 - DNS compare, route, and IP info remain CLI-only until their app panels are
   designed and wired
 
-## v1.2+ — Deferred features
+## v1.2 — Web app full wiring (shipped)
 
-Explicitly kept out of the v1.1 release so the foundation stays tight:
+- DNS / Route / IP tabs in the React workbench, each backed by its own
+  `POST /api/check/{dns,route,ip}` endpoint
+- Saved-reports CRUD on `~/.config/netcheck/saved-reports/<id>.json`,
+  surfaced as a saved-reports panel in the UI
+- "Recent" rerun fixed: clicking a recent entry replays the same target
+  with the same options, not just refilling the input
 
+## v1.3.x — Build & release hardening (shipped)
+
+- `make app` leaves `./bin/netcheck` so subsequent runs don't rebuild
+- `npm ci` only re-runs when `web/package-lock.json` changes
+  (`web/node_modules/.install-stamp` pattern)
+- `release-please` + `goreleaser` consolidated into a single workflow
+  (`releases_created`-gated downstream job) so binaries reliably attach
+  to every release. Manual backfill via `gh workflow run release.yml -f tag=vX.Y.Z`
+- `.gitignore` + Makefile guards against macOS Finder / iCloud conflict
+  copies leaking into `internal/webui/dist/`
+
+## v1.4 — Passive recon (planned)
+
+The pentest-tooling direction starts here. Everything in v1.4 is **passive**:
+public-data lookups only, no authenticated probes, no active scanning of the
+target. No `--i-have-authorization` gate needed — these queries are no
+different from typing a hostname into a web search.
+
+| Command | Source(s) | Notes |
+|---|---|---|
+| `netcheck subs <domain>` | crt.sh, CertSpotter API | Enumerate subdomains via Certificate Transparency logs. Dedupe + filter wildcards. |
+| `netcheck reverse <ip>` | Reverse DNS PTRs, Hackertarget API (optional Shodan via config-supplied API key) | Other domains hosted on this IP. |
+| `netcheck tech <url>` | HTTP response headers + HTML body fingerprinting | Wappalyzer-style detection of CDNs, frameworks, server software, common JS libs. |
+| `netcheck headers <url>` | One HTTP GET, parse response headers | Security-header report card: HSTS (incl. preload), CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy. Per-header pass / weak / missing grade. |
+| `netcheck arch <domain>` | archive.org CDX API (optional DNSDB) | Wayback Machine snapshots + historical DNS / hostname surface. |
+
+Design constraints:
+
+- Each command supports `--output text|json|markdown|html` and `--out <file>`,
+  matching the v0.5+ contract.
+- New JSON schema variants extend the existing `kind` discriminator — bump
+  `netcheck_version` to `0.6.0` when v1.4 ships.
+- Web app modes added in step with the CLI commands so the workbench keeps
+  feature parity.
+- HTTP-bound commands reuse `internal/check` plumbing (timeouts, redirects,
+  TLS settings) — no new HTTP client.
+- API keys (Shodan, DNSDB) live in `config.yaml` under a new `apis:` block;
+  commands degrade gracefully when keys are absent (skip that source,
+  annotate in output).
+
+Suggested shipping order — smallest blast radius first:
+
+1. `headers` — no external API, pure HTTP response parsing
+2. `tech` — same HTTP, plus body inspection
+3. `subs` — CT logs are well-behaved public APIs
+4. `reverse` — multiple sources, dedupe logic
+5. `arch` — archive.org pagination is the only fiddly bit
+
+## v1.5+ — Unscheduled
+
+Held back until v1.4 is solid and the ethics-gate story for active
+scanning is documented:
+
+- Active scanning suite (`ports`, `tls`, `enum`, `takeover`) — requires
+  `--i-have-authorization` gate + `docs/ETHICS.md`
 - HTTP/3 / QUIC test
 - Prometheus exporter
 - TUI mode
@@ -942,7 +1002,14 @@ Explicitly kept out of the v1.1 release so the foundation stays tight:
 - Proxy / VPN detection
 - Browser-like mode (HSTS cache, cookies, HTTP/3, extensions)
 - Native TCP traceroute (avoids needing system `traceroute`)
-- Web app modes for DNS compare, route, and IP info
+
+Out of scope, full stop — these are owned by other tools and adding them
+would dilute the netcheck story:
+
+- Exploitation frameworks (leave to Metasploit)
+- CVE matching at scale (leave to nuclei)
+- Intercepting web proxy (leave to Burp / ZAP)
+- Credential brute-force (leave to Hydra)
 
 ---
 
