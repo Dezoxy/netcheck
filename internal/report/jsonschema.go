@@ -222,16 +222,16 @@ type RDAPJSON struct {
 
 // HeadersJSON is the JSON representation of a `netcheck headers` audit.
 type HeadersJSON struct {
-	NetcheckVersion string           `json:"netcheck_version"`
-	Kind            string           `json:"kind"` // "headers"
-	URL             string           `json:"url"`
-	FinalURL        string           `json:"final_url,omitempty"`
-	Status          int              `json:"status,omitempty"`
-	StartedAt       time.Time        `json:"started_at"`
-	TookMS          int64            `json:"took_ms"`
-	Findings        []FindingJSON    `json:"findings,omitempty"`
+	NetcheckVersion string             `json:"netcheck_version"`
+	Kind            string             `json:"kind"` // "headers"
+	URL             string             `json:"url"`
+	FinalURL        string             `json:"final_url,omitempty"`
+	Status          int                `json:"status,omitempty"`
+	StartedAt       time.Time          `json:"started_at"`
+	TookMS          int64              `json:"took_ms"`
+	Findings        []FindingJSON      `json:"findings,omitempty"`
 	Summary         HeadersSummaryJSON `json:"summary"`
-	Error           string           `json:"error,omitempty"`
+	Error           string             `json:"error,omitempty"`
 }
 
 // FindingJSON is the per-header verdict.

@@ -165,10 +165,10 @@ func TestGradePermissions(t *testing.T) {
 
 func TestHSTSMaxAge(t *testing.T) {
 	cases := []struct {
-		in       string
-		want     int
-		wantOK   bool
-		variant  string
+		in      string
+		want    int
+		wantOK  bool
+		variant string
 	}{
 		{"max-age=31536000", 31536000, true, "bare"},
 		{"max-age=31536000; includeSubDomains", 31536000, true, "with subdomains"},

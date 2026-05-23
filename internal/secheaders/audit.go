@@ -49,10 +49,10 @@ type Finding struct {
 
 // Result is the full audit output.
 type Result struct {
-	URL       string        // request URL (input, before redirects)
-	FinalURL  string        // last URL in the redirect chain (matches resp.Request.URL)
-	Status    int           // final HTTP status
-	Findings  []Finding     // ordered: graded headers first, info findings last
+	URL       string    // request URL (input, before redirects)
+	FinalURL  string    // last URL in the redirect chain (matches resp.Request.URL)
+	Status    int       // final HTTP status
+	Findings  []Finding // ordered: graded headers first, info findings last
 	StartedAt time.Time
 	Took      time.Duration
 	Err       error // transport / connection / context error, if any
