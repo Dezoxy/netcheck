@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.4.1](https://github.com/Dezoxy/netcheck/compare/v1.4.0...v1.4.1) (2026-05-24)
+
+
+### Documentation
+
+* align README/CHANGELOG/plan with what v1.4.0 actually shipped ([#36](https://github.com/Dezoxy/netcheck/issues/36)) ([70016e9](https://github.com/Dezoxy/netcheck/commit/70016e9e9d1fc3bdc8b2f8636477bead4d7c4fa6))
+
 ## [1.4.0](https://github.com/Dezoxy/netcheck/compare/v1.3.3...v1.4.0) (2026-05-23)
 
 > **Active-scanning suite. Read [`docs/ETHICS.md`](docs/ETHICS.md) before using these.**
