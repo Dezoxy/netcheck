@@ -378,6 +378,88 @@ func RenderHeadersHTML(w io.Writer, d HeadersJSON) {
 	htmlTail(w)
 }
 
+// RenderAuditHTML writes a single-file HTML rendering of the audit report.
+func RenderAuditHTML(w io.Writer, d AuditJSON) {
+	htmlHead(w, "netcheck audit — "+d.Target)
+	fmt.Fprintf(w, "<h1>netcheck audit</h1>\n")
+	mode := "passive"
+	if d.Active {
+		mode = "passive + active"
+	}
+	fmt.Fprintf(w, "<p class=\"meta\">Target: <code>%s</code> · %s · %dms · %s</p>\n",
+		html.EscapeString(d.Target), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS, mode)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Audit failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+
+	fmt.Fprintln(w, "<table>")
+	fmt.Fprintln(w, "<thead><tr><th>Section</th><th>Grade</th><th>Summary</th></tr></thead>")
+	fmt.Fprintln(w, "<tbody>")
+	renderAuditRow := func(label, grade, summary string) {
+		fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+			html.EscapeString(label), htmlAuditGrade(grade), html.EscapeString(summary))
+	}
+	if d.IP != nil {
+		renderAuditRow("IP", auditIPGrade(d.IP), auditIPSummary(d.IP))
+	}
+	if d.Reverse != nil {
+		renderAuditRow("Reverse", auditReverseGrade(d.Reverse), auditReverseSummary(d.Reverse))
+	}
+	if d.Subs != nil {
+		renderAuditRow("Subdomains", auditSubsGrade(d.Subs), auditSubsSummary(d.Subs))
+	}
+	if d.Arch != nil {
+		renderAuditRow("Wayback", auditArchGrade(d.Arch), auditArchSummary(d.Arch))
+	}
+	if d.Headers != nil {
+		renderAuditRow("Headers", auditHeadersGrade(d.Headers), auditHeadersSummary(d.Headers))
+	}
+	if d.Tech != nil {
+		renderAuditRow("Tech", auditTechGrade(d.Tech), auditTechSummary(d.Tech))
+	}
+	if d.TLS != nil {
+		renderAuditRow("TLS", auditTLSGrade(d.TLS), auditTLSSummary(d.TLS))
+	}
+	if d.Takeover != nil {
+		renderAuditRow("Takeover", auditTakeoverGrade(d.Takeover), auditTakeoverSummary(d.Takeover))
+	}
+	if d.Ports != nil {
+		renderAuditRow("Ports", auditPortsGrade(d.Ports), auditPortsSummary(d.Ports))
+	}
+	if d.Enum != nil {
+		renderAuditRow("Path enum", auditEnumGrade(d.Enum), auditEnumSummary(d.Enum))
+	}
+	fmt.Fprintln(w, "</tbody></table>")
+
+	if len(d.Errors) > 0 {
+		fmt.Fprintln(w, "<h2>Sub-command errors</h2>")
+		fmt.Fprintln(w, "<ul>")
+		for name, msg := range d.Errors {
+			fmt.Fprintf(w, "<li><b>%s:</b> %s</li>\n", html.EscapeString(name), html.EscapeString(msg))
+		}
+		fmt.Fprintln(w, "</ul>")
+	}
+	htmlTail(w)
+}
+
+func htmlAuditGrade(g string) string {
+	switch g {
+	case "high":
+		return `<span class="fail">HIGH</span>`
+	case "weak":
+		return `<span class="weak">weak</span>`
+	case "err":
+		return `<span class="muted">error</span>`
+	case "ok":
+		return `<span class="ok">OK</span>`
+	default:
+		return html.EscapeString(g)
+	}
+}
+
 // RenderPathEnumHTML writes a single-file HTML rendering of path enumeration.
 func RenderPathEnumHTML(w io.Writer, d PathEnumJSON) {
 	htmlHead(w, "netcheck enum — "+d.BaseURL)

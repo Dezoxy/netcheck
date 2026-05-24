@@ -698,6 +698,359 @@ func RenderTech(w io.Writer, d TechJSON) {
 	fmt.Fprintf(w, "Total: %d match(es)\n", len(d.Matches))
 }
 
+// RenderAudit writes a compact, consolidated audit summary. One line per
+// sub-section + a small detail block when a finding deserves it. Full
+// per-section detail is available via --output json or by running the
+// individual command directly.
+func RenderAudit(w io.Writer, d AuditJSON) {
+	fmt.Fprintln(w, "NETCHECK AUDIT")
+	fmt.Fprintf(w, "Target:   %s", d.Target)
+	if d.Host != "" && d.Host != d.Target {
+		fmt.Fprintf(w, " (host: %s)", d.Host)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	mode := "passive"
+	if d.Active {
+		mode = "passive + active"
+	}
+	fmt.Fprintf(w, "Mode:     %s\n", mode)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s audit failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	if d.IP != nil {
+		fmt.Fprintf(tw, "  %s\tIP\t%s\n", auditTag(auditIPGrade(d.IP)), auditIPSummary(d.IP))
+	}
+	if d.Reverse != nil {
+		fmt.Fprintf(tw, "  %s\tReverse\t%s\n", auditTag(auditReverseGrade(d.Reverse)), auditReverseSummary(d.Reverse))
+	}
+	if d.Subs != nil {
+		fmt.Fprintf(tw, "  %s\tSubs\t%s\n", auditTag(auditSubsGrade(d.Subs)), auditSubsSummary(d.Subs))
+	}
+	if d.Arch != nil {
+		fmt.Fprintf(tw, "  %s\tArch\t%s\n", auditTag(auditArchGrade(d.Arch)), auditArchSummary(d.Arch))
+	}
+	if d.Headers != nil {
+		fmt.Fprintf(tw, "  %s\tHeaders\t%s\n", auditTag(auditHeadersGrade(d.Headers)), auditHeadersSummary(d.Headers))
+	}
+	if d.Tech != nil {
+		fmt.Fprintf(tw, "  %s\tTech\t%s\n", auditTag(auditTechGrade(d.Tech)), auditTechSummary(d.Tech))
+	}
+	if d.TLS != nil {
+		fmt.Fprintf(tw, "  %s\tTLS\t%s\n", auditTag(auditTLSGrade(d.TLS)), auditTLSSummary(d.TLS))
+	}
+	if d.Takeover != nil {
+		fmt.Fprintf(tw, "  %s\tTakeover\t%s\n", auditTag(auditTakeoverGrade(d.Takeover)), auditTakeoverSummary(d.Takeover))
+	}
+	if d.Ports != nil {
+		fmt.Fprintf(tw, "  %s\tPorts\t%s\n", auditTag(auditPortsGrade(d.Ports)), auditPortsSummary(d.Ports))
+	}
+	if d.Enum != nil {
+		fmt.Fprintf(tw, "  %s\tEnum\t%s\n", auditTag(auditEnumGrade(d.Enum)), auditEnumSummary(d.Enum))
+	}
+	tw.Flush()
+
+	if len(d.Errors) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Sub-command errors:")
+		for name, msg := range d.Errors {
+			fmt.Fprintf(w, "  %s: %s\n", name, msg)
+		}
+	}
+}
+
+// auditTag formats a per-section verdict for the text report.
+func auditTag(g string) string {
+	switch g {
+	case "ok":
+		return "[OK]"
+	case "weak":
+		return "[WK]"
+	case "high":
+		return "[HI]"
+	case "err":
+		return "[ER]"
+	default:
+		return "[--]"
+	}
+}
+
+// ─── Per-section summaries — one short line each. Keep tight. ───────────
+
+func auditIPSummary(d *IPInfoJSON) string {
+	if d == nil || len(d.Details) == 0 {
+		return "(no addresses)"
+	}
+	parts := []string{fmt.Sprintf("%d address(es)", len(d.Details))}
+	// Surface the first ASN/CDN we see.
+	for _, det := range d.Details {
+		if det.ASN != nil {
+			tag := "AS" + det.ASN.ASN
+			if det.ASN.Org != "" {
+				tag += " " + det.ASN.Org
+			}
+			parts = append(parts, tag)
+			break
+		}
+	}
+	for _, det := range d.Details {
+		if det.CDN != nil && det.CDN.Provider != "" {
+			parts = append(parts, "CDN: "+det.CDN.Provider)
+			break
+		}
+	}
+	return strings.Join(parts, " · ")
+}
+
+func auditIPGrade(d *IPInfoJSON) string {
+	if d == nil || len(d.Details) == 0 {
+		return "err"
+	}
+	return "ok"
+}
+
+func auditReverseSummary(d *ReverseJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	n := len(d.Hostnames)
+	return fmt.Sprintf("%d hostname(s)", n)
+}
+
+func auditReverseGrade(d *ReverseJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	return "ok"
+}
+
+func auditSubsSummary(d *SubsJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	n := len(d.Subdomains)
+	if len(d.SourceErrors) > 0 {
+		return fmt.Sprintf("%d found · %d source(s) errored", n, len(d.SourceErrors))
+	}
+	return fmt.Sprintf("%d found", n)
+}
+
+func auditSubsGrade(d *SubsJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	if len(d.SourceErrors) > 0 && len(d.Subdomains) == 0 {
+		return "err"
+	}
+	return "ok"
+}
+
+func auditArchSummary(d *ArchJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	if d.Total == 0 {
+		return "no snapshots"
+	}
+	span := ""
+	if d.First != nil && d.Last != nil {
+		span = fmt.Sprintf(" · %s → %s",
+			d.First.Format("2006-01-02"), d.Last.Format("2006-01-02"))
+	}
+	return fmt.Sprintf("%d snapshots%s", d.Total, span)
+}
+
+func auditArchGrade(d *ArchJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	return "ok"
+}
+
+func auditHeadersSummary(d *HeadersJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	return fmt.Sprintf("%d pass · %d weak · %d missing", d.Summary.Pass, d.Summary.Weak, d.Summary.Missing)
+}
+
+func auditHeadersGrade(d *HeadersJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	if d.Summary.Missing > 0 {
+		return "high"
+	}
+	if d.Summary.Weak > 0 {
+		return "weak"
+	}
+	return "ok"
+}
+
+func auditTechSummary(d *TechJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	if len(d.Matches) == 0 {
+		return "(no fingerprints matched)"
+	}
+	// Surface the top 4 by appearance order.
+	names := make([]string, 0, 4)
+	for i, m := range d.Matches {
+		if i >= 4 {
+			names = append(names, fmt.Sprintf("+%d more", len(d.Matches)-4))
+			break
+		}
+		entry := m.Name
+		if m.Version != "" {
+			entry += " " + m.Version
+		}
+		names = append(names, entry)
+	}
+	return strings.Join(names, ", ")
+}
+
+func auditTechGrade(d *TechJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	return "ok"
+}
+
+func auditTLSSummary(d *TLSAuditJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	highs := 0
+	for _, f := range d.Findings {
+		if f.Severity == "high" {
+			highs++
+		}
+	}
+	if highs > 0 {
+		return fmt.Sprintf("%d high-severity finding(s) — see `netcheck tls` for detail", highs)
+	}
+	return "no high-severity findings"
+}
+
+func auditTLSGrade(d *TLSAuditJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	for _, f := range d.Findings {
+		if f.Severity == "high" {
+			return "high"
+		}
+		if f.Severity == "medium" {
+			return "weak"
+		}
+	}
+	return "ok"
+}
+
+func auditTakeoverSummary(d *TakeoverJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	if !d.HasCNAME {
+		return "no CNAME (nothing to check)"
+	}
+	for _, f := range d.Findings {
+		if f.Verdict == "vulnerable" {
+			return "VULNERABLE — " + f.Provider
+		}
+	}
+	return "no takeover detected"
+}
+
+func auditTakeoverGrade(d *TakeoverJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	for _, f := range d.Findings {
+		if f.Verdict == "vulnerable" {
+			return "high"
+		}
+	}
+	return "ok"
+}
+
+func auditPortsSummary(d *PortScanJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	if len(d.Ports) == 0 {
+		return fmt.Sprintf("0 open / %d scanned", d.Stats.Total)
+	}
+	ports := make([]string, 0, len(d.Ports))
+	for _, p := range d.Ports {
+		ports = append(ports, fmt.Sprintf("%d", p.Port))
+		if len(ports) >= 6 {
+			ports = append(ports, fmt.Sprintf("+%d more", len(d.Ports)-6))
+			break
+		}
+	}
+	return fmt.Sprintf("%d open (%s) / %d scanned", d.Stats.Open, strings.Join(ports, ","), d.Stats.Total)
+}
+
+func auditPortsGrade(d *PortScanJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	return "ok"
+}
+
+func auditEnumSummary(d *PathEnumJSON) string {
+	if d == nil {
+		return "(no data)"
+	}
+	if d.Error != "" {
+		return d.Error
+	}
+	if d.Stats.Interesting == 0 {
+		return fmt.Sprintf("0 interesting / %d scanned", d.Stats.Total)
+	}
+	return fmt.Sprintf("%d interesting / %d scanned", d.Stats.Interesting, d.Stats.Total)
+}
+
+func auditEnumGrade(d *PathEnumJSON) string {
+	if d == nil || d.Error != "" {
+		return "err"
+	}
+	if d.Stats.Interesting > 0 {
+		return "weak"
+	}
+	return "ok"
+}
+
 // gradeText renders the grade as a fixed-width tag for the text report.
 func gradeText(g string) string {
 	switch g {
