@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"netcheck/internal/dnscompare"
+	"netcheck/internal/pathenum"
+	"netcheck/internal/portscan"
 	"netcheck/internal/report"
 	"netcheck/internal/route"
 	"netcheck/internal/target"
@@ -44,6 +46,66 @@ type routeCheckRequest struct {
 
 type ipCheckRequest struct {
 	Target string `json:"target"`
+}
+
+// ─── v1.4 passive recon — request types ───────────────────────────────────
+
+type headersCheckRequest struct {
+	URL      string `json:"url"`
+	Insecure bool   `json:"insecure,omitempty"`
+}
+
+type techCheckRequest struct {
+	URL      string `json:"url"`
+	Insecure bool   `json:"insecure,omitempty"`
+}
+
+type subsCheckRequest struct {
+	Domain string `json:"domain"`
+}
+
+type reverseCheckRequest struct {
+	IP string `json:"ip"`
+}
+
+type archCheckRequest struct {
+	Domain string `json:"domain"`
+}
+
+// ─── v1.4 active scanning — request types ─────────────────────────────────
+//
+// Active checks require the client to set `"i_have_authorization": true` in
+// the request body. Same semantics as `--i-have-authorization` on the CLI:
+// a deliberation boundary, not a security one. The frontend should surface
+// this as an explicit checkbox + confirm dialog.
+
+type tlsCheckRequest struct {
+	Host          string `json:"host"`
+	IAuthorized   bool   `json:"i_have_authorization"`
+}
+
+type takeoverCheckRequest struct {
+	Domain        string `json:"domain"`
+	IAuthorized   bool   `json:"i_have_authorization"`
+}
+
+type portsCheckRequest struct {
+	Host           string `json:"host"`
+	Ports          string `json:"ports,omitempty"`    // explicit list, e.g. "22,80,443,8000-8010"
+	Top            int    `json:"top,omitempty"`      // default 100
+	Concurrency    int    `json:"concurrency,omitempty"`
+	PerPortMS      int    `json:"per_port_timeout_ms,omitempty"`
+	IAuthorized    bool   `json:"i_have_authorization"`
+}
+
+type enumCheckRequest struct {
+	URL             string   `json:"url"`
+	Wordlist        []string `json:"wordlist,omitempty"`         // explicit list; if empty, builtin is used
+	Concurrency     int      `json:"concurrency,omitempty"`
+	PerPathMS       int      `json:"per_path_timeout_ms,omitempty"`
+	Insecure        bool     `json:"insecure,omitempty"`
+	FollowRedirects bool     `json:"follow_redirects,omitempty"`
+	IAuthorized     bool     `json:"i_have_authorization"`
 }
 
 type apiError struct {
@@ -90,6 +152,17 @@ func newAppHandler() http.Handler {
 	mux.HandleFunc("/api/check/dns", handleDNSCheck)
 	mux.HandleFunc("/api/check/route", handleRouteCheck)
 	mux.HandleFunc("/api/check/ip", handleIPCheck)
+	// v1.4 passive recon
+	mux.HandleFunc("/api/check/headers", handleHeadersCheck)
+	mux.HandleFunc("/api/check/tech", handleTechCheck)
+	mux.HandleFunc("/api/check/subs", handleSubsCheck)
+	mux.HandleFunc("/api/check/reverse", handleReverseCheck)
+	mux.HandleFunc("/api/check/arch", handleArchCheck)
+	// v1.4 active scanning — auth gate enforced inside the handler
+	mux.HandleFunc("/api/check/tls", handleTLSAuditCheck)
+	mux.HandleFunc("/api/check/takeover", handleTakeoverCheck)
+	mux.HandleFunc("/api/check/ports", handlePortsCheck)
+	mux.HandleFunc("/api/check/enum", handleEnumCheck)
 	mux.HandleFunc("/api/reports", handleReportsCollection)
 	mux.HandleFunc("/api/reports/", handleReportItem)
 	mux.Handle("/", http.FileServer(http.FS(webui.Dist())))
@@ -214,6 +287,210 @@ func handleIPCheck(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
 		return
 	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// ─── v1.4 passive recon — handlers ────────────────────────────────────────
+
+func handleHeadersCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req headersCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.URL) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "url required"})
+		return
+	}
+	out := BuildHeaders(r.Context(), req.URL, checkTimeout(), req.Insecure)
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handleTechCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req techCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.URL) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "url required"})
+		return
+	}
+	out := BuildTech(r.Context(), req.URL, checkTimeout(), req.Insecure)
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handleSubsCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req subsCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Domain) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "domain required"})
+		return
+	}
+	out := BuildSubs(r.Context(), req.Domain, subsDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handleReverseCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req reverseCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.IP) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "ip required"})
+		return
+	}
+	out := BuildReverse(r.Context(), req.IP, reverseDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handleArchCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req archCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Domain) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "domain required"})
+		return
+	}
+	out := BuildArch(r.Context(), req.Domain, archDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+// ─── v1.4 active scanning — handlers ──────────────────────────────────────
+//
+// Each handler refuses to do anything until the request body sets
+// `"i_have_authorization": true`. Refusal is HTTP 403 with a clear payload —
+// the frontend uses this to drive the auth-gate UI.
+
+// requireAuthHeader returns false (and writes the refusal response) when the
+// request didn't include the i_have_authorization flag. Centralised so all
+// four active handlers behave identically.
+func requireAuthInBody(w http.ResponseWriter, cmdName string, authorized bool) bool {
+	if authorized {
+		return true
+	}
+	writeJSON(w, http.StatusForbidden, map[string]any{
+		"error":         "authorization required for active scan",
+		"command":       cmdName,
+		"authorized":    false,
+		"how_to_enable": "set \"i_have_authorization\": true in the JSON body. See docs/ETHICS.md.",
+	})
+	return false
+}
+
+func handleTLSAuditCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req tlsCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !requireAuthInBody(w, "tls", req.IAuthorized) {
+		return
+	}
+	if strings.TrimSpace(req.Host) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "host required"})
+		return
+	}
+	out := BuildTLSAudit(r.Context(), req.Host, tlsDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handleTakeoverCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req takeoverCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !requireAuthInBody(w, "takeover", req.IAuthorized) {
+		return
+	}
+	if strings.TrimSpace(req.Domain) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "domain required"})
+		return
+	}
+	out := BuildTakeover(r.Context(), req.Domain, takeoverDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handlePortsCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req portsCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !requireAuthInBody(w, "ports", req.IAuthorized) {
+		return
+	}
+	if strings.TrimSpace(req.Host) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "host required"})
+		return
+	}
+	opts := portscan.Options{
+		Top:         req.Top,
+		Concurrency: req.Concurrency,
+	}
+	if req.PerPortMS > 0 {
+		opts.PerPortTimeout = time.Duration(req.PerPortMS) * time.Millisecond
+	}
+	if req.Ports != "" {
+		ports, err := portscan.ParsePortList(req.Ports)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
+			return
+		}
+		opts.Ports = ports
+	}
+	out := BuildPorts(r.Context(), req.Host, opts, portsDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handleEnumCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req enumCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !requireAuthInBody(w, "enum", req.IAuthorized) {
+		return
+	}
+	if strings.TrimSpace(req.URL) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "url required"})
+		return
+	}
+	opts := pathenum.Options{
+		Wordlist:        req.Wordlist,
+		Concurrency:     req.Concurrency,
+		Insecure:        req.Insecure,
+		FollowRedirects: req.FollowRedirects,
+	}
+	if req.PerPathMS > 0 {
+		opts.PerPathTimeout = time.Duration(req.PerPathMS) * time.Millisecond
+	}
+	out := BuildPathEnum(r.Context(), req.URL, opts, enumDefaultTimeout(loadedConfig.Timeout))
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -525,6 +802,40 @@ func sniffTarget(raw json.RawMessage, kind string) string {
 		}
 		_ = json.Unmarshal(raw, &s)
 		return s.Target
+	case "headers", "tech":
+		var s struct {
+			URL string `json:"url"`
+		}
+		_ = json.Unmarshal(raw, &s)
+		return s.URL
+	case "subs", "arch", "takeover":
+		var s struct {
+			Domain string `json:"domain"`
+		}
+		_ = json.Unmarshal(raw, &s)
+		return s.Domain
+	case "reverse":
+		var s struct {
+			IP string `json:"ip"`
+		}
+		_ = json.Unmarshal(raw, &s)
+		return s.IP
+	case "tls-audit", "ports":
+		var s struct {
+			Host string `json:"host"`
+			Port string `json:"port"`
+		}
+		_ = json.Unmarshal(raw, &s)
+		if s.Port != "" && s.Port != "443" {
+			return s.Host + ":" + s.Port
+		}
+		return s.Host
+	case "enum":
+		var s struct {
+			BaseURL string `json:"base_url"`
+		}
+		_ = json.Unmarshal(raw, &s)
+		return s.BaseURL
 	}
 	return ""
 }
