@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.5.0](https://github.com/Dezoxy/netcheck/compare/v1.4.1...v1.5.0) (2026-05-24)
+
+
+### Features
+
+* **web:** wire 9 v1.4 commands into the React workbench ([#38](https://github.com/Dezoxy/netcheck/issues/38)) ([21c79b2](https://github.com/Dezoxy/netcheck/commit/21c79b29bd248572a0f4d408fec1d70541945879))
+
 ## [1.4.1](https://github.com/Dezoxy/netcheck/compare/v1.4.0...v1.4.1) (2026-05-24)
 
 
