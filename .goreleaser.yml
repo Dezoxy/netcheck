@@ -49,6 +49,74 @@ archives:
       - LICENSE
       - config.example.yaml
 
+# Homebrew Cask — distributes the prebuilt macOS binary via Homebrew.
+#
+# Why Cask and not Formula: goreleaser v2 deprecated the `brews:` block in
+# favour of `homebrew_casks:` since Cask is a better fit for prebuilt-binary
+# distribution. Trade-off: Cask is macOS-only. Linux brew users keep the
+# `linux_*.tar.gz` direct-download path off the release page.
+#
+# CURRENTLY DOES NOT PUSH. `skip_upload: true` makes goreleaser build the
+# Cask file into ./dist/ for inspection without trying to commit it to the
+# tap repo. To flip it live, follow docs/PUBLISHING.md (TL;DR: create the
+# Dezoxy/homebrew-netcheck repo, add a `GORELEASER_PAT` secret, wire it into
+# release-please.yml, set skip_upload: false).
+homebrew_casks:
+  - name: netcheck
+    repository:
+      owner: Dezoxy
+      name: homebrew-netcheck
+      # GORELEASER_PAT is the cross-repo personal access token (the workflow's
+      # GITHUB_TOKEN can't push to a different repo). Missing token is fine
+      # while skip_upload is true — see release-please.yml for the `|| ''`
+      # fallback that keeps the workflow green pre-flip.
+      token: "{{ .Env.GORELEASER_PAT }}"
+    skip_upload: true
+    homepage: "https://github.com/Dezoxy/netcheck"
+    description: "Network diagnostic CLI — DNS, TCP, TLS, HTTP, traceroute, IP/ASN, pentest tooling."
+    binaries: [netcheck]
+    directory: Casks
+    commit_author:
+      name: goreleaser
+      email: 178962833+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "chore(cask): netcheck {{ .Tag }}"
+    # Unsigned binaries trip macOS Gatekeeper ("netcheck cannot be opened
+    # because the developer cannot be verified"). We don't notarize (no Apple
+    # Developer account), so strip the quarantine attribute on install. This
+    # is the goreleaser-documented workaround; the alternative is the user
+    # running `xattr -dr com.apple.quarantine` themselves.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/netcheck"]
+          end
+    caveats: |
+      Drop a config at ~/.config/netcheck/config.yaml — there's a template
+      bundled inside the archive (config.example.yaml). Run `netcheck`
+      without arguments for the interactive menu, or `netcheck help` for the
+      full command list.
+
+# Scoop bucket — generates a netcheck.json manifest for Windows users.
+#
+# Same activation flow as the tap (see docs/PUBLISHING.md): create
+# Dezoxy/scoop-netcheck, reuse the GORELEASER_PAT secret, flip skip_upload.
+scoops:
+  - name: netcheck
+    repository:
+      owner: Dezoxy
+      name: scoop-netcheck
+      token: "{{ .Env.GORELEASER_PAT }}"
+    skip_upload: true
+    homepage: "https://github.com/Dezoxy/netcheck"
+    description: "Network diagnostic CLI — DNS, TCP, TLS, HTTP, traceroute, IP/ASN, pentest tooling."
+    license: "MIT"
+    commit_author:
+      name: goreleaser
+      email: 178962833+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "chore(scoop): netcheck {{ .Tag }}"
+    directory: bucket
+
 checksum:
   name_template: checksums.txt
   algorithm: sha256

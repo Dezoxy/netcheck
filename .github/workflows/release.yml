@@ -46,3 +46,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # See release-please.yml for context. Empty fallback keeps backfills
+          # working before the tap/bucket repos exist.
+          GORELEASER_PAT: ${{ secrets.GORELEASER_PAT || '' }}
