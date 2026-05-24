@@ -636,6 +636,99 @@ input,
   color: var(--fail);
 }
 
+.value-warn {
+  color: #b86200;
+  font-weight: 600;
+}
+
+/* ─── Mode groups (v1.4 web parity) ─────────────────────────────────────── */
+
+.mode-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mode-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mode-group-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  min-width: 110px;
+}
+
+.mode-tab-active-tier::after {
+  content: " ●";
+  color: var(--warn, #b86200);
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.mode-tab-active.mode-tab-active-tier::after {
+  color: inherit;
+}
+
+/* ─── Active-scan authorization gate ────────────────────────────────────── */
+
+.auth-gate {
+  background: #fff7ec;
+  border: 1px solid #f4b400;
+  border-radius: 12px;
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 14px 18px;
+}
+
+.auth-gate-ack {
+  background: #f7fdf9;
+  border-color: #00a572;
+}
+
+.auth-gate-icon {
+  align-items: center;
+  color: #b86200;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.auth-gate-ack .auth-gate-icon {
+  color: #00a572;
+}
+
+.auth-gate-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-gate-body p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.auth-gate-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.auth-gate-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
 .panel {
   min-width: 0;
   overflow: hidden;

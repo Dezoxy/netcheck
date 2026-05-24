@@ -145,11 +145,247 @@ export type IPInfoReport = {
   }>;
 };
 
+// ─── v1.4 passive recon ───────────────────────────────────────────────────
+
+export type HeadersReport = {
+  netcheck_version: string;
+  kind: "headers";
+  url: string;
+  final_url?: string;
+  status?: number;
+  started_at: string;
+  took_ms: number;
+  findings?: Array<{
+    name: string;
+    value?: string;
+    grade: "pass" | "weak" | "missing" | "info";
+    comment?: string;
+  }>;
+  summary: {
+    pass: number;
+    weak: number;
+    missing: number;
+    info: number;
+  };
+  error?: string;
+};
+
+export type TechReport = {
+  netcheck_version: string;
+  kind: "tech";
+  url: string;
+  final_url?: string;
+  status?: number;
+  started_at: string;
+  took_ms: number;
+  matches?: Array<{
+    name: string;
+    category: string;
+    version?: string;
+    confidence: string;
+    evidence?: string;
+  }>;
+  error?: string;
+};
+
+export type SubsReport = {
+  netcheck_version: string;
+  kind: "subs";
+  domain: string;
+  started_at: string;
+  took_ms: number;
+  subdomains?: Array<{
+    name: string;
+    wildcard?: boolean;
+    sources: string[];
+  }>;
+  source_errors?: Record<string, string>;
+  error?: string;
+};
+
+export type ReverseReport = {
+  netcheck_version: string;
+  kind: "reverse";
+  ip: string;
+  started_at: string;
+  took_ms: number;
+  hostnames?: Array<{
+    name: string;
+    sources: string[];
+  }>;
+  source_errors?: Record<string, string>;
+  source_disabled?: string[];
+  error?: string;
+};
+
+export type ArchReport = {
+  netcheck_version: string;
+  kind: "arch";
+  domain: string;
+  started_at: string;
+  took_ms: number;
+  total: number;
+  unique_urls: number;
+  first?: string;
+  last?: string;
+  recent_samples?: Array<{
+    timestamp: string;
+    url: string;
+    status?: number;
+  }>;
+  error?: string;
+};
+
+// ─── v1.4 active scanning ─────────────────────────────────────────────────
+
+export type TLSAuditReport = {
+  netcheck_version: string;
+  kind: "tls-audit";
+  host: string;
+  port: string;
+  started_at: string;
+  took_ms: number;
+  protocols?: Array<{
+    name: string;
+    supported: boolean;
+    deprecated?: boolean;
+    cipher?: string;
+    error?: string;
+  }>;
+  ciphers?: Array<{
+    name: string;
+    insecure?: boolean;
+    version?: string;
+    supported: boolean;
+  }>;
+  cert?: {
+    subject: string;
+    issuer: string;
+    dns_names?: string[];
+    not_before: string;
+    not_after: string;
+    days_remaining: number;
+    chain_len: number;
+    self_signed?: boolean;
+    expired?: boolean;
+  };
+  findings?: Array<{
+    severity: "high" | "medium" | "info";
+    title: string;
+    detail?: string;
+  }>;
+  error?: string;
+};
+
+export type TakeoverReport = {
+  netcheck_version: string;
+  kind: "takeover";
+  domain: string;
+  has_cname: boolean;
+  started_at: string;
+  took_ms: number;
+  findings?: Array<{
+    cname: string;
+    provider?: string;
+    verdict: "vulnerable" | "unverifiable" | "safe" | "unknown";
+    status?: number;
+    detail?: string;
+    notes?: string;
+  }>;
+  error?: string;
+};
+
+export type PortScanReport = {
+  netcheck_version: string;
+  kind: "ports";
+  host: string;
+  ip?: string;
+  started_at: string;
+  took_ms: number;
+  ports?: Array<{
+    port: number;
+    service?: string;
+  }>;
+  stats: {
+    total: number;
+    open: number;
+    closed: number;
+    filtered: number;
+  };
+  error?: string;
+};
+
+export type PathEnumReport = {
+  netcheck_version: string;
+  kind: "enum";
+  base_url: string;
+  started_at: string;
+  took_ms: number;
+  findings?: Array<{
+    path: string;
+    url: string;
+    status: number;
+    length?: number;
+    redirect?: string;
+    category: "found" | "redirect" | "blocked" | "auth-required" | "server-error";
+  }>;
+  stats: {
+    total: number;
+    interesting: number;
+    not_found: number;
+    errors: number;
+  };
+  error?: string;
+};
+
 // ─── Union of all report kinds ────────────────────────────────────────────
 
-export type AnyReport = FullCheckReport | DNSCompareReport | RouteReport | IPInfoReport;
+export type AnyReport =
+  | FullCheckReport
+  | DNSCompareReport
+  | RouteReport
+  | IPInfoReport
+  | HeadersReport
+  | TechReport
+  | SubsReport
+  | ReverseReport
+  | ArchReport
+  | TLSAuditReport
+  | TakeoverReport
+  | PortScanReport
+  | PathEnumReport;
 
-export type CheckMode = "full" | "dns" | "route" | "ip";
+// CheckMode is the UI's mode identifier. Note: it diverges from
+// AnyReport["kind"] for TLS — UI uses "tls", payload uses "tls-audit".
+export type CheckMode =
+  | "full"
+  | "dns"
+  | "route"
+  | "ip"
+  | "headers"
+  | "tech"
+  | "subs"
+  | "reverse"
+  | "arch"
+  | "tls"
+  | "takeover"
+  | "ports"
+  | "enum";
+
+// ACTIVE_MODES are the ones gated behind the in-UI authorization checkbox.
+// Keep this in sync with the backend's auth-gated handlers.
+export const ACTIVE_MODES: readonly CheckMode[] = ["tls", "takeover", "ports", "enum"] as const;
+
+export function isActiveMode(mode: CheckMode): boolean {
+  return (ACTIVE_MODES as readonly CheckMode[]).includes(mode);
+}
+
+// MODE_GROUPS organises the 13 modes into three rows for the tab UI.
+export const MODE_GROUPS: Array<{ label: string; modes: CheckMode[] }> = [
+  { label: "Network", modes: ["full", "dns", "route", "ip"] },
+  { label: "Passive recon", modes: ["headers", "tech", "subs", "reverse", "arch"] },
+  { label: "Active scanning", modes: ["tls", "takeover", "ports", "enum"] },
+];
 
 // ─── Recent checks (localStorage) ─────────────────────────────────────────
 
@@ -161,11 +397,14 @@ export type RecentCheck = {
 };
 
 // ─── Saved reports (server-side) ──────────────────────────────────────────
-
+//
+// `kind` on the wire is whatever the report payload says (see AnyReport
+// union — most match CheckMode, but TLS is "tls-audit"). Treat as a string
+// rather than a strict CheckMode.
 export type SavedReportMeta = {
   id: string;
   saved_at: string;
-  kind: CheckMode;
+  kind: string;
   target: string;
   label?: string;
   ok?: boolean;

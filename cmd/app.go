@@ -80,27 +80,27 @@ type archCheckRequest struct {
 // this as an explicit checkbox + confirm dialog.
 
 type tlsCheckRequest struct {
-	Host          string `json:"host"`
-	IAuthorized   bool   `json:"i_have_authorization"`
+	Host        string `json:"host"`
+	IAuthorized bool   `json:"i_have_authorization"`
 }
 
 type takeoverCheckRequest struct {
-	Domain        string `json:"domain"`
-	IAuthorized   bool   `json:"i_have_authorization"`
+	Domain      string `json:"domain"`
+	IAuthorized bool   `json:"i_have_authorization"`
 }
 
 type portsCheckRequest struct {
-	Host           string `json:"host"`
-	Ports          string `json:"ports,omitempty"`    // explicit list, e.g. "22,80,443,8000-8010"
-	Top            int    `json:"top,omitempty"`      // default 100
-	Concurrency    int    `json:"concurrency,omitempty"`
-	PerPortMS      int    `json:"per_port_timeout_ms,omitempty"`
-	IAuthorized    bool   `json:"i_have_authorization"`
+	Host        string `json:"host"`
+	Ports       string `json:"ports,omitempty"` // explicit list, e.g. "22,80,443,8000-8010"
+	Top         int    `json:"top,omitempty"`   // default 100
+	Concurrency int    `json:"concurrency,omitempty"`
+	PerPortMS   int    `json:"per_port_timeout_ms,omitempty"`
+	IAuthorized bool   `json:"i_have_authorization"`
 }
 
 type enumCheckRequest struct {
 	URL             string   `json:"url"`
-	Wordlist        []string `json:"wordlist,omitempty"`         // explicit list; if empty, builtin is used
+	Wordlist        []string `json:"wordlist,omitempty"` // explicit list; if empty, builtin is used
 	Concurrency     int      `json:"concurrency,omitempty"`
 	PerPathMS       int      `json:"per_path_timeout_ms,omitempty"`
 	Insecure        bool     `json:"insecure,omitempty"`
