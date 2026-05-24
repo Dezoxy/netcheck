@@ -951,10 +951,26 @@ The "stop adding things and ship what you have" release.
 - `.gitignore` + Makefile guards against macOS Finder / iCloud conflict
   copies leaking into `internal/webui/dist/`
 
-## v1.4 — Passive recon (shipped)
+## v1.4.0 — Pentest tooling, passive + active (shipped)
 
-The pentest-tooling direction starts here. Everything in v1.4 is **passive**:
-public-data lookups only, no authenticated probes, no active scanning of the
+> **Release-tag note.** The plan originally split this into v1.4 (passive)
+> and v1.5 (active). What actually shipped is a single `v1.4.0` tag
+> containing both. The split-up exists in code organisation (separate
+> packages, separate commits, separate PR — #32 and #34) but release-please
+> bundled them under one minor bump because PR #32's squash-merge subject
+> was `docs(roadmap):`, which it correctly classified as Documentation and
+> didn't bump for. The four `feat:` sub-commits inside that PR shipped
+> their code but never triggered a Features changelog entry, so when PR #34
+> merged its active-scanning `feat:` lines, release-please saw "first
+> features since v1.3.2" and cut v1.4.0. SemVer-wise this is fine — both
+> sets of changes are backward-compatible additions. Below the original
+> v1.4 (passive) and v1.5 (active) sections are kept as separate design
+> sections because they ARE different tiers, but neither has a separate
+> release tag.
+
+### v1.4 (passive recon) sub-tier
+
+Public-data lookups only, no authenticated probes, no active scanning of the
 target. No `--i-have-authorization` gate needed — these queries are no
 different from typing a hostname into a web search.
 
@@ -991,7 +1007,7 @@ Suggested shipping order — smallest blast radius first:
 4. `reverse` — multiple sources, dedupe logic
 5. `arch` — archive.org pagination is the only fiddly bit
 
-## v1.5 — Active scanning (planned)
+### v1.5 (active scanning) sub-tier — shipped in v1.4.0
 
 The pentest direction graduates to commands that actually probe the
 target. All four require explicit user confirmation (`--i-have-authorization`
@@ -1047,7 +1063,9 @@ Verified during implementation:
 - `enum http://scanme.nmap.org` found a 403 on `.svn/entries` — Apache
   default config has the rule even though the file doesn't exist.
 
-## v1.6+ — Unscheduled
+## v1.5+ — Unscheduled
+
+(With v1.4.0 absorbing both originally-planned tiers, the next free minor is v1.5.)
 
 - HTTP/3 / QUIC test
 - Prometheus exporter
