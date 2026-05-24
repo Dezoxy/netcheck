@@ -337,8 +337,7 @@ The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes 
 | v1.1.0 | shipped | Local React/PWA workbench via `netcheck app`; same full-check Go engine exposed through the local JSON API. |
 | v1.2.0 | shipped | Web app: DNS / Route / IP tabs wired end-to-end, saved-reports CRUD, recent rerun |
 | v1.3.x | shipped | Build & release hardening: `make app` leaves `./bin/netcheck`, npm-ci stamp, goreleaser-in-same-workflow as release-please |
-| v1.4 | shipped | Passive recon: `subs` (CT logs), `reverse` (reverse DNS / Hackertarget / optional Shodan), `tech` (Wappalyzer-style), `headers` (security-header report card), `arch` (archive.org CDX) |
-| **v1.5** | **planned** | **Active scanning behind an `--i-have-authorization` gate + [ETHICS.md](docs/ETHICS.md): `tls` (protocol/cipher matrix audit), `takeover` (CNAME-takeover detection), `ports` (parallel TCP connect scan), `enum` (HTTP path wordlist)** |
-| v1.6+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
+| **v1.4.0** | **shipped** | **Pentest-tooling tier (passive + active in one release).** Passive: `subs` (CT logs), `reverse` (PTR / Hackertarget / optional Shodan), `tech` (Wappalyzer-style fingerprinting), `headers` (security-header report card), `arch` (archive.org CDX). Active (gated behind `--i-have-authorization` per [ETHICS.md](docs/ETHICS.md)): `tls` (protocol/cipher matrix), `takeover` (CNAME-takeover detection), `ports` (parallel TCP connect scan), `enum` (HTTP path enumeration). |
+| v1.5+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
 
 </details>

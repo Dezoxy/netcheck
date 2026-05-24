@@ -6,13 +6,32 @@ Per-release notes are also generated automatically by `goreleaser` and attached 
 
 ## [1.4.0](https://github.com/Dezoxy/netcheck/compare/v1.3.3...v1.4.0) (2026-05-23)
 
+> **Active-scanning suite. Read [`docs/ETHICS.md`](docs/ETHICS.md) before using these.**
 
 ### Features
 
+* **authz:** ethics gate infrastructure (`--i-have-authorization` flag, `NETCHECK_AUTHORIZED` env var) + [`docs/ETHICS.md`](docs/ETHICS.md) — every v1.4 active-scanning command refuses to run without explicit opt-in.
+* **tls:** `netcheck tls <host>` — full TLS audit. Probes every TLS protocol (1.0–1.3) and every cipher suite Go can offer; captures cert chain; grades deprecated protocols, weak ciphers, expired/expiring/self-signed certs.
+* **takeover:** `netcheck takeover <domain>` — CNAME → built-in catalog (GitHub Pages, S3, Heroku, Azure, Shopify, Fastly, Bitbucket Cloud, Ghost) → vulnerability verdict via HTTP fingerprint match.
+* **ports:** `netcheck ports <host>` — parallel TCP connect scan. Default top-100 nmap ports, `--ports` for explicit lists with dash-ranges, builtin port→service map.
+* **enum:** `netcheck enum <url>` — HTTP path enumeration against a ~70-entry builtin wordlist (or `--wordlist`). Categorizes by status: found / redirect / blocked / auth-required / server-error.
 * v1.5 active scanning (tls, takeover, ports, enum) behind --i-have-authorization gate ([#34](https://github.com/Dezoxy/netcheck/issues/34)) ([1eadaae](https://github.com/Dezoxy/netcheck/commit/1eadaaeea1681425f139c4808d46ed278633d87b))
+
+> **Note on the version number:** This release bundles what the roadmap and PRs called "v1.4 passive recon" AND "v1.5 active scanning" under a single `v1.4.0` tag. The split was a planning artefact — release-please cut one minor version for everything because the passive-recon PR (#32) squash-merged with a `docs:` title that didn't trigger an auto-bump. See [STABILITY.md](STABILITY.md) and [`docs/netcheck_tool_project_plan.md`](docs/netcheck_tool_project_plan.md) for the corrected timeline.
 
 ## [1.3.3](https://github.com/Dezoxy/netcheck/compare/v1.3.2...v1.3.3) (2026-05-23)
 
+> Despite the `chore(main): release 1.3.3` label release-please applied, **this release actually shipped the v1.4 passive-recon suite as well as the roadmap docs.** The squash-merge subject of PR #32 was `docs(roadmap):` which release-please correctly classified as Documentation, but the PR's body contained five `feat:` sub-commits whose code went out the door. The Features bullets below are the corrected accounting.
+
+### Features
+
+* **headers:** `netcheck headers <url>` — security-header report card. Grades HSTS / CSP / X-Frame-Options / X-Content-Type-Options / Referrer-Policy / Permissions-Policy as pass / weak / missing; calls out Server / X-Powered-By disclosure.
+* **tech:** `netcheck tech <url>` — Wappalyzer-style fingerprinting from one passive GET. Detects CMS (WordPress, Drupal, Ghost, Joomla, Magento), JS framework (Next.js, Nuxt, React, Vue, Angular), server (nginx, Apache, Caddy, IIS, LiteSpeed), CDN (Cloudflare, Fastly, CloudFront, Akamai, BunnyCDN), language/framework (PHP, Laravel, Django, Rails, ASP.NET), and common libraries (jQuery, Bootstrap). ~25 detectors, with a `<meta name="generator">` fallback for non-cataloged stacks.
+* **subs:** `netcheck subs <domain>` — subdomain enumeration from public Certificate Transparency log aggregators (crt.sh + CertSpotter), in parallel. Dedupes the union, filters wildcards, surfaces per-finding `sources[]`.
+* **reverse:** `netcheck reverse <ip>` — other hostnames on an IP. Sources: system reverse DNS (PTR), Hackertarget, and optional Shodan when `apis.shodan_api_key` is set in the config.
+* **arch:** `netcheck arch <domain>` — Wayback Machine historical snapshots via archive.org's CDX API. Reports total count, first/last-seen dates, and a sample of the most-recent unique URLs.
+* **config:** new `apis:` block in `config.example.yaml` for optional API keys (currently just `shodan_api_key`). `netcheck config show` reports `set` / `(not set)` per key — never the value itself.
+* **security:** `.env` and `.env.*` added to `.gitignore` so accidental secret leakage is harder.
 
 ### Documentation
 
