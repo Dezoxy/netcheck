@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.0.1](https://github.com/Dezoxy/netcheck/compare/v2.0.0...v2.0.1) (2026-05-25)
+
+
+### Documentation
+
+* STABILITY for v2.x + MIGRATING from v1.x (v2 cleanup 4/4) ([#61](https://github.com/Dezoxy/netcheck/issues/61)) ([5efa08c](https://github.com/Dezoxy/netcheck/commit/5efa08c87e6a57526d256c469a3ec32a29abecc0))
+
 ## [2.0.0](https://github.com/Dezoxy/netcheck/compare/v1.10.0...v2.0.0) (2026-05-25)
 
 
