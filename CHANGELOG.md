@@ -4,6 +4,14 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.8.0](https://github.com/Dezoxy/netcheck/compare/v1.7.0...v1.8.0) (2026-05-25)
+
+
+### Features
+
+* **cli:** shell completions (bash, zsh, fish, powershell) ([#49](https://github.com/Dezoxy/netcheck/issues/49)) ([e7f2511](https://github.com/Dezoxy/netcheck/commit/e7f2511be0a8fd221fc09157091c45a2f50cc661))
+* **ports:** banner grab on open ports ([#50](https://github.com/Dezoxy/netcheck/issues/50)) ([db2069a](https://github.com/Dezoxy/netcheck/commit/db2069a44f4b14f682a571812eea5b93cc25437c))
+
 ## [1.7.0](https://github.com/Dezoxy/netcheck/compare/v1.6.1...v1.7.0) (2026-05-25)
 
 
