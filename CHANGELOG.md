@@ -4,6 +4,14 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.6.0](https://github.com/Dezoxy/netcheck/compare/v1.5.0...v1.6.0) (2026-05-25)
+
+
+### Features
+
+* **audit:** add `netcheck audit <target>` aggregate command ([#41](https://github.com/Dezoxy/netcheck/issues/41)) ([1a12ce5](https://github.com/Dezoxy/netcheck/commit/1a12ce5e4d5298f6c6102fb97f36a44963584369))
+* **release:** Homebrew Cask + Scoop bucket scaffolding (skip_upload, flip to enable) ([#40](https://github.com/Dezoxy/netcheck/issues/40)) ([e46bf79](https://github.com/Dezoxy/netcheck/commit/e46bf79ded327e7adf66d10f4ea95c7504733294))
+
 ## [1.5.0](https://github.com/Dezoxy/netcheck/compare/v1.4.1...v1.5.0) (2026-05-24)
 
 
