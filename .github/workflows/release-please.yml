@@ -63,3 +63,9 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Cross-repo PAT used by goreleaser's brew + scoop publishers to push
+          # to Dezoxy/homebrew-netcheck and Dezoxy/scoop-netcheck. While
+          # skip_upload: true in .goreleaser.yml, the secret doesn't need to
+          # exist — the `|| ''` fallback keeps the workflow green. See
+          # docs/PUBLISHING.md for the go-live steps.
+          GORELEASER_PAT: ${{ secrets.GORELEASER_PAT || '' }}
