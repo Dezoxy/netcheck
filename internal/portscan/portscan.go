@@ -41,6 +41,7 @@ type Result struct {
 type PortResult struct {
 	Port    int
 	Service string // best-guess service from the builtin port→service map
+	Banner  string // best-effort banner grab; first printable line, may be empty
 }
 
 // Stats summarises the scan.
@@ -57,6 +58,15 @@ type Options struct {
 	Top            int           // when Ports is nil, use the top-N nmap-style ports. 0/<0 → 100.
 	Concurrency    int           // parallel dials. 0/<0 → 50.
 	PerPortTimeout time.Duration // per-dial timeout. 0/<0 → 2s.
+
+	// BannerTimeout is the deadline for the banner-grab read after a successful
+	// connect. 0 → 500ms default. Negative → banner grab disabled.
+	//
+	// Banner grab is "best effort": for ports that speak first (SSH, SMTP,
+	// FTP, POP3, IMAP, etc.) we just read; for known HTTP ports we send a
+	// minimal `GET /` probe; for TLS-wrapped ports we skip entirely (use
+	// `netcheck tls` for those).
+	BannerTimeout time.Duration
 }
 
 // Scan resolves host, opens parallel TCP connections to each port, and
@@ -115,10 +125,18 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 	if perPort <= 0 {
 		perPort = 2 * time.Second
 	}
+	// 0 → 500ms default; <0 → disabled. A small budget keeps the wall-clock
+	// impact bounded — the read fires only on already-open ports, and the
+	// per-port goroutine is the same one that already held the connect slot.
+	bannerTimeout := opts.BannerTimeout
+	if bannerTimeout == 0 {
+		bannerTimeout = 500 * time.Millisecond
+	}
 
 	type portRes struct {
 		port   int
 		open   bool
+		banner string
 		errStr string
 	}
 	results := make([]portRes, len(ports))
@@ -141,8 +159,13 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 				results[i] = pr
 				return
 			}
-			conn.Close()
 			pr.open = true
+			// Banner grab is best-effort. Errors are swallowed — banner is
+			// optional information, not a reason to fail the port result.
+			if bannerTimeout > 0 {
+				pr.banner = grabBanner(conn, p, bannerTimeout)
+			}
+			conn.Close()
 			results[i] = pr
 		}()
 	}
@@ -155,6 +178,7 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 			out.Ports = append(out.Ports, PortResult{
 				Port:    r.port,
 				Service: serviceName(r.port),
+				Banner:  r.banner,
 			})
 		case isFiltered(r.errStr):
 			out.Stats.Filtered++
@@ -258,6 +282,132 @@ func serviceName(p int) string {
 		return name
 	}
 	return ""
+}
+
+// grabBanner is the per-port banner-grab routine. Strategy:
+//
+//   - TLS-wrapped ports (443, 465, 636, 993, 995, 8443, ...): skip entirely.
+//     We can't read plaintext from a TLS endpoint, and `netcheck tls` exists
+//     for that. Sending a probe would only generate noise.
+//   - HTTP-ish ports: send a minimal `GET / HTTP/1.0` probe so the server has
+//     something to respond to (HTTP servers don't speak first).
+//   - Anything else: just read. Catches SSH, SMTP, FTP, POP3, IMAP, MySQL,
+//     Redis, MongoDB, Memcached, and a long tail of TCP services that banner
+//     on connect.
+//
+// Errors are swallowed: a closed read or short response just means we got no
+// banner, not that the port itself failed. Returns "" when there's nothing to
+// surface.
+func grabBanner(conn net.Conn, port int, timeout time.Duration) string {
+	if isTLSWrappedPort(port) {
+		return ""
+	}
+	// One deadline covers both write and read — banner grab budget is fixed.
+	_ = conn.SetDeadline(time.Now().Add(timeout))
+
+	if isHTTPPort(port) {
+		// Single-shot probe — don't care about the write error, the read
+		// deadline is what bounds us. Empty Host is fine for capturing
+		// `Server:` headers from most stacks.
+		_, _ = conn.Write([]byte("GET / HTTP/1.0\r\nUser-Agent: netcheck\r\nAccept: */*\r\n\r\n"))
+	}
+
+	buf := make([]byte, 1024)
+	n, _ := conn.Read(buf)
+	if n == 0 {
+		return ""
+	}
+	return cleanBanner(buf[:n], port)
+}
+
+// cleanBanner extracts the most informative single line from a raw banner
+// buffer. For HTTP-ish ports we prefer the `Server:` header if present (the
+// status line varies less and is less informative); otherwise we take the
+// first non-empty printable line. Output is capped at 200 chars.
+func cleanBanner(b []byte, port int) string {
+	lines := splitLines(b)
+	if isHTTPPort(port) {
+		for _, ln := range lines {
+			if hasPrefixFold(ln, "Server:") {
+				return truncateBanner(strings.TrimSpace(ln[len("Server:"):]))
+			}
+		}
+		// Fall back to the status line if no Server header.
+		for _, ln := range lines {
+			if strings.HasPrefix(ln, "HTTP/") {
+				return truncateBanner(ln)
+			}
+		}
+	}
+	for _, ln := range lines {
+		ln = strings.TrimSpace(ln)
+		if ln == "" {
+			continue
+		}
+		return truncateBanner(ln)
+	}
+	return ""
+}
+
+// splitLines splits raw bytes on \r and \n, filtering non-printable ASCII
+// (replacing with "."). Binary protocols (MySQL handshake, MongoDB OP_MSG)
+// still produce *something* readable — a fingerprint, not a clean banner,
+// but enough to identify the service.
+func splitLines(b []byte) []string {
+	var out []string
+	var cur []byte
+	for _, c := range b {
+		if c == '\r' || c == '\n' {
+			out = append(out, string(cur))
+			cur = cur[:0]
+			continue
+		}
+		if c >= 32 && c < 127 {
+			cur = append(cur, c)
+		} else {
+			cur = append(cur, '.')
+		}
+	}
+	if len(cur) > 0 {
+		out = append(out, string(cur))
+	}
+	return out
+}
+
+func hasPrefixFold(s, prefix string) bool {
+	return len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix)
+}
+
+func truncateBanner(s string) string {
+	const max = 200
+	if len(s) > max {
+		return s[:max] + "…"
+	}
+	return s
+}
+
+// isHTTPPort returns true for ports that typically speak plain HTTP and don't
+// banner on connect. Used to decide whether to send a GET probe before
+// reading.
+func isHTTPPort(p int) bool {
+	switch p {
+	case 80, 81, 88, 591, 3000, 5000, 5800, 5985, 7001, 7080, 8000, 8008,
+		8009, 8080, 8081, 8088, 8090, 8181, 8888, 9000, 9090, 9091, 9999:
+		return true
+	}
+	return false
+}
+
+// isTLSWrappedPort returns true for ports that speak TLS from byte zero —
+// banner grab would either fail (no plaintext bytes) or send a probe that
+// looks like garbage to the TLS handshake. `netcheck tls` handles these.
+func isTLSWrappedPort(p int) bool {
+	switch p {
+	case 443, 465, 563, 636, 853, 989, 990, 992, 993, 994, 995,
+		2376, 5061, 5223, 5349, 6697, 8443, 9443:
+		return true
+	}
+	return false
 }
 
 // commonServices is the small port→service hint map. Not exhaustive; the

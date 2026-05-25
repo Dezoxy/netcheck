@@ -305,6 +305,10 @@ export type PortScanReport = {
   ports?: Array<{
     port: number;
     service?: string;
+    // Best-effort banner string from the connect-time banner grab. Empty for
+    // TLS-wrapped ports (use a TLS audit instead), silent services, or when
+    // banner grab was disabled at the CLI.
+    banner?: string;
   }>;
   stats: {
     total: number;

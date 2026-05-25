@@ -428,6 +428,10 @@ type PortScanJSON struct {
 type PortJSON struct {
 	Port    int    `json:"port"`
 	Service string `json:"service,omitempty"`
+	// Banner is the best-effort fingerprint string from a short read on
+	// connect (or a minimal GET probe on known HTTP ports). May be empty.
+	// Stable field — added in 1.8.0 as an additive optional.
+	Banner string `json:"banner,omitempty"`
 }
 
 // PortStatsJSON summarises the scan.
@@ -833,7 +837,7 @@ func ToPortScanJSON(r portscan.Result) PortScanJSON {
 		return out
 	}
 	for _, p := range r.Ports {
-		out.Ports = append(out.Ports, PortJSON{Port: p.Port, Service: p.Service})
+		out.Ports = append(out.Ports, PortJSON{Port: p.Port, Service: p.Service, Banner: p.Banner})
 	}
 	return out
 }

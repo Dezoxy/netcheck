@@ -484,14 +484,35 @@ func RenderPortScanMD(w io.Writer, d PortScanJSON) {
 		fmt.Fprintln(w, "_(no open ports found)_")
 		return
 	}
-	fmt.Fprintln(w, "| Port | Service |")
-	fmt.Fprintln(w, "|---|---|")
+	anyBanner := false
+	for _, p := range d.Ports {
+		if p.Banner != "" {
+			anyBanner = true
+			break
+		}
+	}
+	if anyBanner {
+		fmt.Fprintln(w, "| Port | Service | Banner |")
+		fmt.Fprintln(w, "|---|---|---|")
+	} else {
+		fmt.Fprintln(w, "| Port | Service |")
+		fmt.Fprintln(w, "|---|---|")
+	}
 	for _, p := range d.Ports {
 		svc := p.Service
 		if svc == "" {
 			svc = "—"
 		}
-		fmt.Fprintf(w, "| %d | %s |\n", p.Port, svc)
+		if anyBanner {
+			// Escape pipes in the banner so they don't break the table.
+			b := strings.ReplaceAll(p.Banner, "|", `\|`)
+			if b == "" {
+				b = "—"
+			}
+			fmt.Fprintf(w, "| %d | %s | `%s` |\n", p.Port, svc, b)
+		} else {
+			fmt.Fprintf(w, "| %d | %s |\n", p.Port, svc)
+		}
 	}
 	fmt.Fprintln(w)
 }

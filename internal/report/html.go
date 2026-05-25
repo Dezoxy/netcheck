@@ -527,8 +527,19 @@ func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
 		return
 	}
 
+	anyBanner := false
+	for _, p := range d.Ports {
+		if p.Banner != "" {
+			anyBanner = true
+			break
+		}
+	}
 	fmt.Fprintln(w, "<table>")
-	fmt.Fprintln(w, "<thead><tr><th>Port</th><th>Service</th></tr></thead>")
+	if anyBanner {
+		fmt.Fprintln(w, "<thead><tr><th>Port</th><th>Service</th><th>Banner</th></tr></thead>")
+	} else {
+		fmt.Fprintln(w, "<thead><tr><th>Port</th><th>Service</th></tr></thead>")
+	}
 	fmt.Fprintln(w, "<tbody>")
 	for _, p := range d.Ports {
 		svc := p.Service
@@ -537,7 +548,15 @@ func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
 		} else {
 			svc = html.EscapeString(svc)
 		}
-		fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td></tr>\n", p.Port, svc)
+		if anyBanner {
+			banner := `<span class="muted">—</span>`
+			if p.Banner != "" {
+				banner = "<code>" + html.EscapeString(p.Banner) + "</code>"
+			}
+			fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td><td>%s</td></tr>\n", p.Port, svc, banner)
+		} else {
+			fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td></tr>\n", p.Port, svc)
+		}
 	}
 	fmt.Fprintln(w, "</tbody></table>")
 	htmlTail(w)
