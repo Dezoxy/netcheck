@@ -24,7 +24,10 @@ func addOutFlag(fs *flag.FlagSet) *string {
 // the closer runs successfully — so users who use --out get confirmation
 // without polluting the file content.
 func openOut(path string) (io.Writer, func(), error) {
-	if path == "" {
+	// "" and "-" both mean stdout. The "-" convention is what `netcheck
+	// watch` uses to force stdout even when a user has set --out somewhere
+	// else in their watched sub-command args.
+	if path == "" || path == "-" {
 		return os.Stdout, func() {}, nil
 	}
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
