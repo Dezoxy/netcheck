@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"netcheck/internal/dnscompare"
-	"netcheck/internal/pathenum"
-	"netcheck/internal/portscan"
-	"netcheck/internal/report"
-	"netcheck/internal/route"
-	"netcheck/internal/target"
-	"netcheck/internal/webui"
+	"github.com/Dezoxy/netcheck/internal/webui"
+	"github.com/Dezoxy/netcheck/pkg/dnscompare"
+	"github.com/Dezoxy/netcheck/pkg/pathenum"
+	"github.com/Dezoxy/netcheck/pkg/portscan"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/route"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 type fullCheckRequest struct {

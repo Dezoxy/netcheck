@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"netcheck/internal/reverseip"
-	"netcheck/internal/subenum"
-	"netcheck/internal/takeover"
-	"netcheck/internal/wayback"
+	"github.com/Dezoxy/netcheck/pkg/reverseip"
+	"github.com/Dezoxy/netcheck/pkg/subenum"
+	"github.com/Dezoxy/netcheck/pkg/takeover"
+	"github.com/Dezoxy/netcheck/pkg/wayback"
 )
 
 // ─── /api/check/headers ───────────────────────────────────────────────────

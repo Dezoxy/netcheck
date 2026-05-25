@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/check"
-	"netcheck/internal/report"
-	"netcheck/internal/target"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 // RunFull executes the `netcheck <target>` end-to-end check.

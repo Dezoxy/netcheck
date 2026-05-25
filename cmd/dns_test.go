@@ -3,8 +3,8 @@ package cmd
 import (
 	"testing"
 
-	"netcheck/internal/config"
-	"netcheck/internal/dnscompare"
+	"github.com/Dezoxy/netcheck/internal/config"
+	"github.com/Dezoxy/netcheck/pkg/dnscompare"
 )
 
 func TestConfigResolverToDNS(t *testing.T) {

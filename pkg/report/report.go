@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"netcheck/internal/check"
-	"netcheck/internal/target"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 // Report aggregates a full `netcheck <target>` run.

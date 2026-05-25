@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"netcheck/internal/target"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 // ─── LookupDNS ────────────────────────────────────────────────────────────

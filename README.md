@@ -338,6 +338,61 @@ resolvers:
 
 Run `netcheck config show` to see what's actually loaded. See [config.example.yaml](config.example.yaml) for the full schema.
 
+## Use as a library
+
+Every check engine lives under `netcheck/pkg/` and is importable from your own Go programs. The JSON schema types in `pkg/report` are the same ones the CLI emits — the wire format is the contract.
+
+```bash
+go get github.com/Dezoxy/netcheck@latest
+```
+
+```go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/Dezoxy/netcheck/pkg/dnscompare"
+)
+
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Built-in resolver set (Cloudflare/Google/Quad9) + the system resolver.
+	resolvers := append([]dnscompare.Resolver{}, dnscompare.DefaultResolvers...)
+	resolvers = append(resolvers, dnscompare.SystemResolvers()...)
+
+	res := dnscompare.Compare(ctx, resolvers, "google.com", "A", 5*time.Second)
+	verdict := res.Verdict()
+
+	fmt.Fprintf(os.Stderr, "resolvers agree: %v\n", verdict.Agree)
+	_ = json.NewEncoder(os.Stdout).Encode(res)
+}
+```
+
+Public packages:
+
+| Package | What it does |
+|---|---|
+| `pkg/check` | Full check (DNS + TCP + TLS + HTTP) |
+| `pkg/dnscompare` | Multi-resolver DNS query comparison |
+| `pkg/route` | Traceroute + per-hop ASN |
+| `pkg/ipinfo` | RDAP, reverse DNS, CDN classification |
+| `pkg/secheaders`, `pkg/techdetect`, `pkg/subenum`, `pkg/reverseip`, `pkg/wayback` | Passive recon engines |
+| `pkg/tlsaudit`, `pkg/takeover`, `pkg/portscan`, `pkg/pathenum` | Active scanning engines |
+| `pkg/report` | Versioned JSON schemas + text/Markdown/HTML renderers |
+| `pkg/diff` | Structured diff between two saved reports |
+| `pkg/target` | URL / host normalization |
+
+Stability: exported names are stable across `v2.x`. Catalogue-style packages (`pkg/techdetect`, `pkg/secheaders`) keep stable result *shapes*, but the set of detections they emit grows over time — don't pin tests to "exactly these matches." Active-scanning packages still require the same `i_have_authorization` boundary as the CLI; see [docs/ETHICS.md](docs/ETHICS.md).
+
+`internal/config` and `internal/webui` are deliberately not part of the public API — they're the CLI's config-file format and embedded web-app bundle.
+
 ## Caveats
 
 - **DNS results aren't universal.** GeoDNS, anycast, ECS, and CDN load-balancing all mean different resolvers (and different clients) legitimately get different IPs for the same hostname. `netcheck dns` makes that visible — disagreement isn't an error.

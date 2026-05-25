@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"netcheck/internal/reverseip"
-	"netcheck/internal/subenum"
-	"netcheck/internal/wayback"
+	"github.com/Dezoxy/netcheck/pkg/reverseip"
+	"github.com/Dezoxy/netcheck/pkg/subenum"
+	"github.com/Dezoxy/netcheck/pkg/wayback"
 )
 
 // =============================================================================

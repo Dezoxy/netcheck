@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"netcheck/internal/diff"
+	"github.com/Dezoxy/netcheck/pkg/diff"
 )
 
 // RunDiff implements `netcheck diff <old.json> <new.json>`. Returns:

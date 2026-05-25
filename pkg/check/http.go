@@ -9,7 +9,7 @@ import (
 	"net/http/httptrace"
 	"time"
 
-	"netcheck/internal/target"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 // HTTPHop is one step in a redirect chain.
@@ -19,7 +19,7 @@ type HTTPHop struct {
 }
 
 // userAgent is the User-Agent header sent by the HTTP check.
-// main.go wires the canonical "netcheck/<version>" (or the config override)
+// main.go wires the canonical "github.com/Dezoxy/netcheck/<version>" (or the config override)
 // via SetUserAgent at startup.
 var userAgent = "netcheck"
 

@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/tlsaudit"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/tlsaudit"
 )
 
 // RunTLSAudit executes the `netcheck tls <host[:port]>` command. Active —

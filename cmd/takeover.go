@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/takeover"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/takeover"
 )
 
 // RunTakeover executes the `netcheck takeover <domain>` command. Active —

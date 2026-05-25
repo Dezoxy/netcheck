@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"netcheck/internal/check"
-	"netcheck/internal/ipinfo"
-	"netcheck/internal/report"
-	"netcheck/internal/target"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 // RunIP executes the `netcheck ip <ip|host>` command.

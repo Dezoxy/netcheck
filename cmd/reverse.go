@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/reverseip"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/reverseip"
 )
 
 // RunReverse executes the `netcheck reverse <ip>` command.

@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/subenum"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/subenum"
 )
 
 // RunSubs executes the `netcheck subs <domain>` command.

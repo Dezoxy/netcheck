@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/subenum"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/subenum"
 )
 
 // pointSubsAt swaps the subenum source URLs to httptest servers and returns a

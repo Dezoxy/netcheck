@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"netcheck/internal/check"
-	"netcheck/internal/dnscompare"
-	"netcheck/internal/ipinfo"
-	"netcheck/internal/route"
-	"netcheck/internal/target"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/dnscompare"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
+	"github.com/Dezoxy/netcheck/pkg/route"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 // -update regenerates golden files. Run `go test ./internal/report -update`

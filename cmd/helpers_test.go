@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"netcheck/internal/check"
-	"netcheck/internal/config"
-	"netcheck/internal/ipinfo"
+	"github.com/Dezoxy/netcheck/internal/config"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
 )
 
 // ─── output.go ────────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ func TestUserAgentDefault(t *testing.T) {
 	defer func() { loadedConfig = prev }()
 	loadedConfig = config.Defaults()
 	got := UserAgent()
-	if !strings.HasPrefix(got, "netcheck/") {
+	if !strings.HasPrefix(got, "github.com/Dezoxy/netcheck/") {
 		t.Errorf("UserAgent = %q, want prefix netcheck/", got)
 	}
 }

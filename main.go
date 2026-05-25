@@ -6,16 +6,16 @@
 package main
 
 import (
-	"netcheck/cmd"
-	"netcheck/internal/check"
-	"netcheck/internal/ipinfo"
-	"netcheck/internal/pathenum"
-	"netcheck/internal/reverseip"
-	"netcheck/internal/secheaders"
-	"netcheck/internal/subenum"
-	"netcheck/internal/takeover"
-	"netcheck/internal/techdetect"
-	"netcheck/internal/wayback"
+	"github.com/Dezoxy/netcheck/cmd"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
+	"github.com/Dezoxy/netcheck/pkg/pathenum"
+	"github.com/Dezoxy/netcheck/pkg/reverseip"
+	"github.com/Dezoxy/netcheck/pkg/secheaders"
+	"github.com/Dezoxy/netcheck/pkg/subenum"
+	"github.com/Dezoxy/netcheck/pkg/takeover"
+	"github.com/Dezoxy/netcheck/pkg/techdetect"
+	"github.com/Dezoxy/netcheck/pkg/wayback"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 
 	// Wire the canonical User-Agent into both leaf packages before any lookup
 	// or HTTP request runs. config.UserAgent wins if set; otherwise we send
-	// "netcheck/<version>".
+	// "github.com/Dezoxy/netcheck/<version>".
 	ua := cmd.UserAgent()
 	ipinfo.SetUserAgent(ua)
 	check.SetUserAgent(ua)

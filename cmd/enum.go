@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/pathenum"
-	"netcheck/internal/report"
+	"github.com/Dezoxy/netcheck/pkg/pathenum"
+	"github.com/Dezoxy/netcheck/pkg/report"
 )
 
 // RunPathEnum executes the `netcheck enum <url>` command. Active — requires

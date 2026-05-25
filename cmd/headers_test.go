@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"netcheck/internal/report"
+	"github.com/Dezoxy/netcheck/pkg/report"
 )
 
 func TestBuildHeadersAgainstTestServer(t *testing.T) {

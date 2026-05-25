@@ -9,7 +9,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"netcheck/internal/config"
+	"github.com/Dezoxy/netcheck/internal/config"
 )
 
 // RunConfigShow prints the active config: where it was loaded from, the
