@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.9.0](https://github.com/Dezoxy/netcheck/compare/v1.8.0...v1.9.0) (2026-05-25)
+
+
+### Features
+
+* `netcheck diff` and `netcheck watch` (history mode) ([#52](https://github.com/Dezoxy/netcheck/issues/52)) ([515ebf5](https://github.com/Dezoxy/netcheck/commit/515ebf50a93b101cd2728ca0cc249c925e797d96))
+
 ## [1.8.0](https://github.com/Dezoxy/netcheck/compare/v1.7.0...v1.8.0) (2026-05-25)
 
 
