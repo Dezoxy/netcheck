@@ -126,7 +126,7 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
 
-Every command accepts `--output text|json|markdown|html` (default `text`) and `--out <file>` (write to file with `Saved to <abs-path>` echoed to stderr). The text format is byte-stable across `v1.x`; the JSON schema is versioned (`"netcheck_version"` field) and stable per [STABILITY.md](STABILITY.md).
+Every command accepts `--output text|json|markdown|html` (or `-j` for json) and `--out <file>` (or `-o`; `-` means stdout). The text format is byte-stable across `v2.x`; the JSON schema is versioned (`"netcheck_version"` field) and stable per [STABILITY.md](STABILITY.md). Upgrading from v1? See [MIGRATING.md](MIGRATING.md) — two JSON field renames + a Go import-path change.
 
 ## Examples
 
@@ -198,8 +198,8 @@ Shopify, WooCommerce), JS framework (Next.js, Nuxt, Angular, React, Vue), server
 (nginx, Apache, Caddy, IIS, LiteSpeed), CDN (Cloudflare, Fastly, CloudFront, Akamai,
 BunnyCDN), language / web framework (PHP, Laravel, Django, Rails, ASP.NET), and
 common libraries (jQuery, Bootstrap). Each match comes with a confidence tier and the
-evidence that triggered it. Catalogue grows over time — not part of the v1.x JSON
-stability promise.
+evidence that triggered it. Catalogue grows over time — the JSON *envelope* is
+stable per [STABILITY.md](STABILITY.md), but the set of detected names isn't.
 
 ### Subdomain enumeration
 
@@ -402,9 +402,9 @@ Stability: exported names are stable across `v2.x`. Catalogue-style packages (`p
 
 ## Stability
 
-`v1.0.0` commits to backward compatibility for the entire `v1.x` series: CLI flags, exit codes, JSON schema, and config file keys are frozen. See [STABILITY.md](STABILITY.md) for the full contract.
+`v2.0.0` commits to backward compatibility for the entire `v2.x` series: CLI flags, exit codes, JSON schema, config file keys, **and the public `pkg/` Go API** are frozen. See [STABILITY.md](STABILITY.md) for the full contract.
 
-If you're using netcheck in a script, pin the major version (`v1.x.y`) and `--output json` against the schema version in the output.
+If you're using netcheck in a script, pin the major version (`v2.x.y`) and `--output json` against the schema version (`"netcheck_version": "1.0.0"`) in the output. Migrating from v1.x? See [MIGRATING.md](MIGRATING.md) — the breakage is contained to two JSON field renames and a Go import-path change.
 
 ## Contributing
 
