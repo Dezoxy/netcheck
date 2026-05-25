@@ -15,15 +15,17 @@ If something must change in a breaking way, it earns a **v3.0.0**, not a `v2.x` 
 
 These flag names, their semantics, and the commands they're attached to are stable through `v2.x`:
 
+In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`, `tech`, `subs`, `reverse`, `arch`, `tls`, `takeover`, `ports`, `enum`, `audit`. `app`, `menu`, `watch`, `completion` are control-plane subcommands and don't register the per-check flag set.
+
 | Flag | Commands | Behavior |
 |---|---|---|
-| `--config <path>` | every subcommand | Override config file lookup |
+| `--config <path>` | every check + `config show` | Override config file lookup |
 | `--output text\|json\|markdown\|html` | every check + `config show` + `diff` | Output format. `text` is the default. |
 | `-j` | every check + `config show` + `diff` | Shortcut for `--output json`. Last-write-wins with `--output`. |
 | `--out <file>` | every check + `config show` + `diff` | Write to file instead of stdout. `-` means stdout. |
 | `-o <file>` | every check + `config show` + `diff` | Shortcut for `--out`. |
 | `--timeout <duration>` | every check | Per-check or overall timeout (semantic varies by command — see `--help`) |
-| `--insecure` | full, headers, tech, enum | Skip TLS verification |
+| `--insecure` | full, headers, tech, enum, audit | Skip TLS verification |
 | `--i-have-authorization` | tls, takeover, ports, enum, audit (with `--active`) | Confirm authorization to actively probe the target (also: `NETCHECK_AUTHORIZED=1`). See [docs/ETHICS.md](docs/ETHICS.md). |
 | `--type <list>` | dns | Comma-separated record types |
 | `--resolver <addr>` | dns | Additional resolver (repeatable; URL syntax supported) |
