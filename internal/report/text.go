@@ -388,14 +388,32 @@ func RenderPortScan(w io.Writer, d PortScanJSON) {
 		fmt.Fprintln(w, "  (no open ports found)")
 	} else {
 		fmt.Fprintf(w, "Open ports (%d):\n", len(d.Ports))
+		// Show the BANNER column only when at least one port has one — keeps
+		// the table compact for scans with no banner hits (e.g. all TLS-wrapped
+		// or banner grab disabled).
+		anyBanner := false
+		for _, p := range d.Ports {
+			if p.Banner != "" {
+				anyBanner = true
+				break
+			}
+		}
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(tw, "  PORT\tSERVICE")
+		if anyBanner {
+			fmt.Fprintln(tw, "  PORT\tSERVICE\tBANNER")
+		} else {
+			fmt.Fprintln(tw, "  PORT\tSERVICE")
+		}
 		for _, p := range d.Ports {
 			svc := p.Service
 			if svc == "" {
 				svc = "-"
 			}
-			fmt.Fprintf(tw, "  %d\t%s\n", p.Port, svc)
+			if anyBanner {
+				fmt.Fprintf(tw, "  %d\t%s\t%s\n", p.Port, svc, p.Banner)
+			} else {
+				fmt.Fprintf(tw, "  %d\t%s\n", p.Port, svc)
+			}
 		}
 		tw.Flush()
 	}

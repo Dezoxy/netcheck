@@ -23,6 +23,8 @@ func RunPorts(args []string) int {
 	topFlag := fs.Int("top", 100, "scan the top-N most-likely-open ports (nmap default ordering). Ignored if --ports is set.")
 	concurrency := fs.Int("concurrency", 50, "parallel dials")
 	perPort := fs.Duration("per-port-timeout", 2*time.Second, "per-port connect timeout")
+	noBanners := fs.Bool("no-banners", false, "disable best-effort banner grab on open ports")
+	bannerTimeout := fs.Duration("banner-timeout", 500*time.Millisecond, "per-port banner-grab read deadline")
 	outputFlag := addOutputFlag(fs)
 	outFlag := addOutFlag(fs)
 	authzCheck := requireAuthorization(fs, "ports")
@@ -60,6 +62,12 @@ func RunPorts(args []string) int {
 		Top:            *topFlag,
 		Concurrency:    *concurrency,
 		PerPortTimeout: *perPort,
+		BannerTimeout:  *bannerTimeout,
+	}
+	if *noBanners {
+		// Negative disables banner grab — distinct from the 0-value
+		// "use the default" semantics inside portscan.Scan.
+		opts.BannerTimeout = -1
 	}
 	if *portsFlag != "" {
 		ports, err := portscan.ParsePortList(*portsFlag)

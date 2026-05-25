@@ -1127,8 +1127,30 @@ input,
   grid-template-columns: minmax(80px, 1.5fr) minmax(120px, 2fr) minmax(60px, 0.8fr) minmax(140px, 3fr);
 }
 
+/* Three-column variant used by the Ports panel when banners are present
+   (port / service / banner). Banner column gets the lion's share since it's
+   the wide one. */
+.dns-row-3 {
+  grid-template-columns: minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(140px, 4fr);
+}
+
+/* Banner cells are user-supplied free text — they can be long. We let them
+   ellipsize visually but keep the full string accessible via the `title`
+   attribute. Monospace because banners are protocol output, not prose. */
+.banner-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85em;
+  color: var(--text-secondary, #6b7280);
+}
+
 @media (max-width: 720px) {
-  .dns-row-4 {
+  .dns-row-4,
+  .dns-row-3 {
     grid-template-columns: 1fr;
+  }
+  .banner-cell {
+    white-space: normal;
   }
 }

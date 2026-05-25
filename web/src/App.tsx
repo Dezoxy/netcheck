@@ -1132,6 +1132,48 @@ function TakeoverWorkbench({ loading, report }: { loading: boolean; report: Take
   );
 }
 
+// PortsTable renders the open-port list. When at least one port has a banner
+// we widen to a 3-column layout (port / service / banner); otherwise it stays
+// at the original 2 columns. This avoids burning real estate on an empty
+// banner column when banners are off or every open port is TLS-wrapped.
+function PortsTable({ ports }: { ports: NonNullable<PortScanReport["ports"]> }) {
+  const showBanner = ports.some((p) => p.banner && p.banner.length > 0);
+  if (!showBanner) {
+    return (
+      <div className="dns-table">
+        <div className="dns-header">
+          <span>Port</span>
+          <span>Service</span>
+        </div>
+        {ports.map((p) => (
+          <div className="dns-row" key={p.port}>
+            <code>{p.port}</code>
+            <span>{p.service || "—"}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="dns-table">
+      <div className="dns-header dns-row-3">
+        <span>Port</span>
+        <span>Service</span>
+        <span>Banner</span>
+      </div>
+      {ports.map((p) => (
+        <div className="dns-row dns-row-3" key={p.port}>
+          <code>{p.port}</code>
+          <span>{p.service || "—"}</span>
+          <code className="banner-cell" title={p.banner || ""}>
+            {p.banner || "—"}
+          </code>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function PortScanWorkbench({ loading, report }: { loading: boolean; report: PortScanReport }) {
   const ports = report.ports ?? [];
   return (
@@ -1157,18 +1199,7 @@ function PortScanWorkbench({ loading, report }: { loading: boolean; report: Port
         {ports.length === 0 ? (
           <p className="muted">No open ports found.</p>
         ) : (
-          <div className="dns-table">
-            <div className="dns-header">
-              <span>Port</span>
-              <span>Service</span>
-            </div>
-            {ports.map((p) => (
-              <div className="dns-row" key={p.port}>
-                <code>{p.port}</code>
-                <span>{p.service || "—"}</span>
-              </div>
-            ))}
-          </div>
+          <PortsTable ports={ports} />
         )}
       </Panel>
     </section>
