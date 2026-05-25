@@ -4,20 +4,16 @@ name: CI
 # protection, and the post-merge run was duplicate work — the squash commit
 # carries the same code that just passed CI on the PR head.
 #
-# paths-ignore skips release-please's automated CHANGELOG-bump PRs which
-# only touch documentation files. If a real change happens to also touch
-# CHANGELOG.md, the path filter falls back gracefully (the OTHER changed
-# paths trigger the workflow anyway — paths-ignore only blocks when EVERY
-# changed file is on the ignore list).
+# Tempting next step: add `paths-ignore` here to skip CI on release-please's
+# CHANGELOG-bump PRs and docs-only diffs. DON'T — paths-ignore-skipped
+# workflows show as "pending" in GitHub's required-checks API, so if
+# branch protection ever requires the CI check, those PRs become
+# unmergeable. The filter-job pattern (dorny/paths-filter + `if:` on the
+# heavy jobs) is the safe form of that optimization; we're skipping it
+# until the docs-PR CI minutes become a measurable problem.
 on:
   pull_request:
     branches: [main]
-    paths-ignore:
-      - 'CHANGELOG.md'
-      - '.release-please-manifest.json'
-      - 'docs/**'
-      - '**.md'
-      - 'LICENSE'
 
 # Cancel stale runs when a new push lands on the same PR. Saves minutes
 # during active iteration; doesn't reduce per-PR run count.
