@@ -9,6 +9,10 @@ import (
 // TestOutputFlagJsonShortcut exercises the -j shortcut against the canonical
 // --output flag. Last-write-wins applies: whichever appears later on the
 // command line is the winner.
+//
+// strconv.ParseBool's accept-list (1, t, T, TRUE, true, True, 0, f, F, FALSE,
+// false, False) is the contract — values outside that set are parse errors,
+// matching standard Go bool-flag behaviour.
 func TestOutputFlagJsonShortcut(t *testing.T) {
 	cases := []struct {
 		name string
@@ -19,7 +23,11 @@ func TestOutputFlagJsonShortcut(t *testing.T) {
 		{"explicit --output text", []string{"--output", "text"}, "text"},
 		{"-j alone", []string{"-j"}, "json"},
 		{"-j=true", []string{"-j=true"}, "json"},
+		{"-j=1", []string{"-j=1"}, "json"},
+		{"-j=t", []string{"-j=t"}, "json"},
+		{"-j=TRUE", []string{"-j=TRUE"}, "json"},
 		{"-j=false has no effect", []string{"-j=false"}, "text"},
+		{"-j=0 has no effect", []string{"-j=0"}, "text"},
 		{"--output=json", []string{"--output=json"}, "json"},
 		{"-j wins when last", []string{"--output=text", "-j"}, "json"},
 		{"--output wins when last", []string{"-j", "--output=text"}, "text"},
@@ -35,6 +43,31 @@ func TestOutputFlagJsonShortcut(t *testing.T) {
 			}
 			if *out != c.want {
 				t.Errorf("args=%v: got %q, want %q", c.args, *out, c.want)
+			}
+		})
+	}
+}
+
+// TestOutputFlagJsonShortcutRejectsInvalid is the regression guard for Codex's
+// P2 on #57: invalid values to -j must fail parsing, not silently no-op into
+// text output. We delegate to strconv.ParseBool so anything outside its
+// accept-list ("yes", "no", "on", "off", "foo", "2", …) errors at fs.Parse.
+func TestOutputFlagJsonShortcutRejectsInvalid(t *testing.T) {
+	invalid := [][]string{
+		{"-j=foo"},
+		{"-j=yes"},
+		{"-j=no"},
+		{"-j=2"},
+		{"-j=on"},
+		{"-j=off"},
+	}
+	for _, args := range invalid {
+		t.Run(args[0], func(t *testing.T) {
+			fs := flag.NewFlagSet("test", flag.ContinueOnError)
+			fs.SetOutput(io.Discard)
+			_ = addOutputFlag(fs)
+			if err := fs.Parse(args); err == nil {
+				t.Errorf("fs.Parse(%v) = nil, want error", args)
 			}
 		})
 	}

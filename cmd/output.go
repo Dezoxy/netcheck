@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -76,9 +77,23 @@ func (j *jsonShortFlag) String() string { return "false" }
 func (j *jsonShortFlag) IsBoolFlag() bool { return true }
 
 func (j *jsonShortFlag) Set(v string) error {
-	// flag package calls Set("true") for bare `-j`; explicit `-j=false`
-	// shouldn't override the format. Tolerate both spellings.
-	if v == "true" || v == "1" {
+	// Validate the value the same way the stdlib `flag` package validates
+	// its own bool flags — via strconv.ParseBool. Returning an error here
+	// makes `fs.Parse` reject typos like `-j=foo` or `-j=t` instead of
+	// silently accepting them and running with the wrong output format.
+	//
+	// Codex flagged this on #57: the original implementation returned nil
+	// for any non-truthy value, so `-j=foo` succeeded as a no-op and the
+	// command produced text output, divergent from standard bool-flag
+	// behaviour where invalid values fail fast.
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return fmt.Errorf("parse error: %w", err)
+	}
+	// Truthy → switch the format to JSON. Falsy is a no-op so that
+	// `-j=false` (explicitly disabled) doesn't clobber a value set by an
+	// earlier `--output` flag in the same invocation.
+	if b {
 		*j.target = "json"
 	}
 	return nil
