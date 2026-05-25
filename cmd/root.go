@@ -115,6 +115,8 @@ func Run() {
 		os.Exit(RunPorts(os.Args[2:]))
 	case "enum":
 		os.Exit(RunPathEnum(os.Args[2:]))
+	case "audit":
+		os.Exit(RunAudit(os.Args[2:]))
 	case "config":
 		os.Exit(runConfigCmd(os.Args[2:]))
 	case "-h", "--help", "help":
@@ -166,6 +168,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck takeover <domain>     subdomain-takeover check on CNAME (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck ports <host>          TCP connect scan (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck enum <url>            HTTP path enumeration against a wordlist (ACTIVE — requires --i-have-authorization)")
+	fmt.Fprintln(os.Stderr, "  netcheck audit <target>        aggregate report: ip+headers+tech+subs+arch (+ tls/takeover/ports/enum with --active)")
 	fmt.Fprintln(os.Stderr, "  netcheck config show           print the active config (source path, resolvers, defaults)")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
@@ -185,6 +188,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck subs example.com")
 	fmt.Fprintln(os.Stderr, "  netcheck reverse 1.1.1.1")
 	fmt.Fprintln(os.Stderr, "  netcheck arch example.com")
+	fmt.Fprintln(os.Stderr, "  netcheck audit example.com                            # passive aggregate")
+	fmt.Fprintln(os.Stderr, "  netcheck audit --active --i-have-authorization example.com  # full aggregate")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver tls://1.1.1.1 cloudflare.com   # DoT")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver https://cloudflare-dns.com/dns-query cloudflare.com   # DoH")
 	fmt.Fprintln(os.Stderr)

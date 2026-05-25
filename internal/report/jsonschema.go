@@ -468,6 +468,32 @@ type PathStatsJSON struct {
 	Errors      int `json:"errors"`
 }
 
+// AuditJSON is the JSON representation of a `netcheck audit` run — one
+// envelope embedding every sub-report that ran. Missing sub-reports stay
+// nil. Per-sub-command failures are captured in Errors so the audit doesn't
+// fail wholesale because one source was down.
+type AuditJSON struct {
+	NetcheckVersion string            `json:"netcheck_version"`
+	Kind            string            `json:"kind"` // "audit"
+	Target          string            `json:"target"`
+	Host            string            `json:"host,omitempty"`
+	StartedAt       time.Time         `json:"started_at"`
+	TookMS          int64             `json:"took_ms"`
+	Active          bool              `json:"active"`
+	IP              *IPInfoJSON       `json:"ip,omitempty"`
+	Reverse         *ReverseJSON      `json:"reverse,omitempty"`
+	Subs            *SubsJSON         `json:"subs,omitempty"`
+	Arch            *ArchJSON         `json:"arch,omitempty"`
+	Headers         *HeadersJSON      `json:"headers,omitempty"`
+	Tech            *TechJSON         `json:"tech,omitempty"`
+	TLS             *TLSAuditJSON     `json:"tls,omitempty"`
+	Takeover        *TakeoverJSON     `json:"takeover,omitempty"`
+	Ports           *PortScanJSON     `json:"ports,omitempty"`
+	Enum            *PathEnumJSON     `json:"enum,omitempty"`
+	Errors          map[string]string `json:"errors,omitempty"` // per-sub-command failures
+	Error           string            `json:"error,omitempty"`  // top-level error (bad target etc.)
+}
+
 // ---------------------------------------------------------------------------
 // Conversion: internal types → JSON schema types
 // ---------------------------------------------------------------------------

@@ -356,6 +356,85 @@ func mdEscapePipes(s string) string {
 	return strings.ReplaceAll(s, "|", `\|`)
 }
 
+// RenderAuditMD writes the consolidated audit as Markdown. One section
+// per sub-check plus a per-error block. Detail-heavy sections (TLS findings,
+// tech matches, takeover verdicts) get a brief inline expansion; everything
+// else stays compact. For full detail, use --output json or run the
+// individual command directly.
+func RenderAuditMD(w io.Writer, d AuditJSON) {
+	fmt.Fprintf(w, "# netcheck audit — `%s`\n\n", d.Target)
+	fmt.Fprintf(w, "_%s · %dms · ", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Active {
+		fmt.Fprint(w, "passive + active")
+	} else {
+		fmt.Fprint(w, "passive")
+	}
+	fmt.Fprintln(w, "_")
+	fmt.Fprintln(w)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Audit failed:** %s\n", d.Error)
+		return
+	}
+
+	fmt.Fprintln(w, "| Section | Grade | Summary |")
+	fmt.Fprintln(w, "|---|---|---|")
+	if d.IP != nil {
+		fmt.Fprintf(w, "| IP | %s | %s |\n", mdAuditGrade(auditIPGrade(d.IP)), mdEscapePipes(auditIPSummary(d.IP)))
+	}
+	if d.Reverse != nil {
+		fmt.Fprintf(w, "| Reverse | %s | %s |\n", mdAuditGrade(auditReverseGrade(d.Reverse)), mdEscapePipes(auditReverseSummary(d.Reverse)))
+	}
+	if d.Subs != nil {
+		fmt.Fprintf(w, "| Subdomains | %s | %s |\n", mdAuditGrade(auditSubsGrade(d.Subs)), mdEscapePipes(auditSubsSummary(d.Subs)))
+	}
+	if d.Arch != nil {
+		fmt.Fprintf(w, "| Wayback | %s | %s |\n", mdAuditGrade(auditArchGrade(d.Arch)), mdEscapePipes(auditArchSummary(d.Arch)))
+	}
+	if d.Headers != nil {
+		fmt.Fprintf(w, "| Headers | %s | %s |\n", mdAuditGrade(auditHeadersGrade(d.Headers)), mdEscapePipes(auditHeadersSummary(d.Headers)))
+	}
+	if d.Tech != nil {
+		fmt.Fprintf(w, "| Tech | %s | %s |\n", mdAuditGrade(auditTechGrade(d.Tech)), mdEscapePipes(auditTechSummary(d.Tech)))
+	}
+	if d.TLS != nil {
+		fmt.Fprintf(w, "| TLS | %s | %s |\n", mdAuditGrade(auditTLSGrade(d.TLS)), mdEscapePipes(auditTLSSummary(d.TLS)))
+	}
+	if d.Takeover != nil {
+		fmt.Fprintf(w, "| Takeover | %s | %s |\n", mdAuditGrade(auditTakeoverGrade(d.Takeover)), mdEscapePipes(auditTakeoverSummary(d.Takeover)))
+	}
+	if d.Ports != nil {
+		fmt.Fprintf(w, "| Ports | %s | %s |\n", mdAuditGrade(auditPortsGrade(d.Ports)), mdEscapePipes(auditPortsSummary(d.Ports)))
+	}
+	if d.Enum != nil {
+		fmt.Fprintf(w, "| Path enum | %s | %s |\n", mdAuditGrade(auditEnumGrade(d.Enum)), mdEscapePipes(auditEnumSummary(d.Enum)))
+	}
+	fmt.Fprintln(w)
+
+	if len(d.Errors) > 0 {
+		fmt.Fprintln(w, "## Sub-command errors")
+		fmt.Fprintln(w)
+		for name, msg := range d.Errors {
+			fmt.Fprintf(w, "- **%s:** %s\n", name, mdEscapePipes(msg))
+		}
+		fmt.Fprintln(w)
+	}
+}
+
+func mdAuditGrade(g string) string {
+	switch g {
+	case "high":
+		return "**HIGH**"
+	case "weak":
+		return "_weak_"
+	case "err":
+		return "_error_"
+	case "ok":
+		return "OK"
+	default:
+		return g
+	}
+}
+
 // RenderPathEnumMD writes the path-enumeration result as Markdown.
 func RenderPathEnumMD(w io.Writer, d PathEnumJSON) {
 	fmt.Fprintf(w, "# netcheck enum — `%s`\n\n", d.BaseURL)
