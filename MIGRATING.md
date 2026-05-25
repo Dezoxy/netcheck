@@ -65,16 +65,34 @@ netcheck's module path changed from `netcheck` to `github.com/Dezoxy/netcheck`, 
 | `netcheck/internal/diff` | `github.com/Dezoxy/netcheck/pkg/diff` |
 | `netcheck/internal/target` | `github.com/Dezoxy/netcheck/pkg/target` |
 
-Mechanical fix:
+Mechanical fix — portable across macOS, Linux, and BSD:
 
 ```bash
-find . -name '*.go' -print0 | xargs -0 sed -i '' \
-  -E 's|"netcheck/internal/(check\|diff\|dnscompare\|ipinfo\|pathenum\|portscan\|report\|reverseip\|route\|secheaders\|subenum\|takeover\|target\|techdetect\|tlsaudit\|wayback)|"github.com/Dezoxy/netcheck/pkg/\1|g'
+# Rewrite the import paths in every .go file. Uses perl because
+# `sed -i` syntax differs between BSD/macOS (`-i ''`) and GNU/Linux
+# (`-i` without the empty arg) — perl's -i works the same everywhere.
+find . -name '*.go' -print0 | xargs -0 perl -i -pe \
+  's#"netcheck/internal/(check|diff|dnscompare|ipinfo|pathenum|portscan|report|reverseip|route|secheaders|subenum|takeover|target|techdetect|tlsaudit|wayback)#"github.com/Dezoxy/netcheck/pkg/$1#g'
 
 # Then in your go.mod
 go get github.com/Dezoxy/netcheck@v2.0.0
 go mod tidy
 ```
+
+<details>
+<summary>Prefer <code>sed</code>? Two forms, one per OS.</summary>
+
+```bash
+# macOS / BSD
+find . -name '*.go' -print0 | xargs -0 sed -i '' \
+  -E 's|"netcheck/internal/(check\|diff\|dnscompare\|ipinfo\|pathenum\|portscan\|report\|reverseip\|route\|secheaders\|subenum\|takeover\|target\|techdetect\|tlsaudit\|wayback)|"github.com/Dezoxy/netcheck/pkg/\1|g'
+
+# Linux (GNU sed) — note: no `''` after -i
+find . -name '*.go' -print0 | xargs -0 sed -i \
+  -E 's|"netcheck/internal/(check\|diff\|dnscompare\|ipinfo\|pathenum\|portscan\|report\|reverseip\|route\|secheaders\|subenum\|takeover\|target\|techdetect\|tlsaudit\|wayback)|"github.com/Dezoxy/netcheck/pkg/\1|g'
+```
+
+</details>
 
 If you had a `replace netcheck => /path/to/local/clone` for development, update both sides:
 
