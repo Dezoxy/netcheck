@@ -25,7 +25,15 @@ import (
 // SchemaVersion is the netcheck JSON schema version. Bump on any breaking
 // change to field names, types, or removal of fields. Additive changes (new
 // optional fields) do not require a bump.
-const SchemaVersion = "0.5.0"
+//
+// 1.0.0 — v2.0 normalisation pass. Two field renames against the v0.5.0
+// baseline that shipped during v1.x: TLSAuditCertJSON.chain_len → chain_count
+// (alignment with full-check's HTTPS.chain_count), and IPInfoJSON
+// resolve_took_ms → resolve_ms (alignment with the rest of the *_ms
+// timing-suffix convention). Both are breaking for v1.x JSON consumers.
+// The major bump signals the discontinuity; STABILITY.md describes the
+// v2.x freeze contract.
+const SchemaVersion = "1.0.0"
 
 // FullJSON is the JSON representation of a full-check Report.
 type FullJSON struct {
@@ -203,7 +211,7 @@ type IPInfoJSON struct {
 	Target          string          `json:"target"`
 	StartedAt       time.Time       `json:"started_at"`
 	FromHost        bool            `json:"from_host"`
-	ResolveTookMS   int64           `json:"resolve_took_ms,omitempty"`
+	ResolveMS       int64           `json:"resolve_ms,omitempty"`
 	Details         []IPDetailsJSON `json:"details"`
 }
 
@@ -377,7 +385,7 @@ type TLSCertJSON struct {
 	NotBefore     time.Time `json:"not_before"`
 	NotAfter      time.Time `json:"not_after"`
 	DaysRemaining int       `json:"days_remaining"`
-	ChainLen      int       `json:"chain_len"`
+	ChainCount    int       `json:"chain_count"`
 	SelfSigned    bool      `json:"self_signed,omitempty"`
 	Expired       bool      `json:"expired,omitempty"`
 }
@@ -580,7 +588,7 @@ func ToIPInfoJSON(target string, startedAt time.Time, fromHost bool, resolveTook
 		FromHost:        fromHost,
 	}
 	if fromHost {
-		out.ResolveTookMS = resolveTook.Milliseconds()
+		out.ResolveMS = resolveTook.Milliseconds()
 	}
 	for _, d := range details {
 		out.Details = append(out.Details, ipDetailsToJSON(d))
@@ -774,7 +782,7 @@ func ToTLSAuditJSON(r tlsaudit.Result) TLSAuditJSON {
 			NotBefore:     r.Cert.NotBefore,
 			NotAfter:      r.Cert.NotAfter,
 			DaysRemaining: r.Cert.DaysRemaining,
-			ChainLen:      r.Cert.ChainLen,
+			ChainCount:    r.Cert.ChainLen,
 			SelfSigned:    r.Cert.SelfSigned,
 			Expired:       r.Cert.Expired,
 		}
