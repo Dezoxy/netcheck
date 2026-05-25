@@ -19,6 +19,7 @@ import {
   listSavedReports,
   loadSavedReport,
   runArchCheck,
+  runAuditCheck,
   runDNSCheck,
   runEnumCheck,
   runFullCheck,
@@ -36,6 +37,8 @@ import {
 import type {
   AnyReport,
   ArchReport,
+  AuditGrade,
+  AuditReport,
   CheckMode,
   DNSCompareReport,
   FullCheckReport,
@@ -76,6 +79,7 @@ const MODE_LABEL: Record<CheckMode, string> = {
   takeover: "Takeover",
   ports: "Ports",
   enum: "Path Enum",
+  audit: "Audit",
 };
 
 // kindToMode maps the JSON `kind` field on a report back to the UI's
@@ -109,6 +113,10 @@ export default function App() {
   const [activeAcknowledged, setActiveAcknowledged] = useState<boolean>(() => {
     return localStorage.getItem(ACTIVE_ACK_KEY) === "1";
   });
+  // auditIncludeActive: when audit mode is selected, whether to include
+  // the active sub-checks (tls / takeover / ports / enum). Independent
+  // from `activeAcknowledged` — both must be true to run an active audit.
+  const [auditIncludeActive, setAuditIncludeActive] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(recents));
@@ -118,8 +126,12 @@ export default function App() {
     localStorage.setItem(ACTIVE_ACK_KEY, activeAcknowledged ? "1" : "");
   }, [activeAcknowledged]);
 
+  // The current mode triggers the auth-gate UI if either (a) it's an
+  // always-active mode (tls/takeover/ports/enum), OR (b) it's audit AND
+  // the user has ticked "include active scans".
   const modeIsActive = isActiveMode(mode);
-  const runBlocked = modeIsActive && !activeAcknowledged;
+  const requiresAuth = modeIsActive || (mode === "audit" && auditIncludeActive);
+  const runBlocked = requiresAuth && !activeAcknowledged;
 
   const refreshSaved = useCallback(async () => {
     setSavedError("");
@@ -187,6 +199,12 @@ export default function App() {
           case "enum":
             next = await runEnumCheck(effectiveTarget, { insecure });
             break;
+          case "audit":
+            next = await runAuditCheck(effectiveTarget, {
+              active: auditIncludeActive,
+              insecure,
+            });
+            break;
           default:
             next = await runFullCheck(effectiveTarget, insecure);
         }
@@ -199,7 +217,7 @@ export default function App() {
         setRunState("error");
       }
     },
-    [insecure, mode, target],
+    [auditIncludeActive, insecure, mode, target],
   );
 
   async function submitCheck(event?: FormEvent<HTMLFormElement>) {
@@ -419,14 +437,27 @@ export default function App() {
           </div>
         </form>
 
-        {modeIsActive ? (
+        {mode === "audit" ? (
+          <section className="audit-options" aria-label="Audit options">
+            <label className="auth-gate-check">
+              <input
+                checked={auditIncludeActive}
+                onChange={(event) => setAuditIncludeActive(event.target.checked)}
+                type="checkbox"
+              />
+              <span>Also run active scans (TLS audit, takeover, ports, path enum)</span>
+            </label>
+          </section>
+        ) : null}
+
+        {requiresAuth ? (
           <section className={`auth-gate ${activeAcknowledged ? "auth-gate-ack" : "auth-gate-pending"}`} aria-label="Active scan authorization">
             <div className="auth-gate-icon">
               <AlertTriangle />
             </div>
             <div className="auth-gate-body">
               <strong>
-                {MODE_LABEL[mode]} is an active probe.
+                {mode === "audit" ? "Active audit" : MODE_LABEL[mode]} sends probes to the target.
               </strong>
               <p>
                 Running this against a system you do not own or do not have written permission to test
@@ -502,6 +533,8 @@ function ReportView({ loading, report }: { loading: boolean; report: AnyReport }
       return <PortScanWorkbench loading={loading} report={report} />;
     case "enum":
       return <PathEnumWorkbench loading={loading} report={report} />;
+    case "audit":
+      return <AuditWorkbench loading={loading} report={report} />;
   }
 }
 
@@ -1188,6 +1221,218 @@ function PathEnumWorkbench({ loading, report }: { loading: boolean; report: Path
   );
 }
 
+// ─── v1.6 audit aggregate panel ──────────────────────────────────────────
+//
+// Compact, single-table grade matrix — mirrors the CLI's text renderer.
+// Full per-section detail isn't stitched together here; users wanting that
+// can run the individual command in its own tab, or pipe the audit through
+// `--output json`.
+
+function AuditWorkbench({ loading, report }: { loading: boolean; report: AuditReport }) {
+  const rows = useMemo(() => auditRows(report), [report]);
+  const highs = rows.filter((r) => r.grade === "high").length;
+  const weaks = rows.filter((r) => r.grade === "weak").length;
+  const pillClass = highs > 0 ? "health-pill-fail" : "health-pill-ok";
+  const pillText =
+    highs > 0
+      ? `${highs} high · ${weaks} weak`
+      : weaks > 0
+        ? `${weaks} weak finding${weaks === 1 ? "" : "s"}`
+        : "No findings";
+  const mode = report.active ? "passive + active" : "passive";
+  return (
+    <section className={loading ? "result-area result-area-loading" : "result-area"}>
+      <div className="result-header">
+        <h1>
+          Audit: <span>{report.target}</span>
+          {report.host && report.host !== report.target ? (
+            <span className="muted"> (host: {report.host})</span>
+          ) : null}
+        </h1>
+        <div className={`health-pill ${pillClass}`}>
+          <span />
+          {pillText}
+        </div>
+      </div>
+      <p className="muted">Mode: {mode} · {report.took_ms}ms</p>
+      {report.error ? <ErrorBanner message={report.error} /> : null}
+
+      <Panel className="dns-panel" icon={<FileText />} title="Sections">
+        <div className="dns-table">
+          <div className="dns-header dns-row-3">
+            <span>Grade</span>
+            <span>Section</span>
+            <span>Summary</span>
+          </div>
+          {rows.map((row) => (
+            <div className="dns-row dns-row-3" key={row.label}>
+              <span className={auditGradeClass(row.grade)}>{auditGradeTag(row.grade)}</span>
+              <span><strong>{row.label}</strong></span>
+              <span className="muted">{row.summary}</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      {report.errors && Object.keys(report.errors).length > 0 ? (
+        <Panel className="dns-panel" icon={<AlertTriangle />} title="Sub-command errors">
+          <ul>
+            {Object.entries(report.errors).map(([name, msg]) => (
+              <li key={name}>
+                <strong>{name}:</strong> <span className="muted">{msg}</span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      ) : null}
+    </section>
+  );
+}
+
+type AuditRow = { label: string; grade: AuditGrade; summary: string };
+
+function auditRows(r: AuditReport): AuditRow[] {
+  const rows: AuditRow[] = [];
+  if (r.ip) {
+    rows.push({ label: "IP", grade: r.ip.details.length === 0 ? "err" : "ok", summary: ipSummary(r.ip) });
+  }
+  if (r.reverse) {
+    rows.push({
+      label: "Reverse",
+      grade: r.reverse.error ? "err" : "ok",
+      summary: r.reverse.error ?? `${(r.reverse.hostnames ?? []).length} hostname(s)`,
+    });
+  }
+  if (r.subs) {
+    const n = (r.subs.subdomains ?? []).length;
+    const errs = Object.keys(r.subs.source_errors ?? {}).length;
+    rows.push({
+      label: "Subdomains",
+      grade: r.subs.error ? "err" : "ok",
+      summary: r.subs.error ?? (errs > 0 ? `${n} found · ${errs} source(s) errored` : `${n} found`),
+    });
+  }
+  if (r.arch) {
+    rows.push({
+      label: "Wayback",
+      grade: r.arch.error ? "err" : "ok",
+      summary: r.arch.error ?? archSummary(r.arch),
+    });
+  }
+  if (r.headers) {
+    const grade: AuditGrade = r.headers.error
+      ? "err"
+      : r.headers.summary.missing > 0
+        ? "high"
+        : r.headers.summary.weak > 0
+          ? "weak"
+          : "ok";
+    rows.push({
+      label: "Headers",
+      grade,
+      summary:
+        r.headers.error ??
+        `${r.headers.summary.pass} pass · ${r.headers.summary.weak} weak · ${r.headers.summary.missing} missing`,
+    });
+  }
+  if (r.tech) {
+    rows.push({
+      label: "Tech",
+      grade: r.tech.error ? "err" : "ok",
+      summary: r.tech.error ?? techSummary(r.tech),
+    });
+  }
+  if (r.tls) {
+    rows.push({ label: "TLS", grade: tlsAuditGrade(r.tls), summary: tlsAuditSummary(r.tls) });
+  }
+  if (r.takeover) {
+    const hasVuln = (r.takeover.findings ?? []).some((f) => f.verdict === "vulnerable");
+    rows.push({
+      label: "Takeover",
+      grade: r.takeover.error ? "err" : hasVuln ? "high" : "ok",
+      summary: takeoverSummary(r.takeover),
+    });
+  }
+  if (r.ports) {
+    rows.push({
+      label: "Ports",
+      grade: r.ports.error ? "err" : "ok",
+      summary: r.ports.error ?? `${r.ports.stats.open} open / ${r.ports.stats.total} scanned`,
+    });
+  }
+  if (r.enum) {
+    rows.push({
+      label: "Path enum",
+      grade: r.enum.error ? "err" : r.enum.stats.interesting > 0 ? "weak" : "ok",
+      summary:
+        r.enum.error ?? `${r.enum.stats.interesting} interesting / ${r.enum.stats.total} scanned`,
+    });
+  }
+  return rows;
+}
+
+function ipSummary(d: IPInfoReport): string {
+  const parts: string[] = [`${d.details.length} address(es)`];
+  const asn = d.details.find((det) => det.asn)?.asn;
+  if (asn) parts.push(`AS${asn.asn} ${asn.org ?? ""}`.trim());
+  const cdn = d.details.find((det) => det.cdn?.provider)?.cdn;
+  if (cdn?.provider) parts.push(`CDN: ${cdn.provider}`);
+  return parts.join(" · ");
+}
+
+function archSummary(d: ArchReport): string {
+  if (d.total === 0) return "no snapshots";
+  if (d.first && d.last) {
+    return `${d.total} snapshots · ${d.first.slice(0, 10)} → ${d.last.slice(0, 10)}`;
+  }
+  return `${d.total} snapshots`;
+}
+
+function techSummary(d: TechReport): string {
+  const matches = d.matches ?? [];
+  if (matches.length === 0) return "no fingerprints matched";
+  const top = matches.slice(0, 4).map((m) => (m.version ? `${m.name} ${m.version}` : m.name));
+  if (matches.length > 4) top.push(`+${matches.length - 4} more`);
+  return top.join(", ");
+}
+
+function tlsAuditSummary(d: TLSAuditReport): string {
+  if (d.error) return d.error;
+  const highs = (d.findings ?? []).filter((f) => f.severity === "high").length;
+  if (highs > 0) return `${highs} high-severity finding(s)`;
+  return "no high-severity findings";
+}
+
+function tlsAuditGrade(d: TLSAuditReport): AuditGrade {
+  if (d.error) return "err";
+  const sev = (d.findings ?? []).map((f) => f.severity);
+  if (sev.includes("high")) return "high";
+  if (sev.includes("medium")) return "weak";
+  return "ok";
+}
+
+function takeoverSummary(d: TakeoverReport): string {
+  if (d.error) return d.error;
+  if (!d.has_cname) return "no CNAME (nothing to check)";
+  const vuln = (d.findings ?? []).find((f) => f.verdict === "vulnerable");
+  if (vuln) return `VULNERABLE — ${vuln.provider ?? "unknown provider"}`;
+  return "no takeover detected";
+}
+
+function auditGradeTag(g: AuditGrade): string {
+  return g === "ok" ? "OK" : g === "weak" ? "WEAK" : g === "high" ? "HIGH" : "ERR";
+}
+
+function auditGradeClass(g: AuditGrade): string {
+  return g === "ok"
+    ? "value-ok"
+    : g === "weak"
+      ? "value-warn"
+      : g === "high"
+        ? "value-fail"
+        : "muted";
+}
+
 // ─── Shared building blocks ───────────────────────────────────────────────
 
 function EmptyWorkbench({ mode, onRun }: { mode: CheckMode; onRun: () => void }) {
@@ -1205,6 +1450,7 @@ function EmptyWorkbench({ mode, onRun }: { mode: CheckMode; onRun: () => void })
     takeover: "Check the CNAME against a catalog of takeover-able services (GitHub Pages, S3, Heroku, …).",
     ports: "Parallel TCP connect scan against the top-100 nmap ports (or a custom list).",
     enum: "Send one GET per wordlist entry; report 200 / 301 / 401 / 403 / 5xx responses.",
+    audit: "Run the passive recon suite (ip + headers + tech + subs + arch) in parallel. Tick the box above for the active add-ons.",
   };
   return (
     <section className="empty-workbench">
@@ -1357,6 +1603,8 @@ function reportTarget(report: AnyReport): string {
       return report.host;
     case "enum":
       return report.base_url;
+    case "audit":
+      return report.target;
   }
 }
 
@@ -1388,7 +1636,59 @@ function reportOK(report: AnyReport): boolean {
       return report.stats.open > 0;
     case "enum":
       return report.stats.interesting > 0;
+    case "audit":
+      // Audit is "OK" iff no sub-section came back HIGH-severity.
+      return auditRowGrades(report).every((g) => g !== "high");
   }
+}
+
+// auditRowGrades returns the per-section grade for every sub-report that
+// ran. Mirrors the CLI renderer's `audit*Grade` helpers but lives in the
+// UI so we can colour the cells without round-tripping through the server.
+function auditRowGrades(report: AuditReport): AuditGrade[] {
+  const grades: AuditGrade[] = [];
+  if (report.ip) {
+    grades.push(report.ip.details.length === 0 ? "err" : "ok");
+  }
+  if (report.reverse) {
+    grades.push(report.reverse.error ? "err" : "ok");
+  }
+  if (report.subs) {
+    if (report.subs.error) grades.push("err");
+    else grades.push("ok");
+  }
+  if (report.arch) {
+    grades.push(report.arch.error ? "err" : "ok");
+  }
+  if (report.headers) {
+    if (report.headers.error) grades.push("err");
+    else if (report.headers.summary.missing > 0) grades.push("high");
+    else if (report.headers.summary.weak > 0) grades.push("weak");
+    else grades.push("ok");
+  }
+  if (report.tech) {
+    grades.push(report.tech.error ? "err" : "ok");
+  }
+  if (report.tls) {
+    if (report.tls.error) grades.push("err");
+    else if ((report.tls.findings ?? []).some((f) => f.severity === "high")) grades.push("high");
+    else if ((report.tls.findings ?? []).some((f) => f.severity === "medium")) grades.push("weak");
+    else grades.push("ok");
+  }
+  if (report.takeover) {
+    if (report.takeover.error) grades.push("err");
+    else if ((report.takeover.findings ?? []).some((f) => f.verdict === "vulnerable")) grades.push("high");
+    else grades.push("ok");
+  }
+  if (report.ports) {
+    grades.push(report.ports.error ? "err" : "ok");
+  }
+  if (report.enum) {
+    if (report.enum.error) grades.push("err");
+    else if (report.enum.stats.interesting > 0) grades.push("weak");
+    else grades.push("ok");
+  }
+  return grades;
 }
 
 function timingSegments(report: FullCheckReport) {

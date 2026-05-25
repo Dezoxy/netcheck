@@ -292,6 +292,7 @@ func TestSniffTargetV14Kinds(t *testing.T) {
 		{"tls-audit", `{"host":"example.com","port":"8443"}`, "example.com:8443"},
 		{"ports", `{"host":"127.0.0.1","port":""}`, "127.0.0.1"},
 		{"enum", `{"base_url":"https://example.com"}`, "https://example.com"},
+		{"audit", `{"target":"example.com"}`, "example.com"},
 	}
 	for _, c := range cases {
 		t.Run(c.kind+":"+c.body, func(t *testing.T) {

@@ -1,6 +1,7 @@
 import type {
   AnyReport,
   ArchReport,
+  AuditReport,
   DNSCompareReport,
   FullCheckReport,
   HeadersReport,
@@ -114,6 +115,26 @@ export function runEnumCheck(
     insecure: opts?.insecure ?? false,
     follow_redirects: opts?.followRedirects ?? false,
     i_have_authorization: true,
+  });
+}
+
+// ─── v1.6 aggregate audit ──────────────────────────────────────────────────
+//
+// Passive audit (active=false) needs no authorization — composition over
+// the passive sub-commands which themselves need no auth. With active=true
+// the request body must include `i_have_authorization: true`; the backend
+// returns 403 otherwise. The UI gates that path behind the same checkbox
+// the standalone active commands use.
+
+export function runAuditCheck(
+  target: string,
+  opts?: { active?: boolean; insecure?: boolean },
+): Promise<AuditReport> {
+  return postJSON<AuditReport>("/api/check/audit", {
+    target,
+    active: opts?.active ?? false,
+    insecure: opts?.insecure ?? false,
+    i_have_authorization: opts?.active === true,
   });
 }
 

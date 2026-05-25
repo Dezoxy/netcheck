@@ -729,6 +729,21 @@ input,
   height: 16px;
 }
 
+/* ─── Audit mode options (passive vs passive+active) ─────────────────── */
+
+.audit-options {
+  background: #f6f8fb;
+  border: 1px solid #e0e0e6;
+  border-radius: 12px;
+  margin-top: 16px;
+  padding: 12px 18px;
+}
+
+.audit-options .auth-gate-check {
+  margin-top: 0;
+  font-size: 14px;
+}
+
 .panel {
   min-width: 0;
   overflow: hidden;

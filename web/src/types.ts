@@ -338,6 +338,39 @@ export type PathEnumReport = {
   error?: string;
 };
 
+// ─── v1.6 audit aggregate ─────────────────────────────────────────────────
+
+// AuditReport is the consolidated envelope from `netcheck audit`. Every
+// sub-report is optional (nil/undefined when the corresponding sub-check
+// didn't run for the given target shape — e.g. `subs` skips for IP
+// targets). Per-section errors live in `errors`; top-level failures
+// (bad target etc.) live in `error`.
+export type AuditReport = {
+  netcheck_version: string;
+  kind: "audit";
+  target: string;
+  host?: string;
+  started_at: string;
+  took_ms: number;
+  active: boolean;
+  ip?: IPInfoReport;
+  reverse?: ReverseReport;
+  subs?: SubsReport;
+  arch?: ArchReport;
+  headers?: HeadersReport;
+  tech?: TechReport;
+  tls?: TLSAuditReport;
+  takeover?: TakeoverReport;
+  ports?: PortScanReport;
+  enum?: PathEnumReport;
+  errors?: Record<string, string>;
+  error?: string;
+};
+
+// AuditGrade rolls a sub-section status up to a single colour-bucket.
+// Mirrors the four `[OK]` / `[WK]` / `[HI]` / `[ER]` tags the CLI emits.
+export type AuditGrade = "ok" | "weak" | "high" | "err";
+
 // ─── Union of all report kinds ────────────────────────────────────────────
 
 export type AnyReport =
@@ -353,7 +386,8 @@ export type AnyReport =
   | TLSAuditReport
   | TakeoverReport
   | PortScanReport
-  | PathEnumReport;
+  | PathEnumReport
+  | AuditReport;
 
 // CheckMode is the UI's mode identifier. Note: it diverges from
 // AnyReport["kind"] for TLS — UI uses "tls", payload uses "tls-audit".
@@ -370,7 +404,8 @@ export type CheckMode =
   | "tls"
   | "takeover"
   | "ports"
-  | "enum";
+  | "enum"
+  | "audit";
 
 // ACTIVE_MODES are the ones gated behind the in-UI authorization checkbox.
 // Keep this in sync with the backend's auth-gated handlers.
@@ -380,11 +415,14 @@ export function isActiveMode(mode: CheckMode): boolean {
   return (ACTIVE_MODES as readonly CheckMode[]).includes(mode);
 }
 
-// MODE_GROUPS organises the 13 modes into three rows for the tab UI.
+// MODE_GROUPS organises the 14 modes into four rows for the tab UI.
+// "Aggregate" is its own row because `audit` is *composition* over the
+// other tiers, not a peer of the individual checks.
 export const MODE_GROUPS: Array<{ label: string; modes: CheckMode[] }> = [
   { label: "Network", modes: ["full", "dns", "route", "ip"] },
   { label: "Passive recon", modes: ["headers", "tech", "subs", "reverse", "arch"] },
   { label: "Active scanning", modes: ["tls", "takeover", "ports", "enum"] },
+  { label: "Aggregate", modes: ["audit"] },
 ];
 
 // ─── Recent checks (localStorage) ─────────────────────────────────────────
