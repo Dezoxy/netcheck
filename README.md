@@ -100,6 +100,8 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck takeover <domain>` | Is this domain's CNAME pointing at an unclaimed third-party service? *Active — requires `--i-have-authorization`.* |
 | `netcheck ports <host>` | Parallel TCP connect scan (top-100 by default). *Active — requires `--i-have-authorization`.* |
 | `netcheck enum <url>` | HTTP path enumeration against a wordlist. *Active — requires `--i-have-authorization`.* |
+| `netcheck diff <a.json> <b.json>` | What changed between two saved JSON reports? Exits 1 on changes, 0 if identical. |
+| `netcheck watch -- <cmd> ...` | Re-run a sub-command on an interval and print the diff between iterations. |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
 | `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
 | `netcheck config show` | What config is netcheck actually using right now? |
@@ -248,6 +250,27 @@ netcheck enum --i-have-authorization --wordlist /path/to/SecLists/Discovery/Web-
 
 Once you've thought about it, `export NETCHECK_AUTHORIZED=1` for the session
 instead of typing `--i-have-authorization` on every call.
+
+### Diff and watch
+
+```bash
+# Compare two saved JSON reports. Exits 1 on changes, 0 if identical —
+# script-friendly for cron alerting.
+netcheck diff yesterday.json today.json
+
+# Re-run a scan every 5 minutes and print whatever changed since the previous
+# iteration. The `--` separator avoids flag conflicts between watch and the
+# wrapped sub-command.
+netcheck watch --interval 5m -- ports --i-have-authorization example.com
+
+# Same thing with snapshots saved to disk (filename = ISO timestamp + kind):
+netcheck watch --interval 10m --out-dir ./netcheck-snaps -- subs example.com
+```
+
+Per-kind diff handling is built in: ports (opened / closed / banner changes),
+subdomains (added / removed), headers (grade regressions), tech (versions),
+TLS (cert issuer + expiry, new findings), and more. Timing fields are
+ignored — only meaningful changes show up.
 
 ### Pipe into other tools
 

@@ -117,6 +117,10 @@ func Run() {
 		os.Exit(RunPathEnum(os.Args[2:]))
 	case "audit":
 		os.Exit(RunAudit(os.Args[2:]))
+	case "diff":
+		os.Exit(RunDiff(os.Args[2:]))
+	case "watch":
+		os.Exit(RunWatch(os.Args[2:]))
 	case "config":
 		os.Exit(runConfigCmd(os.Args[2:]))
 	case "-h", "--help", "help":
@@ -169,6 +173,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck ports <host>          TCP connect scan (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck enum <url>            HTTP path enumeration against a wordlist (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck audit <target>        aggregate report: ip+headers+tech+subs+arch (+ tls/takeover/ports/enum with --active)")
+	fmt.Fprintln(os.Stderr, "  netcheck diff <old> <new>      diff two saved JSON reports (exit 1 = changes)")
+	fmt.Fprintln(os.Stderr, "  netcheck watch -- <cmd> ...    re-run a sub-command on an interval, print what changed")
 	fmt.Fprintln(os.Stderr, "  netcheck config show           print the active config (source path, resolvers, defaults)")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
