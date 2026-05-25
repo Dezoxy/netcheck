@@ -119,6 +119,8 @@ func Run() {
 		os.Exit(RunAudit(os.Args[2:]))
 	case "config":
 		os.Exit(runConfigCmd(os.Args[2:]))
+	case "completion":
+		os.Exit(RunCompletion(os.Args[2:]))
 	case "-h", "--help", "help":
 		usage()
 	case "-v", "--version", "version":
@@ -170,6 +172,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck enum <url>            HTTP path enumeration against a wordlist (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck audit <target>        aggregate report: ip+headers+tech+subs+arch (+ tls/takeover/ports/enum with --active)")
 	fmt.Fprintln(os.Stderr, "  netcheck config show           print the active config (source path, resolvers, defaults)")
+	fmt.Fprintln(os.Stderr, "  netcheck completion <shell>    print shell completion script (bash|zsh|fish|powershell)")
 	fmt.Fprintln(os.Stderr, "  netcheck help                  show this message")
 	fmt.Fprintln(os.Stderr, "  netcheck version               show version")
 	fmt.Fprintln(os.Stderr)
