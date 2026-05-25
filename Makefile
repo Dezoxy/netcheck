@@ -7,7 +7,7 @@ WEB_DIR := web
 # VERSION is auto-derived from git for local builds. `make build VERSION=...`
 # overrides. goreleaser sets its own value via ldflags in .goreleaser.yml.
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -s -w -X netcheck/cmd.Version=$(VERSION)
+LDFLAGS := -s -w -X github.com/Dezoxy/netcheck/cmd.Version=$(VERSION)
 
 .DEFAULT_GOAL := build
 
