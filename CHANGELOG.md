@@ -4,6 +4,20 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.0.0](https://github.com/Dezoxy/netcheck/compare/v1.10.0...v2.0.0) (2026-05-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* public pkg/ + module path → github.com/Dezoxy/netcheck (v2 cleanup 3/4) ([#60](https://github.com/Dezoxy/netcheck/issues/60))
+* **schema:** normalize JSON field names (v2 cleanup 2/4) ([#58](https://github.com/Dezoxy/netcheck/issues/58))
+
+### Features
+
+* **cli:** -j and -o shortcut flags (v2 cleanup 1/4) ([#57](https://github.com/Dezoxy/netcheck/issues/57)) ([a179378](https://github.com/Dezoxy/netcheck/commit/a1793783c0ed4918279ce246b206ee69bfae02ca))
+* public pkg/ + module path → github.com/Dezoxy/netcheck (v2 cleanup 3/4) ([#60](https://github.com/Dezoxy/netcheck/issues/60)) ([ee1803d](https://github.com/Dezoxy/netcheck/commit/ee1803df1329d6b98a7434a5d5dcb925ff5d4856))
+* **schema:** normalize JSON field names (v2 cleanup 2/4) ([#58](https://github.com/Dezoxy/netcheck/issues/58)) ([2e99c04](https://github.com/Dezoxy/netcheck/commit/2e99c0405a45d5746a450f0161061e37ceb0883c))
+
 ## [1.10.0](https://github.com/Dezoxy/netcheck/compare/v1.9.0...v1.10.0) (2026-05-25)
 
 
