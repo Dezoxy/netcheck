@@ -78,6 +78,26 @@ make build      # → ./bin/netcheck
 make install    # → $GOBIN (usually ~/go/bin)
 ```
 
+### Shell completions (optional)
+
+`netcheck completion <shell>` prints a completion script to stdout. Pipe it into the right place for your shell:
+
+```bash
+# bash (per-user — works on Linux and macOS with bash-completion installed)
+netcheck completion bash > ~/.local/share/bash-completion/completions/netcheck
+
+# zsh — drop into any directory on your $fpath, then re-init compinit
+netcheck completion zsh > "${fpath[1]}/_netcheck"
+
+# fish
+netcheck completion fish > ~/.config/fish/completions/netcheck.fish
+
+# PowerShell (current session — add to $PROFILE to persist)
+netcheck completion powershell | Out-String | Invoke-Expression
+```
+
+Completes subcommand names and a few flag values (`--output text|json|markdown|html`). Open a new shell after installing.
+
 ## What it does
 
 netcheck has four checks, an interactive terminal menu, and a local web
