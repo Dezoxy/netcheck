@@ -202,7 +202,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver tls://1.1.1.1 cloudflare.com   # DoT")
 	fmt.Fprintln(os.Stderr, "  netcheck dns --resolver https://cloudflare-dns.com/dns-query cloudflare.com   # DoH")
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Every subcommand also accepts --output text|json|markdown|html and --config <path>.")
+	fmt.Fprintln(os.Stderr, "Every subcommand also accepts --output text|json|markdown|html (or -j for json),")
+	fmt.Fprintln(os.Stderr, "--out <file> (or -o; `-` = stdout), and --config <path>.")
 	fmt.Fprintln(os.Stderr, "Config search: --config flag → NETCHECK_CONFIG env → ~/.config/netcheck/config.yaml")
 }
 

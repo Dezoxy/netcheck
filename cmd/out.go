@@ -8,11 +8,19 @@ import (
 	"path/filepath"
 )
 
-// addOutFlag registers `--out` on the given flagset. Empty value means
-// "write to stdout" (the existing behavior). A non-empty path is created
+// addOutFlag registers `--out` and the `-o` shortcut on the given flagset.
+// Empty value means "write to stdout" (the existing behavior). A literal
+// `-` also means stdout — the convention `netcheck watch` relies on to
+// override a user-supplied `--out` path. A non-empty other path is created
 // (parent dirs included) and used as the destination.
 func addOutFlag(fs *flag.FlagSet) *string {
-	return fs.String("out", "", "write the result to this file instead of stdout (parent dirs created if needed)")
+	target := new(string)
+	// Register both names against the same target. The stdlib flag package
+	// doesn't have native aliases, but two StringVar() calls writing to
+	// the same pointer is a clean equivalent.
+	fs.StringVar(target, "out", "", "write the result to this file instead of stdout (parent dirs created if needed; `-` = stdout)")
+	fs.StringVar(target, "o", "", "shortcut for --out")
+	return target
 }
 
 // openOut returns a writer for the requested output path, plus a closer the
