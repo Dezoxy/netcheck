@@ -2,16 +2,20 @@ import {
   AlertTriangle,
   Bookmark,
   Check,
+  ChevronLeft,
   Download,
   FileText,
   Globe,
   History,
+  Layers,
   LockKeyhole,
-  Menu,
   Play,
+  Search,
   Settings2,
+  ShieldAlert,
+  Telescope,
+  Terminal,
   Trash2,
-  X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -65,7 +69,65 @@ const HISTORY_KEY = "netcheck.recent-checks.v1";
 const MAX_RECENTS = 8;
 
 type RunState = "idle" | "loading" | "ready" | "error";
-type SideTab = "recent" | "saved";
+
+// R-1 redesign: top-level navigation routes (sidenav on desktop,
+// bottom-nav on mobile). Workbench is the default; history / reports /
+// settings are placeholder routes whose visual content R-8 redesigns.
+// For R-1 they reuse the existing inline content via shared state.
+type Route = "workbench" | "history" | "reports" | "settings";
+
+// Category groups the 14 check modes for the landing-screen card grid.
+// "aggregate" is the fourth category — covers audit + diff + watch.
+type Category = "network" | "recon" | "scanning" | "aggregate";
+
+type CategoryDef = {
+  key: Category;
+  label: string;
+  blurb: string;
+  modes: CheckMode[];
+};
+
+// Single source of truth for the category → mode mapping. The landing
+// CategoryCard reads `label`/`blurb`; the category-detail screen (R-2)
+// will read `modes` to render per-mode ModeCards.
+const CATEGORIES: CategoryDef[] = [
+  {
+    key: "network",
+    label: "Network",
+    blurb: "Connectivity, DNS, routing, IP ownership.",
+    modes: ["full", "dns", "route", "ip"],
+  },
+  {
+    key: "recon",
+    label: "Recon",
+    blurb: "Passive intel — headers, tech stack, subdomains, history.",
+    modes: ["headers", "tech", "subs", "reverse", "arch"],
+  },
+  {
+    key: "scanning",
+    label: "Scanning",
+    blurb: "Active probes — TLS audit, takeover, ports, paths. Requires authorization.",
+    modes: ["tls", "takeover", "ports", "enum"],
+  },
+  {
+    key: "aggregate",
+    label: "Aggregate",
+    blurb: "Run an audit across categories, or diff two saved scans.",
+    modes: ["audit"],
+  },
+];
+
+// modeCategory returns the category that owns a given check mode. Used
+// to set the category state when the user reruns from history or opens
+// a saved report (so the workbench shows the right category context).
+function modeCategory(mode: CheckMode): Category {
+  for (const cat of CATEGORIES) {
+    if (cat.modes.includes(mode)) {
+      return cat.key;
+    }
+  }
+  return "network";
+}
 
 const MODE_LABEL: Record<CheckMode, string> = {
   full: "Full Check",
@@ -100,9 +162,13 @@ export default function App() {
   const [runState, setRunState] = useState<RunState>("idle");
   const [error, setError] = useState("");
   const [insecure, setInsecure] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [sideTab, setSideTab] = useState<SideTab>("recent");
+  // R-1 redesign state. `route` is the top-level page (workbench /
+  // history / reports / settings); `category` is null on the landing
+  // screen and set once the user picks a category card. When a report
+  // is loaded (run or replayed from saved), category is auto-set to
+  // the mode's owning category so the workbench shows the right context.
+  const [route, setRoute] = useState<Route>("workbench");
+  const [category, setCategory] = useState<Category | null>(null);
   // portsProgress is the live counter shown during a streaming ports scan.
   // null when no scan is in flight (or when running a non-streaming mode).
   const [portsProgress, setPortsProgress] = useState<{
@@ -151,11 +217,8 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (sideTab === "saved") {
-      void refreshSaved();
-    }
-  }, [sideTab, refreshSaved]);
+  // RouteReportsList triggers its own refresh on mount (see the useEffect
+  // inside that component). No global watcher needed here in R-1.
 
   const runCheck = useCallback(
     async (overrideMode?: CheckMode, overrideTarget?: string) => {
@@ -237,7 +300,6 @@ export default function App() {
         }
         setReport(next);
         setRunState("ready");
-        setHistoryOpen(false);
         setRecents((current) => upsertRecent(current, next, effectiveMode));
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "The check could not start.");
@@ -264,9 +326,8 @@ export default function App() {
     try {
       await saveReport(report);
       setSavedJustNow(true);
-      if (sideTab === "saved") {
-        void refreshSaved();
-      }
+      // RouteReportsList refreshes itself on mount when the Reports route
+      // opens — no need to push state across routes here.
     } catch (cause) {
       setSavedError(cause instanceof Error ? cause.message : "save failed");
     } finally {
@@ -291,18 +352,21 @@ export default function App() {
   function rerunRecent(recent: RecentCheck) {
     setTarget(recent.target);
     setMode(recent.mode);
-    setHistoryOpen(false);
+    setCategory(modeCategory(recent.mode));
+    setRoute("workbench");
     void runCheck(recent.mode, recent.target);
   }
 
   async function openSaved(meta: SavedReportMeta) {
     try {
       const { report: loaded } = await loadSavedReport(meta.id);
+      const m = kindToMode(loaded.kind);
       setReport(loaded);
-      setMode(kindToMode(loaded.kind));
+      setMode(m);
+      setCategory(modeCategory(m));
+      setRoute("workbench");
       setTarget(reportTarget(loaded));
       setRunState("ready");
-      setHistoryOpen(false);
     } catch (cause) {
       setSavedError(cause instanceof Error ? cause.message : "could not load");
     }
@@ -317,222 +381,493 @@ export default function App() {
     }
   }
 
+  // R-1 redesign: when the user picks a category card on the landing,
+  // also default the mode to the first one in that category so the
+  // existing per-category form has something selected. R-2 will replace
+  // the inline form with ModeCards.
+  function pickCategory(cat: Category) {
+    setCategory(cat);
+    const def = CATEGORIES.find((c) => c.key === cat);
+    if (def && !def.modes.includes(mode)) {
+      setMode(def.modes[0]);
+    }
+  }
+
+  // backToLanding clears the category picker, leaving the report in
+  // place so the user can come back to it; the workbench just shows
+  // the landing again at the top.
+  function backToLanding() {
+    setCategory(null);
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-leading">
-          <IconButton className="mobile-menu-button" expanded={historyOpen} label="Menu" onClick={() => setHistoryOpen((open) => !open)}>
-            <Menu />
-          </IconButton>
           <div className="brand">netcheck</div>
         </div>
         <div className="topbar-actions">
-          <IconButton className="desktop-history-button" label="Recent checks" onClick={() => setHistoryOpen((open) => !open)}>
-            <History />
-          </IconButton>
           <IconButton disabled={!report || savingNow} label={savedJustNow ? "Saved" : "Save report"} onClick={saveCurrent}>
             {savedJustNow ? <Check /> : <Bookmark />}
           </IconButton>
           <IconButton disabled={!report} label="Export JSON" onClick={exportReport}>
             <Download />
           </IconButton>
-          <IconButton label="Settings" onClick={() => setSettingsOpen((open) => !open)}>
-            <Settings2 />
-          </IconButton>
         </div>
       </header>
 
-      <aside className={`sidenav ${historyOpen ? "sidenav-open" : ""}`}>
-        <div className="sidenav-heading">
-          <div>
-            <span>Diagnostics</span>
-            <strong>Network Workbench</strong>
-          </div>
-          <IconButton className="sidenav-close-button" label="Close menu" onClick={() => setHistoryOpen(false)}>
-            <X />
-          </IconButton>
-        </div>
-        <nav className="sidenav-nav" aria-label="Workbench">
-          <button
-            aria-selected={sideTab === "recent"}
-            className={`nav-item ${sideTab === "recent" ? "nav-item-active" : ""}`}
-            onClick={() => setSideTab("recent")}
-            type="button"
-          >
-            <History />
-            <span>Recent Checks</span>
-          </button>
-          <button
-            aria-selected={sideTab === "saved"}
-            className={`nav-item ${sideTab === "saved" ? "nav-item-active" : ""}`}
-            onClick={() => setSideTab("saved")}
-            type="button"
-          >
-            <FileText />
-            <span>Saved Reports</span>
-          </button>
-        </nav>
-        {sideTab === "recent" ? (
-          <section className="recent-list" aria-label="Recent checks">
-            {recents.length === 0 ? <p className="empty-list">No recent checks yet.</p> : null}
-            {recents.map((recent) => (
-              <button className="recent-item" key={`${recent.target}-${recent.ranAt}`} onClick={() => rerunRecent(recent)} type="button">
-                <span className={`recent-dot ${recent.ok ? "recent-dot-ok" : "recent-dot-fail"}`} />
-                <span>
-                  <strong>{recent.target}</strong>
-                  <time>{MODE_LABEL[recent.mode] || "Full"} · {formatRecentTime(recent.ranAt)}</time>
-                </span>
-              </button>
-            ))}
-          </section>
-        ) : (
-          <section className="recent-list" aria-label="Saved reports">
-            {savedError ? <p className="detail-error">{savedError}</p> : null}
-            {saved.length === 0 && !savedError ? <p className="empty-list">No saved reports yet.</p> : null}
-            {saved.map((item) => (
-              <div className="recent-item recent-item-saved" key={item.id}>
-                <button className="recent-item-main" onClick={() => openSaved(item)} type="button">
-                  <span className={`recent-dot ${item.ok === false ? "recent-dot-fail" : "recent-dot-ok"}`} />
-                  <span>
-                    <strong>{item.target}</strong>
-                    <time>{MODE_LABEL[kindToMode(item.kind)] || item.kind} · {formatRecentTime(item.saved_at)}</time>
-                  </span>
-                </button>
-                <IconButton label="Delete saved report" onClick={() => removeSaved(item)}>
-                  <Trash2 />
-                </IconButton>
-              </div>
-            ))}
-          </section>
-        )}
-        <div className="sidenav-footer">
-          <a href="https://github.com/Dezoxy/netcheck#readme" rel="noreferrer" target="_blank">
-            <Globe />
-            <span>Documentation</span>
-          </a>
-          <a href="https://github.com/Dezoxy/netcheck/issues" rel="noreferrer" target="_blank">
-            <FileText />
-            <span>Support</span>
-          </a>
-        </div>
-      </aside>
-      <button
-        aria-label="Close navigation"
-        className={`sidenav-backdrop ${historyOpen ? "sidenav-backdrop-open" : ""}`}
-        onClick={() => setHistoryOpen(false)}
-        type="button"
-      />
+      <SideNavV2 route={route} onRouteChange={setRoute} />
 
       <main className="workbench">
-        <form className="input-section" onSubmit={submitCheck}>
-          <div className="target-row">
-            <label className="target-field">
-              <Globe />
-              <span className="sr-only">Target</span>
-              <input
-                autoCapitalize="none"
-                autoCorrect="off"
-                onChange={(event) => setTarget(event.target.value)}
-                spellCheck="false"
-                value={target}
-              />
-            </label>
-            <button className="run-button" disabled={runState === "loading" || runBlocked} type="submit">
-              <Play />
-              <span>{runState === "loading" ? "Running" : "Run Check"}</span>
+        {route === "workbench" && category === null ? (
+          <Landing
+            target={target}
+            onTargetChange={setTarget}
+            onPickCategory={pickCategory}
+          />
+        ) : null}
+
+        {route === "workbench" && category !== null ? (
+          <>
+            <button className="back-link" onClick={backToLanding} type="button">
+              <ChevronLeft />
+              <span>Categories</span>
             </button>
-          </div>
-          <div className="mode-groups" role="tablist" aria-label="Check mode">
-            {MODE_GROUPS.map((group) => (
-              <div className="mode-group" key={group.label}>
-                <span className="mode-group-label">{group.label}</span>
-                <div className="mode-tabs">
-                  {group.modes.map((key) => (
-                    <button
-                      key={key}
-                      aria-selected={mode === key}
-                      className={`mode-tab ${mode === key ? "mode-tab-active" : ""} ${
-                        isActiveMode(key) ? "mode-tab-active-tier" : ""
-                      }`}
-                      onClick={() => setMode(key)}
-                      role="tab"
-                      type="button"
-                    >
-                      {MODE_LABEL[key]}
-                    </button>
-                  ))}
-                </div>
+
+            <form className="input-section" onSubmit={submitCheck}>
+              <div className="target-row">
+                <label className="target-field">
+                  <Globe />
+                  <span className="sr-only">Target</span>
+                  <input
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    onChange={(event) => setTarget(event.target.value)}
+                    spellCheck="false"
+                    value={target}
+                  />
+                </label>
+                <button className="run-button" disabled={runState === "loading" || runBlocked} type="submit">
+                  <Play />
+                  <span>{runState === "loading" ? "Running" : "Run Check"}</span>
+                </button>
               </div>
-            ))}
-          </div>
-        </form>
+              {/* R-1: keep the existing mode-tabs UI inside the category
+                  view, filtered to the picked category's modes. R-2
+                  replaces this with ModeCards. */}
+              <div className="mode-groups" role="tablist" aria-label="Check mode">
+                {MODE_GROUPS.filter((group) =>
+                  CATEGORIES.find((c) => c.key === category)?.modes.some((m) => group.modes.includes(m)),
+                ).map((group) => (
+                  <div className="mode-group" key={group.label}>
+                    <span className="mode-group-label">{group.label}</span>
+                    <div className="mode-tabs">
+                      {group.modes
+                        .filter((m) => CATEGORIES.find((c) => c.key === category)?.modes.includes(m))
+                        .map((key) => (
+                          <button
+                            key={key}
+                            aria-selected={mode === key}
+                            className={`mode-tab ${mode === key ? "mode-tab-active" : ""} ${
+                              isActiveMode(key) ? "mode-tab-active-tier" : ""
+                            }`}
+                            onClick={() => setMode(key)}
+                            role="tab"
+                            type="button"
+                          >
+                            {MODE_LABEL[key]}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </form>
 
-        {mode === "audit" ? (
-          <section className="audit-options" aria-label="Audit options">
-            <label className="auth-gate-check">
-              <input
-                checked={auditIncludeActive}
-                onChange={(event) => setAuditIncludeActive(event.target.checked)}
-                type="checkbox"
-              />
-              <span>Also run active scans (TLS audit, takeover, ports, path enum)</span>
-            </label>
-          </section>
+            {mode === "audit" ? (
+              <section className="audit-options" aria-label="Audit options">
+                <label className="auth-gate-check">
+                  <input
+                    checked={auditIncludeActive}
+                    onChange={(event) => setAuditIncludeActive(event.target.checked)}
+                    type="checkbox"
+                  />
+                  <span>Also run active scans (TLS audit, takeover, ports, path enum)</span>
+                </label>
+              </section>
+            ) : null}
+
+            {requiresAuth ? (
+              <section className={`auth-gate ${activeAcknowledged ? "auth-gate-ack" : "auth-gate-pending"}`} aria-label="Active scan authorization">
+                <div className="auth-gate-icon">
+                  <AlertTriangle />
+                </div>
+                <div className="auth-gate-body">
+                  <strong>
+                    {mode === "audit" ? "Active audit" : MODE_LABEL[mode]} sends probes to the target.
+                  </strong>
+                  <p>
+                    Running this against a system you do not own or do not have written permission to test
+                    is illegal in most jurisdictions. Read{" "}
+                    <a href="https://github.com/Dezoxy/netcheck/blob/main/docs/ETHICS.md" rel="noreferrer" target="_blank">
+                      docs/ETHICS.md
+                    </a>
+                    .
+                  </p>
+                  <label className="auth-gate-check">
+                    <input
+                      checked={activeAcknowledged}
+                      onChange={(event) => setActiveAcknowledged(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <span>I am authorized to actively probe this target.</span>
+                  </label>
+                </div>
+              </section>
+            ) : null}
+
+            {runState === "idle" ? <EmptyWorkbench mode={mode} onRun={() => void submitCheck()} /> : null}
+            {runState === "error" ? <ErrorBanner message={error} /> : null}
+            {runState === "loading" && portsProgress ? (
+              <PortsProgressBanner progress={portsProgress} />
+            ) : null}
+            {report ? <ReportView loading={runState === "loading"} report={report} /> : null}
+          </>
         ) : null}
 
-        {requiresAuth ? (
-          <section className={`auth-gate ${activeAcknowledged ? "auth-gate-ack" : "auth-gate-pending"}`} aria-label="Active scan authorization">
-            <div className="auth-gate-icon">
-              <AlertTriangle />
-            </div>
-            <div className="auth-gate-body">
-              <strong>
-                {mode === "audit" ? "Active audit" : MODE_LABEL[mode]} sends probes to the target.
-              </strong>
-              <p>
-                Running this against a system you do not own or do not have written permission to test
-                is illegal in most jurisdictions. Read{" "}
-                <a href="https://github.com/Dezoxy/netcheck/blob/main/docs/ETHICS.md" rel="noreferrer" target="_blank">
-                  docs/ETHICS.md
-                </a>
-                .
-              </p>
-              <label className="auth-gate-check">
-                <input
-                  checked={activeAcknowledged}
-                  onChange={(event) => setActiveAcknowledged(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>I am authorized to actively probe this target.</span>
-              </label>
-            </div>
-          </section>
+        {route === "history" ? (
+          <RouteHistoryList recents={recents} onRerun={rerunRecent} />
         ) : null}
 
-        {settingsOpen ? (
-          <section className="settings-panel" aria-label="Check settings">
-            <div>
-              <strong>Check Settings</strong>
-              <p>TLS verification stays on unless this run needs inspection of an invalid certificate. Only applies to the Full Check.</p>
-            </div>
-            <label>
-              <input checked={insecure} onChange={(event) => setInsecure(event.target.checked)} type="checkbox" />
-              <span>Allow insecure TLS</span>
-            </label>
-            <IconButton label="Close settings" onClick={() => setSettingsOpen(false)}>
-              <X />
-            </IconButton>
-          </section>
+        {route === "reports" ? (
+          <RouteReportsList
+            saved={saved}
+            savedError={savedError}
+            onRefresh={refreshSaved}
+            onOpen={openSaved}
+            onRemove={removeSaved}
+          />
         ) : null}
 
-        {runState === "idle" ? <EmptyWorkbench mode={mode} onRun={() => void submitCheck()} /> : null}
-        {runState === "error" ? <ErrorBanner message={error} /> : null}
-        {runState === "loading" && portsProgress ? (
-          <PortsProgressBanner progress={portsProgress} />
+        {route === "settings" ? (
+          <RouteSettings insecure={insecure} onInsecureChange={setInsecure} />
         ) : null}
-        {report ? <ReportView loading={runState === "loading"} report={report} /> : null}
       </main>
+
+      <BottomNav route={route} onRouteChange={setRoute} />
+      <StatusFooter lastScanAt={recents[0]?.ranAt} />
     </div>
+  );
+}
+
+// ─── R-1 redesign: shell components ───────────────────────────────────────
+
+// SideNavV2 renders the desktop sidenav with four top-level routes.
+// Mobile users get a fixed BottomNav instead — see CSS media queries.
+function SideNavV2({
+  route,
+  onRouteChange,
+}: {
+  route: Route;
+  onRouteChange: (next: Route) => void;
+}) {
+  return (
+    <aside className="sidenav sidenav-v2" aria-label="Primary">
+      <nav className="sidenav-nav" aria-label="Top-level routes">
+        <NavItem icon={<Terminal />} label="Workbench" active={route === "workbench"} onClick={() => onRouteChange("workbench")} />
+        <NavItem icon={<History />} label="History" active={route === "history"} onClick={() => onRouteChange("history")} />
+        <NavItem icon={<FileText />} label="Reports" active={route === "reports"} onClick={() => onRouteChange("reports")} />
+        <NavItem icon={<Settings2 />} label="Settings" active={route === "settings"} onClick={() => onRouteChange("settings")} />
+      </nav>
+      <div className="sidenav-footer">
+        <a href="https://github.com/Dezoxy/netcheck#readme" rel="noreferrer" target="_blank">
+          <Globe />
+          <span>Documentation</span>
+        </a>
+        <a href="https://github.com/Dezoxy/netcheck/issues" rel="noreferrer" target="_blank">
+          <FileText />
+          <span>Support</span>
+        </a>
+      </div>
+    </aside>
+  );
+}
+
+function NavItem({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-selected={active}
+      className={`nav-item ${active ? "nav-item-active" : ""}`}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+// BottomNav is the mobile counterpart to SideNavV2 — fixed to the
+// viewport bottom with safe-area padding. Hidden by CSS on ≥720px.
+function BottomNav({
+  route,
+  onRouteChange,
+}: {
+  route: Route;
+  onRouteChange: (next: Route) => void;
+}) {
+  return (
+    <nav className="bottom-nav" aria-label="Primary (mobile)">
+      <BottomNavItem icon={<Terminal />} label="Workbench" active={route === "workbench"} onClick={() => onRouteChange("workbench")} />
+      <BottomNavItem icon={<History />} label="History" active={route === "history"} onClick={() => onRouteChange("history")} />
+      <BottomNavItem icon={<FileText />} label="Reports" active={route === "reports"} onClick={() => onRouteChange("reports")} />
+      <BottomNavItem icon={<Settings2 />} label="Settings" active={route === "settings"} onClick={() => onRouteChange("settings")} />
+    </nav>
+  );
+}
+
+function BottomNavItem({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-selected={active}
+      className={`bottom-nav-item ${active ? "bottom-nav-item-active" : ""}`}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+// StatusFooter is the desktop-only footer strip. Left: which config the
+// CLI would load. Right: app version + most-recent scan timestamp from
+// the recents list. No fake "system operational" — just real, useful info.
+function StatusFooter({ lastScanAt }: { lastScanAt: string | undefined }) {
+  // The web app can't actually read ~/.config/netcheck/config.yaml from
+  // the browser. We surface a stable summary based on what the server
+  // told the UI about the config it loaded; for R-1 that's a static
+  // hint, R-8 will wire the /api/config endpoint to fill it in.
+  return (
+    <footer className="status-footer" aria-label="Status">
+      <span className="status-footer-left">
+        <span className="muted">Config:</span>{" "}
+        <code>~/.config/netcheck/config.yaml</code>
+      </span>
+      <span className="status-footer-right">
+        {lastScanAt ? (
+          <>
+            <span className="muted">Last scan:</span>{" "}
+            <time>{formatRecentTime(lastScanAt)}</time>
+            <span className="muted"> · </span>
+          </>
+        ) : null}
+        <span>v2.0.1</span>
+      </span>
+    </footer>
+  );
+}
+
+// Landing is the workbench-route default view. Big target input + a 2x2
+// grid of category cards. Picking a card → setCategory → enters the
+// category-detail view (R-1 reuses the existing form + mode tabs; R-2
+// replaces them with ModeCards).
+function Landing({
+  target,
+  onTargetChange,
+  onPickCategory,
+}: {
+  target: string;
+  onTargetChange: (next: string) => void;
+  onPickCategory: (cat: Category) => void;
+}) {
+  return (
+    <section className="landing" aria-label="Workbench landing">
+      <label className="landing-input">
+        <Search />
+        <span className="sr-only">Target</span>
+        <input
+          autoCapitalize="none"
+          autoCorrect="off"
+          onChange={(event) => onTargetChange(event.target.value)}
+          placeholder="Enter target URL (e.g. https://example.com) or IP address…"
+          spellCheck="false"
+          value={target}
+        />
+      </label>
+
+      <div className="category-grid">
+        {CATEGORIES.map((cat) => (
+          <CategoryCard key={cat.key} def={cat} onClick={() => onPickCategory(cat.key)} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// CategoryCard is one of the four cards on the landing — icon, name,
+// blurb, Select CTA. Whole card is clickable; the Select pill is
+// visual + accessible label.
+function CategoryCard({ def, onClick }: { def: CategoryDef; onClick: () => void }) {
+  const icon =
+    def.key === "network" ? <Globe /> :
+    def.key === "recon" ? <Telescope /> :
+    def.key === "scanning" ? <ShieldAlert /> :
+    <Layers />;
+  return (
+    <button className={`category-card category-card-${def.key}`} onClick={onClick} type="button">
+      <div className="category-card-icon">{icon}</div>
+      <div className="category-card-body">
+        <strong>{def.label}</strong>
+        <p>{def.blurb}</p>
+      </div>
+      <span className="category-card-cta">Select</span>
+    </button>
+  );
+}
+
+// RouteHistoryList renders the existing recents in the main workbench
+// area instead of the side drawer. R-8 will redesign the row treatment;
+// R-1 keeps the same recent-item markup.
+function RouteHistoryList({
+  recents,
+  onRerun,
+}: {
+  recents: RecentCheck[];
+  onRerun: (recent: RecentCheck) => void;
+}) {
+  return (
+    <section className="route-page" aria-label="History">
+      <header className="route-page-head">
+        <h1>History</h1>
+        <p>Recent checks from this browser. Click one to rerun.</p>
+      </header>
+      <div className="recent-list recent-list-page">
+        {recents.length === 0 ? <p className="empty-list">No recent checks yet.</p> : null}
+        {recents.map((recent) => (
+          <button
+            className="recent-item"
+            key={`${recent.target}-${recent.ranAt}`}
+            onClick={() => onRerun(recent)}
+            type="button"
+          >
+            <span className={`recent-dot ${recent.ok ? "recent-dot-ok" : "recent-dot-fail"}`} />
+            <span>
+              <strong>{recent.target}</strong>
+              <time>
+                {MODE_LABEL[recent.mode] || "Full"} · {formatRecentTime(recent.ranAt)}
+              </time>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// RouteReportsList renders the saved reports as a full page.
+function RouteReportsList({
+  saved,
+  savedError,
+  onRefresh,
+  onOpen,
+  onRemove,
+}: {
+  saved: SavedReportMeta[];
+  savedError: string;
+  onRefresh: () => void;
+  onOpen: (meta: SavedReportMeta) => void;
+  onRemove: (meta: SavedReportMeta) => void;
+}) {
+  useEffect(() => {
+    onRefresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <section className="route-page" aria-label="Reports">
+      <header className="route-page-head">
+        <h1>Reports</h1>
+        <p>Reports saved server-side via the Save button. Click to open in the workbench.</p>
+      </header>
+      <div className="recent-list recent-list-page">
+        {savedError ? <p className="detail-error">{savedError}</p> : null}
+        {saved.length === 0 && !savedError ? (
+          <p className="empty-list">No saved reports yet.</p>
+        ) : null}
+        {saved.map((item) => (
+          <div className="recent-item recent-item-saved" key={item.id}>
+            <button className="recent-item-main" onClick={() => onOpen(item)} type="button">
+              <span
+                className={`recent-dot ${item.ok === false ? "recent-dot-fail" : "recent-dot-ok"}`}
+              />
+              <span>
+                <strong>{item.target}</strong>
+                <time>
+                  {MODE_LABEL[kindToMode(item.kind)] || item.kind} ·{" "}
+                  {formatRecentTime(item.saved_at)}
+                </time>
+              </span>
+            </button>
+            <IconButton label="Delete saved report" onClick={() => onRemove(item)}>
+              <Trash2 />
+            </IconButton>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// RouteSettings is the new Settings route. R-1 surfaces just the
+// insecure-TLS toggle that used to live in the floating settings
+// panel; R-8 will fold in more global preferences.
+function RouteSettings({
+  insecure,
+  onInsecureChange,
+}: {
+  insecure: boolean;
+  onInsecureChange: (next: boolean) => void;
+}) {
+  return (
+    <section className="route-page" aria-label="Settings">
+      <header className="route-page-head">
+        <h1>Settings</h1>
+        <p>Browser-scoped preferences. CLI config lives in <code>~/.config/netcheck/config.yaml</code>.</p>
+      </header>
+      <div className="settings-list">
+        <label className="settings-row">
+          <input
+            checked={insecure}
+            onChange={(event) => onInsecureChange(event.target.checked)}
+            type="checkbox"
+          />
+          <div>
+            <strong>Allow insecure TLS</strong>
+            <p>Skip certificate verification on Full Check. Same as <code>--insecure</code> on the CLI.</p>
+          </div>
+        </label>
+      </div>
+    </section>
   );
 }
 
