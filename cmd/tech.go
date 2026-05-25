@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/techdetect"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/techdetect"
 )
 
 // RunTech executes the `netcheck tech <url>` command.

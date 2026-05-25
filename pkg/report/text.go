@@ -9,9 +9,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"netcheck/internal/check"
-	"netcheck/internal/dnscompare"
-	"netcheck/internal/ipinfo"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/dnscompare"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
 )
 
 // Render writes the full text report to w.

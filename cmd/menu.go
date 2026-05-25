@@ -10,12 +10,12 @@ import (
 	"sync"
 	"time"
 
-	"netcheck/internal/check"
-	"netcheck/internal/dnscompare"
-	"netcheck/internal/ipinfo"
-	"netcheck/internal/report"
-	"netcheck/internal/route"
-	"netcheck/internal/target"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/dnscompare"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/route"
+	"github.com/Dezoxy/netcheck/pkg/target"
 )
 
 // RunMenu drops into an interactive loop where the user picks an action and

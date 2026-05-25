@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"netcheck/internal/config"
-	"netcheck/internal/dnscompare"
-	"netcheck/internal/report"
+	"github.com/Dezoxy/netcheck/internal/config"
+	"github.com/Dezoxy/netcheck/pkg/dnscompare"
+	"github.com/Dezoxy/netcheck/pkg/report"
 )
 
 // configResolverToDNS projects a config-file resolver entry into the

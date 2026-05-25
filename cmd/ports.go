@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"netcheck/internal/portscan"
-	"netcheck/internal/report"
+	"github.com/Dezoxy/netcheck/pkg/portscan"
+	"github.com/Dezoxy/netcheck/pkg/report"
 )
 
 // RunPorts executes the `netcheck ports <host>` command. Active —

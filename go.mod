@@ -1,4 +1,4 @@
-module netcheck
+module github.com/Dezoxy/netcheck
 
 go 1.24.0
 

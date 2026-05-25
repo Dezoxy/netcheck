@@ -55,7 +55,7 @@ type ResolverEntry struct {
 func Defaults() *Config {
 	return &Config{
 		Timeout:         10 * time.Second,
-		UserAgent:       "", // empty → callers fill in "netcheck/<version>"
+		UserAgent:       "", // empty → callers fill in "github.com/Dezoxy/netcheck/<version>"
 		FollowRedirects: true,
 		MaxRedirects:    10,
 		PreferIPv6:      false,

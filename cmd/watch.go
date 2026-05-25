@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"netcheck/internal/diff"
+	"github.com/Dezoxy/netcheck/pkg/diff"
 )
 
 // RunWatch implements `netcheck watch [flags] -- <subcommand> <args...>`. It

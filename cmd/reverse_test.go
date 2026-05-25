@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/reverseip"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/reverseip"
 )
 
 func pointReverseAt(t *testing.T, htBody, shBody string) func() {

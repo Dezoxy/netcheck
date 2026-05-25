@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"netcheck/internal/report"
-	"netcheck/internal/wayback"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/wayback"
 )
 
 const cdxFixture = `[

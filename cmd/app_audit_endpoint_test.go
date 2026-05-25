@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"netcheck/internal/reverseip"
-	"netcheck/internal/subenum"
-	"netcheck/internal/wayback"
+	"github.com/Dezoxy/netcheck/pkg/reverseip"
+	"github.com/Dezoxy/netcheck/pkg/subenum"
+	"github.com/Dezoxy/netcheck/pkg/wayback"
 )
 
 // pointAuditAt redirects the v1.4 external sub-sources to local httptest

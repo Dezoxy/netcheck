@@ -9,9 +9,9 @@ import (
 	"os"
 	"sync"
 
-	"netcheck/internal/check"
-	"netcheck/internal/config"
-	"netcheck/internal/ipinfo"
+	"github.com/Dezoxy/netcheck/internal/config"
+	"github.com/Dezoxy/netcheck/pkg/check"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
 )
 
 // Version is the canonical netcheck version string, surfaced via `--version`
@@ -65,12 +65,12 @@ func applyConfigOverride(configPath string) {
 }
 
 // UserAgent returns the User-Agent string the leaf packages should use.
-// Prefers config override, falls back to "netcheck/<version>".
+// Prefers config override, falls back to "github.com/Dezoxy/netcheck/<version>".
 func UserAgent() string {
 	if loadedConfig != nil && loadedConfig.UserAgent != "" {
 		return loadedConfig.UserAgent
 	}
-	return "netcheck/" + Version
+	return "github.com/Dezoxy/netcheck/" + Version
 }
 
 // Run dispatches an os.Args invocation. Bare `netcheck` on an interactive

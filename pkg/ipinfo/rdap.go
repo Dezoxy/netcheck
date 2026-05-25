@@ -39,7 +39,7 @@ func NewRDAPCache() *RDAPCache {
 var DefaultRDAPCache = NewRDAPCache()
 
 // userAgent is the User-Agent header sent on RDAP requests.
-// main.go wires in the canonical "netcheck/<version>" via SetUserAgent at startup.
+// main.go wires in the canonical "github.com/Dezoxy/netcheck/<version>" via SetUserAgent at startup.
 var userAgent = "netcheck"
 
 // SetUserAgent sets the User-Agent string used on outbound RDAP requests.

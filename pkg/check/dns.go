@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"netcheck/internal/ipinfo"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
 )
 
 // DNSResult holds the outcome of a single hostname lookup, optionally enriched

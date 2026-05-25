@@ -18,7 +18,7 @@ import (
 )
 
 // userAgent is the User-Agent sent on the detect request. main.go wires the
-// canonical "netcheck/<version>" via SetUserAgent at startup.
+// canonical "github.com/Dezoxy/netcheck/<version>" via SetUserAgent at startup.
 var userAgent = "netcheck"
 
 // SetUserAgent sets the User-Agent string used for detect requests. Safe to

@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"netcheck/internal/pathenum"
-	"netcheck/internal/portscan"
-	"netcheck/internal/report"
+	"github.com/Dezoxy/netcheck/pkg/pathenum"
+	"github.com/Dezoxy/netcheck/pkg/portscan"
+	"github.com/Dezoxy/netcheck/pkg/report"
 )
 
 // RunAudit executes the `netcheck audit <target>` command — one entry point

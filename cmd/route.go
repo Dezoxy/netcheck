@@ -10,9 +10,9 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"netcheck/internal/ipinfo"
-	"netcheck/internal/report"
-	"netcheck/internal/route"
+	"github.com/Dezoxy/netcheck/pkg/ipinfo"
+	"github.com/Dezoxy/netcheck/pkg/report"
+	"github.com/Dezoxy/netcheck/pkg/route"
 )
 
 // RunRoute executes the `netcheck route <host>` traceroute-with-ASN command.
