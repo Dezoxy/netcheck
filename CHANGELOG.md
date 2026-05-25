@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.10.0](https://github.com/Dezoxy/netcheck/compare/v1.9.0...v1.10.0) (2026-05-25)
+
+
+### Features
+
+* **app:** SSE streaming for ports scan (live progress in web UI) ([#54](https://github.com/Dezoxy/netcheck/issues/54)) ([66bc257](https://github.com/Dezoxy/netcheck/commit/66bc25746c96354493f1682fcc297b5b42183c9b))
+
 ## [1.9.0](https://github.com/Dezoxy/netcheck/compare/v1.8.0...v1.9.0) (2026-05-25)
 
 
