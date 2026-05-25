@@ -132,7 +132,7 @@ func BuildAudit(ctx context.Context, target string, opts AuditOptions, timeout t
 		Errors:          map[string]string{},
 	}
 
-	host, url, isIP, err := classifyAuditTarget(target)
+	host, tlsTarget, url, isIP, err := classifyAuditTarget(target)
 	if err != nil {
 		out.Error = err.Error()
 		out.TookMS = time.Since(started).Milliseconds()
@@ -230,8 +230,11 @@ func BuildAudit(ctx context.Context, target string, opts AuditOptions, timeout t
 	// Active add-ons.
 	if opts.Active {
 		// TLS + ports work for any host (IP or hostname).
+		// TLS uses tlsTarget (host:port form) so an explicit non-443 port
+		// in the input — e.g. `https://host:8443` — gets audited on the
+		// right endpoint instead of falling back to :443.
 		run("tls", func() {
-			r := BuildTLSAudit(c, host, tlsDefaultTimeout(timeout))
+			r := BuildTLSAudit(c, tlsTarget, tlsDefaultTimeout(timeout))
 			mu.Lock()
 			out.TLS = &r
 			mu.Unlock()
@@ -270,35 +273,81 @@ func BuildAudit(ctx context.Context, target string, opts AuditOptions, timeout t
 	return out
 }
 
-// classifyAuditTarget returns the normalized host (no port), the URL form
-// (https-prefixed when the input was bare), and whether the target is a
-// literal IP. URL form is empty for IP targets (URL-shaped checks don't run).
-func classifyAuditTarget(raw string) (host, url string, isIP bool, err error) {
+// classifyAuditTarget normalises the user-supplied target into four
+// downstream forms:
+//
+//   - host       — bare hostname or IP (no port, no brackets). Used for
+//     domain-shaped checks (subs, arch, takeover) and ports.
+//   - tlsTarget  — host:port form preserved from the input when the user
+//     specified a port; otherwise equals host. Used for the
+//     TLS sub-check so `audit https://target:8443` audits
+//     :8443 instead of defaulting to :443.
+//   - url        — URL form for headers/tech/enum. Empty for bare IP
+//     targets (URL-shaped checks don't run). IPv6 literals
+//     are properly bracketed: `[::1]` not `::1`.
+//   - isIP       — true when host is an IP literal. Drives the
+//     domain-vs-IP routing in BuildAudit.
+//
+// Order of fixes worth surfacing (both flagged by Codex on the original
+// review): bracketed-IPv6 + IP detection after SplitHostPort fall-through.
+func classifyAuditTarget(raw string) (host, tlsTarget, url string, isIP bool, err error) {
 	s := strings.TrimSpace(raw)
 	if s == "" {
-		return "", "", false, errors.New("empty target")
+		return "", "", "", false, errors.New("empty target")
 	}
 	if strings.Contains(s, "://") {
-		u, err := nurl.Parse(s)
-		if err != nil {
-			return "", "", false, err
+		u, perr := nurl.Parse(s)
+		if perr != nil {
+			return "", "", "", false, perr
 		}
 		if u.Host == "" {
-			return "", "", false, fmt.Errorf("no host in %q", raw)
+			return "", "", "", false, fmt.Errorf("no host in %q", raw)
 		}
-		host := u.Hostname()
-		// Strip [::1]-style brackets handled by Hostname() already.
-		return host, s, net.ParseIP(host) != nil, nil
+		host = u.Hostname() // strips brackets + port
+		isIP = net.ParseIP(host) != nil
+		// u.Host preserves "[::1]:8443" / "host:8443" — perfect for the
+		// TLS target. Falls back to plain host when no port was set.
+		tlsTarget = u.Host
+		return host, tlsTarget, s, isIP, nil
 	}
 	if ip := net.ParseIP(s); ip != nil {
-		return ip.String(), "", true, nil
+		return ip.String(), ip.String(), "", true, nil
 	}
-	// Bare hostname (maybe with :port).
+	// Bare host (possibly with :port). SplitHostPort handles both
+	// "host:8080" and "[::1]:8080" — important: don't assume the
+	// extracted host is a name; it could still be an IP literal.
 	host = s
-	if h, _, err := net.SplitHostPort(s); err == nil {
+	port := ""
+	if h, p, splitErr := net.SplitHostPort(s); splitErr == nil {
 		host = h
+		port = p
+		if ip := net.ParseIP(h); ip != nil {
+			isIP = true
+		}
 	}
-	return host, "https://" + host, false, nil
+	tlsTarget = host
+	if port != "" {
+		tlsTarget = net.JoinHostPort(host, port)
+	}
+	if isIP {
+		// Bare IP with optional port — URL-shaped checks don't run.
+		return host, tlsTarget, "", true, nil
+	}
+	// Hostname. Synthesise https://host (IPv6 wouldn't reach this branch
+	// since the SplitHostPort path above flagged isIP, but be defensive
+	// in case the input was `[::1]` without a port — that path goes via
+	// net.ParseIP further up).
+	url = "https://" + hostInURL(host)
+	return host, tlsTarget, url, false, nil
+}
+
+// hostInURL brackets an IPv6 literal so it's URL-safe. Plain hostnames /
+// IPv4 pass through unchanged.
+func hostInURL(h string) string {
+	if strings.Contains(h, ":") && !strings.HasPrefix(h, "[") {
+		return "[" + h + "]"
+	}
+	return h
 }
 
 // defaultAuditPortOptions returns the port-scan options used inside `audit`.

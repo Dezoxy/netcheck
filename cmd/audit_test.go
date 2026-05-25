@@ -21,30 +21,45 @@ import (
 
 func TestClassifyAuditTarget(t *testing.T) {
 	cases := []struct {
-		in   string
-		host string
-		url  string
-		isIP bool
-		err  bool
+		in        string
+		host      string
+		tlsTarget string
+		url       string
+		isIP      bool
+		err       bool
 	}{
-		{"example.com", "example.com", "https://example.com", false, false},
-		{"https://example.com/path", "example.com", "https://example.com/path", false, false},
-		{"http://example.com:8080/x", "example.com", "http://example.com:8080/x", false, false},
-		{"example.com:8443", "example.com", "https://example.com", false, false},
-		{"1.2.3.4", "1.2.3.4", "", true, false},
-		{"::1", "::1", "", true, false},
-		{"http://1.2.3.4/foo", "1.2.3.4", "http://1.2.3.4/foo", true, false},
-		{"", "", "", false, true},
-		{"   ", "", "", false, true},
-		// URL with empty host fails:
-		{"http://", "", "", false, true},
+		// Bare hostnames.
+		{"example.com", "example.com", "example.com", "https://example.com", false, false},
+		{"example.com:8443", "example.com", "example.com:8443", "https://example.com", false, false},
+		// URL-shaped targets.
+		{"https://example.com/path", "example.com", "example.com", "https://example.com/path", false, false},
+		{"http://example.com:8080/x", "example.com", "example.com:8080", "http://example.com:8080/x", false, false},
+		// Codex P2 #1 — TLS sub-check must honour an explicit URL port.
+		{"https://target:8443", "target", "target:8443", "https://target:8443", false, false},
+		// IP literals (bare).
+		{"1.2.3.4", "1.2.3.4", "1.2.3.4", "", true, false},
+		{"::1", "::1", "::1", "", true, false},
+		// URL @ IPv4 host.
+		{"http://1.2.3.4/foo", "1.2.3.4", "1.2.3.4", "http://1.2.3.4/foo", true, false},
+		{"http://1.2.3.4:8080", "1.2.3.4", "1.2.3.4:8080", "http://1.2.3.4:8080", true, false},
+		// URL @ IPv6 host with port — preserved bracketed form for tlsTarget.
+		{"https://[::1]:8443", "::1", "[::1]:8443", "https://[::1]:8443", true, false},
+		// Codex P2 #2 — bracketed IPv6 with port (no scheme) classifies as IP.
+		{"[::1]:8443", "::1", "[::1]:8443", "", true, false},
+		// IP with port (no scheme).
+		{"1.2.3.4:9000", "1.2.3.4", "1.2.3.4:9000", "", true, false},
+		// Errors.
+		{"", "", "", "", false, true},
+		{"   ", "", "", "", false, true},
+		{"http://", "", "", "", false, true},
 	}
 	for _, c := range cases {
 		t.Run(c.in, func(t *testing.T) {
-			host, url, isIP, err := classifyAuditTarget(c.in)
+			host, tlsTarget, url, isIP, err := classifyAuditTarget(c.in)
 			if c.err {
 				if err == nil {
-					t.Errorf("expected error, got host=%q url=%q isIP=%v", host, url, isIP)
+					t.Errorf("expected error, got host=%q tlsTarget=%q url=%q isIP=%v",
+						host, tlsTarget, url, isIP)
 				}
 				return
 			}
@@ -53,6 +68,9 @@ func TestClassifyAuditTarget(t *testing.T) {
 			}
 			if host != c.host {
 				t.Errorf("host = %q, want %q", host, c.host)
+			}
+			if tlsTarget != c.tlsTarget {
+				t.Errorf("tlsTarget = %q, want %q", tlsTarget, c.tlsTarget)
 			}
 			if url != c.url {
 				t.Errorf("url = %q, want %q", url, c.url)
