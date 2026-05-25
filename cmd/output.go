@@ -33,8 +33,53 @@ func ParseFormat(s string) (Format, error) {
 	}
 }
 
-// addOutputFlag registers `--output` on the given flagset, returning the
-// pointer the caller passes to ParseFormat after fs.Parse returns.
+// addOutputFlag registers `--output` and the `-j` shortcut on the given
+// flagset, returning the pointer the caller passes to ParseFormat after
+// fs.Parse returns.
+//
+// Both flags write to the same underlying string; last-write-wins under flag
+// ordering, matching how any other CLI would behave with two settings of the
+// same logical option. `-j` is a bool-style flag (no `=true` needed) that
+// sets the format to "json". `--output=text -j` → json. `-j --output=text`
+// → text.
 func addOutputFlag(fs *flag.FlagSet) *string {
-	return fs.String("output", "text", "output format: text, json, markdown, html")
+	target := new(string)
+	*target = "text"
+	fs.Var(&outputFormatFlag{target: target}, "output", "output format: text, json, markdown, html")
+	fs.Var(&jsonShortFlag{target: target}, "j", "shortcut for --output json")
+	return target
+}
+
+// outputFormatFlag is the flag.Value implementation backing --output. Reading
+// the underlying *string later in ParseFormat is unchanged.
+type outputFormatFlag struct{ target *string }
+
+func (o *outputFormatFlag) String() string {
+	if o.target == nil {
+		return "text"
+	}
+	return *o.target
+}
+
+func (o *outputFormatFlag) Set(v string) error {
+	*o.target = v
+	return nil
+}
+
+// jsonShortFlag is the boolean `-j` shortcut. IsBoolFlag() makes the flag
+// package treat `-j` (alone) as `-j=true`; setting it writes "json" into the
+// same target *string as --output.
+type jsonShortFlag struct{ target *string }
+
+func (j *jsonShortFlag) String() string { return "false" }
+
+func (j *jsonShortFlag) IsBoolFlag() bool { return true }
+
+func (j *jsonShortFlag) Set(v string) error {
+	// flag package calls Set("true") for bare `-j`; explicit `-j=false`
+	// shouldn't override the format. Tolerate both spellings.
+	if v == "true" || v == "1" {
+		*j.target = "json"
+	}
+	return nil
 }

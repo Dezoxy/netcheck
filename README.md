@@ -295,20 +295,22 @@ ignored — only meaningful changes show up.
 ### Pipe into other tools
 
 ```bash
-# What's the redirect chain?
-netcheck --output json google.com | jq '.http.hops'
+# What's the redirect chain?  (-j is shorthand for --output json)
+netcheck -j google.com | jq '.http.hops'
 
 # Which hops timed out on a traceroute?
-netcheck route --output json google.com | jq '.hops[] | select(.timeout)'
+netcheck route -j google.com | jq '.hops[] | select(.timeout)'
 
-# Save a shareable HTML report
-netcheck ip --output html --out /tmp/report.html 1.1.1.1 && open /tmp/report.html
+# Save a shareable HTML report  (-o is shorthand for --out)
+netcheck ip --output html -o /tmp/report.html 1.1.1.1 && open /tmp/report.html
 
 # Send a Markdown summary in a ticket
 netcheck dns --output markdown cloudflare.com | pbcopy
 ```
 
-> Flags come before the positional argument: `netcheck dns --output json cloudflare.com`, not `netcheck dns cloudflare.com --output json`.
+The `-j` / `-o` shortcuts are equivalent to `--output json` / `--out`. The long forms still work; the short forms exist to keep one-liners terse.
+
+> Flags come before the positional argument: `netcheck dns -j cloudflare.com`, not `netcheck dns cloudflare.com -j`.
 
 ## Config file
 
