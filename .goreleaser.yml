@@ -6,15 +6,16 @@ project_name: netcheck
 before:
   hooks:
     - go mod tidy
-    # Gate: same tests CI runs. Refuses to ship if anything fails, regardless
-    # of whether ci.yml ran on this commit. Adds ~1m to release time — fine
-    # for a low-frequency event, well worth the safety.
-    - go test -race ./...
     # Generate Windows version-info .syso files (amd64 + arm64). The Go
     # compiler picks them up automatically when building for windows.
     # Uses the current git tag for FileVersion / ProductVersion.
     - go install github.com/tc-hib/go-winres@latest
     - go-winres make --arch amd64,arm64 --file-version git-tag --product-version git-tag
+    # Note: `go test -race ./...` was previously here as a defence-in-depth
+    # check before publishing. Removed because by the time goreleaser runs,
+    # CI has already passed on the same commit via the merged feature PR.
+    # The hook was duplicating work that's already gated upstream and adding
+    # ~1 minute to every release for no observed marginal value.
 
 builds:
   - id: netcheck
