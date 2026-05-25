@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.7.0](https://github.com/Dezoxy/netcheck/compare/v1.6.1...v1.7.0) (2026-05-25)
+
+
+### Features
+
+* **web:** add audit mode to the React workbench ([#45](https://github.com/Dezoxy/netcheck/issues/45)) ([4728993](https://github.com/Dezoxy/netcheck/commit/47289938d0e65625dab622d86c0d83e425b7b092))
+
 ## [1.6.1](https://github.com/Dezoxy/netcheck/compare/v1.6.0...v1.6.1) (2026-05-25)
 
 
