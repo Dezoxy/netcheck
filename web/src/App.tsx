@@ -26,6 +26,8 @@ import {
   runHeadersCheck,
   runIPCheck,
   runPortsCheck,
+  streamPortsCheck,
+  type PortProgress,
   runReverseCheck,
   runRouteCheck,
   runSubsCheck,
@@ -101,6 +103,13 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sideTab, setSideTab] = useState<SideTab>("recent");
+  // portsProgress is the live counter shown during a streaming ports scan.
+  // null when no scan is in flight (or when running a non-streaming mode).
+  const [portsProgress, setPortsProgress] = useState<{
+    scanned: number;
+    total: number;
+    open: number;
+  } | null>(null);
   const [recents, setRecents] = useState<RecentCheck[]>(readRecents);
   const [saved, setSaved] = useState<SavedReportMeta[]>([]);
   const [savedError, setSavedError] = useState("");
@@ -194,7 +203,25 @@ export default function App() {
             next = await runTakeoverCheck(effectiveTarget);
             break;
           case "ports":
-            next = await runPortsCheck(effectiveTarget);
+            // Streaming variant: per-port progress events tick a live counter
+            // while the scan runs. The final `done` event carries the same
+            // PortScanReport shape as the non-streaming endpoint, so the rest
+            // of the flow (save, diff, recent) is unchanged.
+            next = await new Promise<PortScanReport>((resolve, reject) => {
+              setPortsProgress({ scanned: 0, total: 0, open: 0 });
+              streamPortsCheck(effectiveTarget, {
+                onProgress: (p: PortProgress) => {
+                  setPortsProgress((prev) => ({
+                    scanned: p.index,
+                    total: p.total,
+                    open: (prev?.open ?? 0) + (p.state === "open" ? 1 : 0),
+                  }));
+                },
+                onDone: (r) => resolve(r),
+                onError: (e) => reject(e),
+              });
+            });
+            setPortsProgress(null);
             break;
           case "enum":
             next = await runEnumCheck(effectiveTarget, { insecure });
@@ -215,6 +242,9 @@ export default function App() {
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "The check could not start.");
         setRunState("error");
+        // If a streaming scan errored mid-flight, drop the live counter so
+        // it doesn't stick around from the failed run.
+        setPortsProgress(null);
       }
     },
     [auditIncludeActive, insecure, mode, target],
@@ -497,6 +527,9 @@ export default function App() {
 
         {runState === "idle" ? <EmptyWorkbench mode={mode} onRun={() => void submitCheck()} /> : null}
         {runState === "error" ? <ErrorBanner message={error} /> : null}
+        {runState === "loading" && portsProgress ? (
+          <PortsProgressBanner progress={portsProgress} />
+        ) : null}
         {report ? <ReportView loading={runState === "loading"} report={report} /> : null}
       </main>
     </div>
@@ -1171,6 +1204,33 @@ function PortsTable({ ports }: { ports: NonNullable<PortScanReport["ports"]> }) 
         </div>
       ))}
     </div>
+  );
+}
+
+// PortsProgressBanner shows the live counter during a streaming ports scan.
+// Renders only between the "user clicked Run" and the "done" SSE frame.
+function PortsProgressBanner({
+  progress,
+}: {
+  progress: { scanned: number; total: number; open: number };
+}) {
+  const pct =
+    progress.total > 0 ? Math.min(100, Math.round((progress.scanned / progress.total) * 100)) : 0;
+  return (
+    <section className="ports-progress" aria-live="polite">
+      <div className="ports-progress-line">
+        <span>
+          Scanning <strong>{progress.scanned}</strong> / {progress.total || "?"}
+        </span>
+        <span className="ports-progress-open">
+          <strong>{progress.open}</strong> open so far
+        </span>
+        <span className="muted">{pct}%</span>
+      </div>
+      <div className="ports-progress-bar" aria-hidden="true">
+        <div className="ports-progress-bar-fill" style={{ width: `${pct}%` }} />
+      </div>
+    </section>
   );
 }
 
