@@ -531,7 +531,7 @@ func RenderTLSAudit(w io.Writer, d TLSAuditJSON) {
 		}
 		fmt.Fprintf(tw, "  Not before\t%s\n", d.Cert.NotBefore.Format("2006-01-02"))
 		fmt.Fprintf(tw, "  Not after\t%s (%d days)\n", d.Cert.NotAfter.Format("2006-01-02"), d.Cert.DaysRemaining)
-		fmt.Fprintf(tw, "  Chain length\t%d\n", d.Cert.ChainLen)
+		fmt.Fprintf(tw, "  Chain length\t%d\n", d.Cert.ChainCount)
 		if d.Cert.SelfSigned {
 			fmt.Fprintln(tw, "  Self-signed\ttrue")
 		}

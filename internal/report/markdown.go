@@ -165,7 +165,7 @@ func RenderIPInfoMD(w io.Writer, d IPInfoJSON) {
 	fmt.Fprintf(w, "# netcheck ip — `%s`\n\n", d.Target)
 	fmt.Fprintf(w, "_%s", d.StartedAt.Format(time.RFC3339))
 	if d.FromHost {
-		fmt.Fprintf(w, " · resolved %d address(es) in %dms", len(d.Details), d.ResolveTookMS)
+		fmt.Fprintf(w, " · resolved %d address(es) in %dms", len(d.Details), d.ResolveMS)
 	}
 	fmt.Fprintln(w, "_")
 	fmt.Fprintln(w)
@@ -608,7 +608,7 @@ func RenderTLSAuditMD(w io.Writer, d TLSAuditJSON) {
 			d.Cert.NotBefore.Format("2006-01-02"),
 			d.Cert.NotAfter.Format("2006-01-02"),
 			d.Cert.DaysRemaining)
-		fmt.Fprintf(w, "- **Chain length:** %d\n", d.Cert.ChainLen)
+		fmt.Fprintf(w, "- **Chain length:** %d\n", d.Cert.ChainCount)
 		if d.Cert.SelfSigned {
 			fmt.Fprintln(w, "- **Self-signed:** yes")
 		}

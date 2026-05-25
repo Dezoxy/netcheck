@@ -1095,7 +1095,7 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
             <Detail label="Subject" value={report.cert.subject} />
             <Detail label="Issuer" value={report.cert.issuer} />
             <Detail label="Validity" value={`${formatDate(report.cert.not_before)} → ${formatDate(report.cert.not_after)} (${report.cert.days_remaining}d)`} />
-            <Detail label="Chain length" value={String(report.cert.chain_len)} />
+            <Detail label="Chain length" value={String(report.cert.chain_count)} />
             {report.cert.self_signed ? <Detail label="Self-signed" value="yes" /> : null}
             {report.cert.expired ? <Detail error label="Expired" value="yes" /> : null}
           </dl>

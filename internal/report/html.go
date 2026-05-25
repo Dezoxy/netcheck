@@ -233,7 +233,7 @@ func RenderIPInfoHTML(w io.Writer, d IPInfoJSON) {
 	fmt.Fprintf(w, "<h1>netcheck ip</h1>\n")
 	fmt.Fprintf(w, "<p class=\"meta\">Target: <code>%s</code> · %s", html.EscapeString(d.Target), html.EscapeString(d.StartedAt.Format(time.RFC3339)))
 	if d.FromHost {
-		fmt.Fprintf(w, " · resolved %d address(es) in %dms", len(d.Details), d.ResolveTookMS)
+		fmt.Fprintf(w, " · resolved %d address(es) in %dms", len(d.Details), d.ResolveMS)
 	}
 	fmt.Fprintln(w, "</p>")
 
@@ -684,7 +684,7 @@ func RenderTLSAuditHTML(w io.Writer, d TLSAuditJSON) {
 			html.EscapeString(d.Cert.NotBefore.Format("2006-01-02")),
 			html.EscapeString(d.Cert.NotAfter.Format("2006-01-02")),
 			d.Cert.DaysRemaining)
-		fmt.Fprintf(w, "<li><b>Chain length:</b> %d</li>\n", d.Cert.ChainLen)
+		fmt.Fprintf(w, "<li><b>Chain length:</b> %d</li>\n", d.Cert.ChainCount)
 		if d.Cert.SelfSigned {
 			fmt.Fprintln(w, `<li><b>Self-signed:</b> <span class="weak">yes</span></li>`)
 		}

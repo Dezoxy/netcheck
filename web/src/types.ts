@@ -120,7 +120,7 @@ export type IPInfoReport = {
   target: string;
   started_at: string;
   from_host: boolean;
-  resolve_took_ms?: number;
+  resolve_ms?: number;
   details: Array<{
     ip: string;
     reverse?: string[];
@@ -265,7 +265,7 @@ export type TLSAuditReport = {
     not_before: string;
     not_after: string;
     days_remaining: number;
-    chain_len: number;
+    chain_count: number;
     self_signed?: boolean;
     expired?: boolean;
   };
