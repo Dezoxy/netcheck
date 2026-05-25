@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [1.6.1](https://github.com/Dezoxy/netcheck/compare/v1.6.0...v1.6.1) (2026-05-25)
+
+
+### Bug fixes
+
+* **web:** kill the tsc incremental cache that bricks local builds ([#43](https://github.com/Dezoxy/netcheck/issues/43)) ([16a93fa](https://github.com/Dezoxy/netcheck/commit/16a93fa112f27499a431c115b467974ee0ce0782))
+
 ## [1.6.0](https://github.com/Dezoxy/netcheck/compare/v1.5.0...v1.6.0) (2026-05-25)
 
 
