@@ -108,6 +108,17 @@ type enumCheckRequest struct {
 	IAuthorized     bool     `json:"i_have_authorization"`
 }
 
+// auditCheckRequest is the body for POST /api/check/audit. Active controls
+// whether the active-scanning sub-checks (tls, takeover, ports, enum) run;
+// when true, IAuthorized must also be true or the request is refused with
+// the same 403 shape as the standalone active endpoints.
+type auditCheckRequest struct {
+	Target      string `json:"target"`
+	Active      bool   `json:"active,omitempty"`
+	Insecure    bool   `json:"insecure,omitempty"`
+	IAuthorized bool   `json:"i_have_authorization,omitempty"`
+}
+
 type apiError struct {
 	Error string `json:"error"`
 }
@@ -163,6 +174,8 @@ func newAppHandler() http.Handler {
 	mux.HandleFunc("/api/check/takeover", handleTakeoverCheck)
 	mux.HandleFunc("/api/check/ports", handlePortsCheck)
 	mux.HandleFunc("/api/check/enum", handleEnumCheck)
+	// v1.6 aggregate command
+	mux.HandleFunc("/api/check/audit", handleAuditCheck)
 	mux.HandleFunc("/api/reports", handleReportsCollection)
 	mux.HandleFunc("/api/reports/", handleReportItem)
 	mux.Handle("/", http.FileServer(http.FS(webui.Dist())))
@@ -491,6 +504,36 @@ func handleEnumCheck(w http.ResponseWriter, r *http.Request) {
 		opts.PerPathTimeout = time.Duration(req.PerPathMS) * time.Millisecond
 	}
 	out := BuildPathEnum(r.Context(), req.URL, opts, enumDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+// ─── v1.6 audit aggregate ─────────────────────────────────────────────────
+
+func handleAuditCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req auditCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Target) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "target required"})
+		return
+	}
+	// Auth gate only required when `active` is requested. The passive
+	// variant of audit composes only over passive sub-commands (none of
+	// which need authorization themselves) — so refusing it would be a
+	// stricter contract than the standalone calls.
+	if req.Active {
+		if !requireAuthInBody(w, "audit", req.IAuthorized) {
+			return
+		}
+	}
+	out := BuildAudit(r.Context(), req.Target, AuditOptions{
+		Active:   req.Active,
+		Insecure: req.Insecure,
+	}, auditDefaultTimeout(loadedConfig.Timeout))
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -836,6 +879,12 @@ func sniffTarget(raw json.RawMessage, kind string) string {
 		}
 		_ = json.Unmarshal(raw, &s)
 		return s.BaseURL
+	case "audit":
+		var s struct {
+			Target string `json:"target"`
+		}
+		_ = json.Unmarshal(raw, &s)
+		return s.Target
 	}
 	return ""
 }
