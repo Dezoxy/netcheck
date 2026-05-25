@@ -173,6 +173,7 @@ func newAppHandler() http.Handler {
 	mux.HandleFunc("/api/check/tls", handleTLSAuditCheck)
 	mux.HandleFunc("/api/check/takeover", handleTakeoverCheck)
 	mux.HandleFunc("/api/check/ports", handlePortsCheck)
+	mux.HandleFunc("/api/check/ports/stream", handlePortsStream)
 	mux.HandleFunc("/api/check/enum", handleEnumCheck)
 	// v1.6 aggregate command
 	mux.HandleFunc("/api/check/audit", handleAuditCheck)
@@ -477,6 +478,150 @@ func handlePortsCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	out := BuildPorts(r.Context(), req.Host, opts, portsDefaultTimeout(loadedConfig.Timeout))
 	writeJSON(w, http.StatusOK, out)
+}
+
+// handlePortsStream is the SSE-flavoured variant of handlePortsCheck. Returns
+// a `text/event-stream` body with three event types:
+//
+//	event: progress  → { port, state, service, index, total }
+//	event: done      → the full PortScanJSON, same shape as the POST endpoint
+//	event: error     → { error: "..." }
+//
+// Why a separate endpoint rather than `?stream=1` on the existing one: the
+// response Content-Type and write pattern are completely different, and
+// mixing them in one handler reads worse than a small bit of duplication.
+//
+// Auth and request shape match the POST endpoint exactly — the body is JSON-
+// encoded `portsCheckRequest` with `i_have_authorization: true`. The client
+// uses fetch + ReadableStream to consume the body; older EventSource (which
+// only supports GET) would force us to put the auth token in the URL.
+func handlePortsStream(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req portsCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !requireAuthInBody(w, "ports", req.IAuthorized) {
+		return
+	}
+	if strings.TrimSpace(req.Host) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "host required"})
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// Should never happen on net/http — but reverse proxies or wrapped
+		// writers (e.g. compression middleware) could in theory strip the
+		// Flusher. Fall back to a single end-of-scan response, which is the
+		// behaviour the POST endpoint already provides.
+		writeJSON(w, http.StatusInternalServerError, apiError{Error: "streaming not supported"})
+		return
+	}
+
+	opts := portscan.Options{
+		Top:         req.Top,
+		Concurrency: req.Concurrency,
+	}
+	if req.PerPortMS > 0 {
+		opts.PerPortTimeout = time.Duration(req.PerPortMS) * time.Millisecond
+	}
+	if req.Ports != "" {
+		ports, err := portscan.ParsePortList(req.Ports)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
+			return
+		}
+		opts.Ports = ports
+	}
+
+	// SSE headers. text/event-stream + Cache-Control: no-store is the
+	// HTML5 spec recipe; X-Accel-Buffering disables nginx output buffering
+	// in case someone fronts the app with one.
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	// Funnel concurrent OnProgress callbacks into a buffered channel; a
+	// single emitter goroutine writes SSE frames to the HTTP response. The
+	// scan goroutines never touch the response writer directly — which
+	// matters because http.ResponseWriter is NOT safe for concurrent use.
+	progress := make(chan portscan.Progress, 256)
+	opts.OnProgress = func(p portscan.Progress) {
+		// Non-blocking send: if the consumer is slow, drop progress events
+		// rather than stalling the scan. The final 'done' event still
+		// carries the full result.
+		select {
+		case progress <- p:
+		default:
+		}
+	}
+
+	// Emitter goroutine — owns the writer. Closes the channel on scan
+	// completion (signaled by scanDone).
+	scanDone := make(chan struct{})
+	emitterDone := make(chan struct{})
+	go func() {
+		defer close(emitterDone)
+		enc := json.NewEncoder(w)
+		// One frame per call. enc encodes to writer directly (its Encode
+		// emits a trailing \n), and we wrap with the SSE framing:
+		// `event: X\ndata: <json>\n\n`. The extra blank line is the SSE
+		// frame terminator.
+		emit := func(event string, payload any) {
+			fmt.Fprintf(w, "event: %s\ndata: ", event)
+			_ = enc.Encode(payload)
+			fmt.Fprint(w, "\n")
+			flusher.Flush()
+		}
+		for {
+			select {
+			case p, ok := <-progress:
+				if !ok {
+					return
+				}
+				emit("progress", map[string]any{
+					"port":    p.Port,
+					"state":   p.State,
+					"service": p.Service,
+					"index":   p.Index,
+					"total":   p.TotalPorts,
+				})
+			case <-scanDone:
+				// Drain any remaining buffered events before exiting so the
+				// client gets the full picture.
+				for {
+					select {
+					case p := <-progress:
+						emit("progress", map[string]any{
+							"port":    p.Port,
+							"state":   p.State,
+							"service": p.Service,
+							"index":   p.Index,
+							"total":   p.TotalPorts,
+						})
+					default:
+						return
+					}
+				}
+			}
+		}
+	}()
+
+	out := BuildPorts(r.Context(), req.Host, opts, portsDefaultTimeout(loadedConfig.Timeout))
+	close(scanDone)
+	<-emitterDone
+
+	// Final frame: full report. Client uses this to populate the saved-
+	// reports UI / diff / export — exactly the same shape as the POST.
+	fmt.Fprint(w, "event: done\ndata: ")
+	_ = json.NewEncoder(w).Encode(out)
+	fmt.Fprint(w, "\n")
+	flusher.Flush()
 }
 
 func handleEnumCheck(w http.ResponseWriter, r *http.Request) {

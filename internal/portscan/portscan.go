@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -67,6 +68,27 @@ type Options struct {
 	// minimal `GET /` probe; for TLS-wrapped ports we skip entirely (use
 	// `netcheck tls` for those).
 	BannerTimeout time.Duration
+
+	// OnProgress, if non-nil, is called once per port as each result is
+	// known — open (with service name from the builtin map), closed (RST),
+	// or filtered (timeout / no route). The order is completion order, not
+	// the original port list order.
+	//
+	// CALLED CONCURRENTLY from the scan goroutines. Implementations must be
+	// safe to invoke from multiple goroutines simultaneously. The intended
+	// pattern for the HTTP/SSE handler is to push events onto a buffered
+	// channel and let a single emitter goroutine flush them to the response
+	// writer.
+	OnProgress func(Progress)
+}
+
+// Progress is one per-port event surfaced via Options.OnProgress.
+type Progress struct {
+	Port       int
+	State      string // "open" | "closed" | "filtered"
+	Service    string // for open ports, from the builtin map
+	Index      int    // 1-based completion order within this scan
+	TotalPorts int    // total scanned in this run (constant per scan)
 }
 
 // Scan resolves host, opens parallel TCP connections to each port, and
@@ -143,6 +165,11 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 	sem := make(chan struct{}, conc)
 	var wg sync.WaitGroup
 
+	// completed counter for OnProgress.Index. atomic increment because
+	// callbacks fire from many goroutines.
+	var completed int64
+	totalPorts := len(ports)
+
 	for i, p := range ports {
 		i, p := i, p
 		wg.Add(1)
@@ -156,17 +183,35 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 			pr := portRes{port: p}
 			if err != nil {
 				pr.errStr = err.Error()
-				results[i] = pr
-				return
+			} else {
+				pr.open = true
+				// Banner grab is best-effort. Errors are swallowed —
+				// banner is optional information, not a reason to fail
+				// the port result.
+				if bannerTimeout > 0 {
+					pr.banner = grabBanner(conn, p, bannerTimeout)
+				}
+				conn.Close()
 			}
-			pr.open = true
-			// Banner grab is best-effort. Errors are swallowed — banner is
-			// optional information, not a reason to fail the port result.
-			if bannerTimeout > 0 {
-				pr.banner = grabBanner(conn, p, bannerTimeout)
-			}
-			conn.Close()
 			results[i] = pr
+			if opts.OnProgress != nil {
+				idx := int(atomic.AddInt64(&completed, 1))
+				state := "open"
+				if !pr.open {
+					if isFiltered(pr.errStr) {
+						state = "filtered"
+					} else {
+						state = "closed"
+					}
+				}
+				opts.OnProgress(Progress{
+					Port:       p,
+					State:      state,
+					Service:    serviceName(p),
+					Index:      idx,
+					TotalPorts: totalPorts,
+				})
+			}
 		}()
 	}
 	wg.Wait()

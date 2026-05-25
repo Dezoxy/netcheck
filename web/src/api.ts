@@ -106,6 +106,132 @@ export function runPortsCheck(
   });
 }
 
+// PortProgress is one progress event from /api/check/ports/stream.
+// Mirrors the Go-side `portscan.Progress` shape — keep them in sync.
+export type PortProgress = {
+  port: number;
+  state: "open" | "closed" | "filtered";
+  service?: string;
+  index: number;
+  total: number;
+};
+
+export type StreamPortsHandlers = {
+  onProgress?: (p: PortProgress) => void;
+  onDone?: (report: PortScanReport) => void;
+  onError?: (err: Error) => void;
+};
+
+// streamPortsCheck POSTs the same body as runPortsCheck but reads back a
+// text/event-stream and dispatches `progress` and `done` events to the
+// supplied handlers. Returns an `abort` function — call it to cancel the
+// scan mid-stream (the server's context cancellation will stop new dials).
+//
+// We use fetch + ReadableStream rather than EventSource because EventSource
+// is GET-only. POST keeps the auth flag in the body where the rest of the
+// API expects it.
+export function streamPortsCheck(
+  host: string,
+  handlers: StreamPortsHandlers,
+  opts?: { ports?: string; top?: number; concurrency?: number },
+): { abort: () => void } {
+  const ctrl = new AbortController();
+  (async () => {
+    let response: Response;
+    try {
+      response = await fetch("/api/check/ports/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host,
+          ports: opts?.ports,
+          top: opts?.top,
+          concurrency: opts?.concurrency,
+          i_have_authorization: true,
+        }),
+        signal: ctrl.signal,
+      });
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        handlers.onError?.(err as Error);
+      }
+      return;
+    }
+    if (!response.ok) {
+      // Non-2xx — body is the standard JSON error envelope.
+      try {
+        const j = (await response.json()) as { error?: string };
+        handlers.onError?.(new Error(j.error || `HTTP ${response.status}`));
+      } catch {
+        handlers.onError?.(new Error(`HTTP ${response.status}`));
+      }
+      return;
+    }
+    if (!response.body) {
+      handlers.onError?.(new Error("no response body"));
+      return;
+    }
+    // Minimal SSE parser. SSE frames are delimited by `\n\n`; within each
+    // frame, `event: NAME` and `data: JSON` are the lines we care about.
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let frameEnd: number;
+        while ((frameEnd = buf.indexOf("\n\n")) !== -1) {
+          const frame = buf.slice(0, frameEnd);
+          buf = buf.slice(frameEnd + 2);
+          dispatchFrame(frame, handlers);
+        }
+      }
+      // Flush any final frame (server should terminate with \n\n, but be
+      // defensive against proxy quirks).
+      if (buf.trim().length > 0) {
+        dispatchFrame(buf, handlers);
+      }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        handlers.onError?.(err as Error);
+      }
+    }
+  })();
+  return { abort: () => ctrl.abort() };
+}
+
+function dispatchFrame(frame: string, handlers: StreamPortsHandlers) {
+  let event = "";
+  let data = "";
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("event: ")) {
+      event = line.slice(7);
+    } else if (line.startsWith("data: ")) {
+      data = line.slice(6);
+    }
+  }
+  if (!event || !data) return;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(data);
+  } catch {
+    return;
+  }
+  switch (event) {
+    case "progress":
+      handlers.onProgress?.(payload as PortProgress);
+      break;
+    case "done":
+      handlers.onDone?.(payload as PortScanReport);
+      break;
+    case "error":
+      handlers.onError?.(new Error(String((payload as { error?: string }).error || "stream error")));
+      break;
+  }
+}
+
 export function runEnumCheck(
   url: string,
   opts?: { insecure?: boolean; followRedirects?: boolean },
