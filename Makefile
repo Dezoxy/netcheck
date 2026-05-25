@@ -87,10 +87,12 @@ winres:
 	@command -v go-winres >/dev/null 2>&1 || go install github.com/tc-hib/go-winres@latest
 	go-winres make --arch amd64,arm64 --file-version git-tag --product-version git-tag
 
-## clean: remove bin/, coverage, and generated .syso files
+## clean: remove bin/, coverage, generated .syso files, and web build state
 clean:
 	rm -rf $(BIN_DIR) coverage.out
 	rm -f rsrc_windows_*.syso
+	rm -f $(WEB_DIR)/*.tsbuildinfo
+	rm -rf $(WEB_DIR)/dist
 
 ## help: list available targets
 help:
