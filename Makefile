@@ -13,9 +13,12 @@ LDFLAGS := -s -w -X github.com/Dezoxy/netcheck/cmd.Version=$(VERSION)
 
 .PHONY: app build run verify install uninstall fmt vet test coverage clean web-build winres help
 
-## app: build the React assets + Go binary, then run the local web app
-# Leaves ./bin/netcheck behind so you can re-run without rebuilding next time.
-app: web-build build
+## app: clean previous build, rebuild React assets + Go binary, run the local web app
+# `clean` runs first so the embedded UI bundle is always a fresh build — no
+# chance of serving a stale `internal/webui/dist` from a previous run. The
+# Go build cache lives outside ./bin (in $GOCACHE) so the rebuild is still
+# fast despite the wipe.
+app: clean web-build build
 	./$(BINARY) app $(ARGS)
 
 ## build: compile the binary into ./bin/ (version stamped from git describe)
