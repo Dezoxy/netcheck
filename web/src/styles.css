@@ -162,12 +162,16 @@ input,
   height: 20px;
 }
 
+.icon-button {
+  border-radius: var(--radius-sm);
+}
+
 .icon-button:hover:not(:disabled),
 .icon-button:focus-visible {
   color: var(--accent);
   outline: 1px solid var(--border-strong);
   outline-offset: -1px;
-  background: #1b1b1b;
+  background: var(--panel);
 }
 
 .icon-button:disabled {
@@ -372,12 +376,17 @@ input,
   background: var(--surface);
 }
 
+/* R-3 redesign: shared primitives get the new radius/shadow/padding
+   scale. The 14 result workbenches inherit these without per-component
+   edits. */
 .input-section,
 .panel,
 .summary-card,
 .error-banner {
   border: 1px solid var(--border);
   background: var(--panel);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-1);
 }
 
 .input-section {
@@ -554,15 +563,17 @@ input,
 }
 
 .error-banner {
-  padding: 12px 16px;
+  padding: var(--space-4) var(--space-5);
   border-color: rgb(243 95 99 / 55%);
+  background: rgb(243 95 99 / 6%);
   color: #ffd6d7;
   font-size: 13px;
+  line-height: 1.5;
 }
 
 .result-area {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
   min-width: 0;
 }
 
@@ -572,8 +583,8 @@ input,
 
 .result-header {
   display: flex;
-  min-height: 26px;
-  gap: 16px;
+  min-height: 28px;
+  gap: var(--space-4);
   align-items: center;
   justify-content: space-between;
 }
@@ -582,10 +593,11 @@ input,
   min-width: 0;
   margin: 0;
   overflow: hidden;
-  color: #e5e2e1;
-  font-size: 18px;
+  color: var(--fg);
+  font-size: 20px;
   font-weight: 600;
-  line-height: 24px;
+  letter-spacing: -0.01em;
+  line-height: 28px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -598,12 +610,12 @@ input,
 .health-pill {
   display: inline-flex;
   flex: none;
-  gap: 4px;
+  gap: var(--space-1);
   align-items: center;
   min-height: 26px;
-  padding: 5px 9px;
+  padding: var(--space-1) var(--space-3);
   border: 1px solid currentColor;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.055em;
@@ -629,16 +641,16 @@ input,
 
 .summary-strip {
   display: grid;
-  gap: 16px;
+  gap: var(--space-3);
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .summary-card {
   display: grid;
-  min-height: 58px;
-  gap: 4px;
+  min-height: 64px;
+  gap: var(--space-1);
   overflow: hidden;
-  padding: 9px;
+  padding: var(--space-3) var(--space-4);
 }
 
 .summary-card div {
@@ -791,11 +803,12 @@ input,
 
 .panel > header {
   display: flex;
-  min-height: 33px;
+  min-height: 38px;
   align-items: center;
   justify-content: space-between;
-  padding: 8px;
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--border);
+  background: rgb(255 255 255 / 1.5%);
 }
 
 .panel > header svg {
@@ -805,7 +818,7 @@ input,
 
 .panel-body {
   min-width: 0;
-  padding: 8px;
+  padding: var(--space-4);
 }
 
 .timing-panel .panel-body {
