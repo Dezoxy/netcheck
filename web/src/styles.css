@@ -2136,9 +2136,18 @@ input,
   }
 
   /* Brand at 24px reads fine on phones but the topbar gets cramped —
-     dial back to 20px so save/export icons have room. */
+     dial back to 20px so save/export icons have room.
+
+     Codex P2 on #71: keep the left/right safe-area-inset handling
+     from the base .topbar rule. Notched phones in landscape (and
+     standalone-mode iOS) have non-zero horizontal insets; without
+     `max(token, env(...))` the brand and action icons would clip
+     into the rounded corner / notch area. */
   .topbar {
-    padding: env(safe-area-inset-top) var(--space-3) 0 var(--space-3);
+    padding: env(safe-area-inset-top)
+             max(var(--space-3), env(safe-area-inset-right))
+             0
+             max(var(--space-3), env(safe-area-inset-left));
   }
   .brand {
     font-size: 20px;
