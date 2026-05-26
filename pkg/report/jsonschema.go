@@ -436,6 +436,14 @@ type PortScanJSON struct {
 type PortJSON struct {
 	Port    int    `json:"port"`
 	Service string `json:"service,omitempty"`
+	// Proto is "tcp" or "udp". Added in 2.1 (R-13) as additive optional —
+	// omitted on TCP-only scans for back-compat with pre-2.1 consumers.
+	Proto string `json:"proto,omitempty"`
+	// State is the open-state classification. "open" for TCP and definite
+	// UDP responses, "open|filtered" for UDP ports where we couldn't tell
+	// without raw-socket ICMP access. Omitted (defaults to "open") on
+	// pure-TCP scans for back-compat.
+	State string `json:"state,omitempty"`
 	// Banner is the best-effort fingerprint string from a short read on
 	// connect (or a minimal GET probe on known HTTP ports). May be empty.
 	// Stable field — added in 1.8.0 as an additive optional.
@@ -448,6 +456,10 @@ type PortStatsJSON struct {
 	Open     int `json:"open"`
 	Closed   int `json:"closed"`
 	Filtered int `json:"filtered"`
+	// OpenFiltered counts UDP ports with no response — open or filtered,
+	// ambiguous without raw-socket access. Added in 2.1 (R-13) as
+	// additive optional. Always 0 on TCP-only scans.
+	OpenFiltered int `json:"open_filtered,omitempty"`
 }
 
 // PathEnumJSON is the JSON representation of a `netcheck enum` run.
@@ -834,18 +846,40 @@ func ToPortScanJSON(r portscan.Result) PortScanJSON {
 		StartedAt:       r.StartedAt,
 		TookMS:          r.Took.Milliseconds(),
 		Stats: PortStatsJSON{
-			Total:    r.Stats.Total,
-			Open:     r.Stats.Open,
-			Closed:   r.Stats.Closed,
-			Filtered: r.Stats.Filtered,
+			Total:        r.Stats.Total,
+			Open:         r.Stats.Open,
+			Closed:       r.Stats.Closed,
+			Filtered:     r.Stats.Filtered,
+			OpenFiltered: r.Stats.OpenFiltered,
 		},
 	}
 	if r.Err != nil {
 		out.Error = r.Err.Error()
 		return out
 	}
+	// Detect whether any UDP results are present. If the scan was TCP-only
+	// (the pre-R-13 case), omit Proto/State so the JSON output is byte-
+	// identical to old consumers.
+	hasUDP := false
 	for _, p := range r.Ports {
-		out.Ports = append(out.Ports, PortJSON{Port: p.Port, Service: p.Service, Banner: p.Banner})
+		if p.Proto == "udp" {
+			hasUDP = true
+			break
+		}
+	}
+	for _, p := range r.Ports {
+		pj := PortJSON{Port: p.Port, Service: p.Service, Banner: p.Banner}
+		if hasUDP {
+			pj.Proto = p.Proto
+			if pj.Proto == "" {
+				pj.Proto = "tcp"
+			}
+			pj.State = p.State
+			if pj.State == "" {
+				pj.State = "open"
+			}
+		}
+		out.Ports = append(out.Ports, pj)
 	}
 	return out
 }
