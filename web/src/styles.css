@@ -121,11 +121,21 @@ input,
   background: var(--surface);
 }
 
+/* Brand block now wraps the X-shape mark + wordmark. R-10 added the
+   mark — gap + flex centers them on the topbar baseline. */
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--accent);
   font-size: 24px;
   font-weight: 700;
   line-height: 32px;
+}
+
+.brand-mark {
+  flex-shrink: 0;
+  color: var(--accent);
 }
 
 .topbar-actions {
@@ -1523,11 +1533,16 @@ input,
     background 120ms ease;
 }
 
+/* R-10: card hover combines tonal lift (elev-hover) with a cyan glow ring
+   so the focused card pops against the panel. Both shadows compose:
+   drop-shadow for depth + accent-glow for "this is the focused thing".
+   The Modern v1 mockup's cards visibly glow on hover; the v1 build was
+   doing only the drop-shadow which read as flat in the dark surface. */
 .category-card:hover,
 .category-card:focus-visible {
   background: var(--panel-raised);
   border-color: var(--accent);
-  box-shadow: var(--elev-hover);
+  box-shadow: var(--elev-hover), var(--accent-glow);
   outline: 0;
   transform: translateY(-1px);
 }
@@ -1582,6 +1597,48 @@ input,
 .category-card:hover .category-card-cta,
 .category-card:focus-visible .category-card-cta {
   background: var(--accent-strong);
+}
+
+/* R-10: central "Run Check" pill on the landing — the default-action CTA
+   below the category grid. Runs a Full Check on the typed target without
+   needing the user to pick a category first. Matches the Modern v1 mockup
+   where this big cyan pill is the visual centerpiece of the landing. */
+.run-check-cta {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 200px;
+  padding: var(--space-3) var(--space-6);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #001218;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--accent-glow);
+  transition: background 120ms ease, box-shadow 120ms ease, transform 100ms ease;
+}
+
+.run-check-cta:hover:not(:disabled),
+.run-check-cta:focus-visible {
+  background: var(--accent-strong);
+  outline: 0;
+  transform: translateY(-1px);
+}
+
+.run-check-cta:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.run-check-cta svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
 /* Route pages — generic shell for History / Reports / Settings routes.
