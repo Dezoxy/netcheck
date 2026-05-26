@@ -525,29 +525,36 @@ export default function App() {
 
 // SideNavV2 renders the desktop sidenav with four top-level routes.
 // Mobile users get a fixed BottomNav instead — see CSS media queries.
-// BrandMark is the inline SVG icon that sits next to the "netcheck" wordmark
-// in the topbar (and in the sidenav header). Derived from the X-shape mark in
-// the Stitch Modern v1 mockup — two crossed lines forming an `x`, with a
-// subtle horizontal accent bar. Sized to match the wordmark's cap height.
-// Stroked rather than filled so it picks up `currentColor` and inherits the
-// accent on hover where applicable.
-function BrandMark() {
+// BrandMark is the inline SVG icon next to the "netcheck" wordmark. R-11
+// redrew this from the R-10 X+bars shape to the atom-style mark from the
+// Stitch Modern v1 mockup: two crossing diagonal connectors with four dot
+// endpoints (and a tiny center marker), evoking a network-of-nodes feel.
+// Strokes pick up `currentColor`; dot fills pick up the same. Sized to
+// match the wordmark cap height; pass `size` to override.
+function BrandMark({ size = 20 }: { size?: number }) {
   return (
     <svg
       aria-hidden="true"
       className="brand-mark"
       fill="none"
-      height="20"
+      height={size}
       stroke="currentColor"
       strokeLinecap="round"
       strokeLinejoin="round"
-      strokeWidth="2"
+      strokeWidth="1.6"
       viewBox="0 0 24 24"
-      width="20"
+      width={size}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <path d="M5 5l14 14M19 5L5 19" />
-      <path d="M3 12h4M17 12h4" />
+      {/* Crossing diagonals between the four corner nodes. */}
+      <path d="M6 6 L18 18 M18 6 L6 18" />
+      {/* Four endpoint nodes — filled so they read as solid dots. */}
+      <circle cx="6" cy="6" fill="currentColor" r="2" stroke="none" />
+      <circle cx="18" cy="6" fill="currentColor" r="2" stroke="none" />
+      <circle cx="6" cy="18" fill="currentColor" r="2" stroke="none" />
+      <circle cx="18" cy="18" fill="currentColor" r="2" stroke="none" />
+      {/* Center node — a touch smaller so the X dominates. */}
+      <circle cx="12" cy="12" fill="currentColor" r="1.2" stroke="none" />
     </svg>
   );
 }
@@ -559,24 +566,28 @@ function SideNavV2({
   route: Route;
   onRouteChange: (next: Route) => void;
 }) {
+  // R-11: brand moves INTO the sidebar at the top (matching the Modern v1
+  // mockup), and the active item uses the BrandMark icon to reinforce the
+  // workbench-as-default-route metaphor. Documentation/Support footer
+  // links are gone — they weren't in the mockup and the bottom of the
+  // sidebar is intentionally empty / gradient-faded.
   return (
     <aside className="sidenav sidenav-v2" aria-label="Primary">
+      <div className="sidenav-brand">
+        <BrandMark size={28} />
+        <span>netcheck</span>
+      </div>
       <nav className="sidenav-nav" aria-label="Top-level routes">
-        <NavItem icon={<Terminal />} label="Workbench" active={route === "workbench"} onClick={() => onRouteChange("workbench")} />
-        <NavItem icon={<History />} label="History" active={route === "history"} onClick={() => onRouteChange("history")} />
-        <NavItem icon={<FileText />} label="Reports" active={route === "reports"} onClick={() => onRouteChange("reports")} />
+        <NavItem
+          icon={route === "workbench" ? <BrandMark size={18} /> : <Terminal />}
+          label="Network Workbench"
+          active={route === "workbench"}
+          onClick={() => onRouteChange("workbench")}
+        />
+        <NavItem icon={<History />} label="Recent Checks" active={route === "history"} onClick={() => onRouteChange("history")} />
+        <NavItem icon={<FileText />} label="Saved Reports" active={route === "reports"} onClick={() => onRouteChange("reports")} />
         <NavItem icon={<Settings2 />} label="Settings" active={route === "settings"} onClick={() => onRouteChange("settings")} />
       </nav>
-      <div className="sidenav-footer">
-        <a href="https://github.com/Dezoxy/netcheck#readme" rel="noreferrer" target="_blank">
-          <Globe />
-          <span>Documentation</span>
-        </a>
-        <a href="https://github.com/Dezoxy/netcheck/issues" rel="noreferrer" target="_blank">
-          <FileText />
-          <span>Support</span>
-        </a>
-      </div>
     </aside>
   );
 }

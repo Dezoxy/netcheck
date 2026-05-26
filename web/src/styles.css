@@ -95,14 +95,17 @@ input,
 }
 
 /* R-1 shell. Desktop = topbar + (sidenav, workbench) + status footer.
-   Mobile (≤720px) collapses to a single workbench column with a fixed
-   bottom-nav; rules at the bottom of this file. */
+   Mobile (≤920px) collapses to a single workbench column with a fixed
+   bottom-nav; rules at the bottom of this file.
+   R-11 widened the sidenav from 240px → 280px to match the Modern v1
+   mockup proportions; brand block now lives inside the sidenav so it
+   needs the extra room. */
 .app-shell {
   display: grid;
   grid-template:
     "topbar topbar" 48px
     "sidenav workbench" 1fr
-    "footer footer" 28px / 240px minmax(0, 1fr);
+    "footer footer" 28px / 280px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--canvas);
 }
@@ -121,8 +124,27 @@ input,
   background: var(--surface);
 }
 
-/* Brand block now wraps the X-shape mark + wordmark. R-10 added the
-   mark — gap + flex centers them on the topbar baseline. */
+/* Brand block — atom mark + wordmark. Two contexts:
+     1. Topbar (.topbar .brand)   — visible only on mobile (≤920px) where
+        the sidebar is hidden. Carries the brand for phone users.
+     2. Sidenav (.sidenav-brand)  — visible on ≥921px desktop where it
+        replaces the topbar brand. Matches the Modern v1 mockup where the
+        brand sits at the top of the sidebar.
+   R-11: desktop hides .topbar .brand via the media query lower in this
+   file. */
+/* Desktop: brand inside .topbar is hidden; sidebar's .sidenav-brand
+   takes over. Mobile (≤920px) re-enables it via the media query at the
+   bottom of this file. */
+.topbar .brand {
+  display: none;
+}
+
+@media (max-width: 920px) {
+  .topbar .brand {
+    display: inline-flex;
+  }
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -136,6 +158,23 @@ input,
 .brand-mark {
   flex-shrink: 0;
   color: var(--accent);
+}
+
+/* The sidenav variant — bigger mark, used at the top of the sidebar. */
+.sidenav-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 28px;
+}
+
+.sidenav-brand .brand-mark {
+  flex-shrink: 0;
 }
 
 .topbar-actions {
@@ -189,6 +228,13 @@ input,
   opacity: 0.32;
 }
 
+/* R-11 sidebar — glassy: semi-transparent surface + backdrop blur so the
+   canvas color bleeds through. Brand block at the top, nav below, empty
+   space at the bottom. The grid-rows now match the new content: brand row
+   (auto) + nav (1fr) — the legacy "heading + 2 lists + footer" layout is
+   gone because R-11 dropped the sidenav-heading and the Documentation /
+   Support footer links. Mobile (≤920px) keeps `display: none` (see media
+   query at the bottom of this file). */
 .sidenav {
   position: sticky;
   top: 48px;
@@ -196,10 +242,12 @@ input,
   display: grid;
   height: calc(100vh - 48px);
   min-height: 640px;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto 1fr;
   overflow: hidden;
   border-right: 1px solid var(--border-strong);
-  background: #1c1b1b;
+  background: rgba(20, 23, 27, 0.55); /* ~55% of --surface */
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
 }
 
 .sidenav-backdrop {
@@ -228,8 +276,11 @@ input,
   padding: 5px;
 }
 
+/* R-11: removed `.nav-item` from this label-caps cluster — nav items now
+   use full sentence-case readable text (16px regular) rather than tiny
+   tracked-out caps, matching the Modern v1 mockup. The remaining members
+   are still legitimate label-caps rendering contexts. */
 .sidenav-heading span,
-.nav-item,
 .panel > header,
 .summary-card > span,
 .mode-tab,
@@ -251,33 +302,58 @@ input,
   line-height: 20px;
 }
 
+/* R-11: nav items get a proper pill design — rounded background fills the
+   item width with margin on both sides; active state uses panel-raised
+   bg + accent text/icon. Matches the Modern v1 mockup where the active
+   item is a rounded rectangle hugging icon+text. Idle items hover into
+   a subtler panel tone. */
 .sidenav-nav {
   display: grid;
-  gap: 6px;
-  padding-top: 8px;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
 }
 
 .nav-item {
   display: flex;
-  min-height: 36px;
-  gap: 16px;
+  min-height: 44px;
+  gap: var(--space-3);
   align-items: center;
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-3);
   border: 0;
+  border-radius: var(--radius-sm);
   background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 20px;
   cursor: pointer;
   text-align: left;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .nav-item svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
-.nav-item-active {
-  border-right: 2px solid var(--accent);
-  background: #353534;
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--fg);
+}
+
+.nav-item:focus-visible {
+  outline: 1px solid var(--border-strong);
+  outline-offset: -1px;
+}
+
+.nav-item-active,
+.nav-item-active:hover {
+  background: var(--panel-raised);
   color: var(--accent);
+  font-weight: 600;
 }
 
 .recent-list {
@@ -1603,22 +1679,29 @@ input,
    below the category grid. Runs a Full Check on the typed target without
    needing the user to pick a category first. Matches the Modern v1 mockup
    where this big cyan pill is the visual centerpiece of the landing. */
+/* R-11 bumped the halo: multi-step radial bloom (outer wide + outer
+   narrow + inner ring) so the button reads as a glowing centerpiece
+   rather than just a button with a thin glow. Matches the Modern v1
+   mockup's hero CTA. */
 .run-check-cta {
   justify-self: center;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-width: 200px;
-  padding: var(--space-3) var(--space-6);
+  min-width: 240px;
+  padding: var(--space-4) var(--space-7);
   border: 0;
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: #001218;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: var(--accent-glow);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 24px -2px rgba(76, 215, 246, 0.55),
+    0 0 48px -8px rgba(76, 215, 246, 0.4);
   transition: background 120ms ease, box-shadow 120ms ease, transform 100ms ease;
 }
 
