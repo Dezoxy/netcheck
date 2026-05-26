@@ -160,12 +160,15 @@ input,
   color: var(--accent);
 }
 
-/* The sidenav variant — bigger mark, used at the top of the sidebar. */
+/* The sidenav variant — bigger mark, used at the top of the sidebar.
+   R-11 follow-up: tightened the top padding (was --space-5 = 20px) to
+   --space-4 (16px) so the brand sits closer to the sidebar's top
+   edge rather than floating mid-column. */
 .sidenav-brand {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-5) var(--space-5) var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-2);
   color: var(--accent);
   font-size: 22px;
   font-weight: 700;
@@ -229,20 +232,24 @@ input,
 }
 
 /* R-11 sidebar — glassy: semi-transparent surface + backdrop blur so the
-   canvas color bleeds through. Brand block at the top, nav below, empty
-   space at the bottom. The grid-rows now match the new content: brand row
-   (auto) + nav (1fr) — the legacy "heading + 2 lists + footer" layout is
-   gone because R-11 dropped the sidenav-heading and the Documentation /
-   Support footer links. Mobile (≤920px) keeps `display: none` (see media
-   query at the bottom of this file). */
+   canvas color bleeds through. Brand block at the top, nav directly
+   below, then the remaining height is empty (fades into the canvas).
+   Mobile (≤920px) keeps `display: none` (see media query at the
+   bottom of this file).
+   R-11 follow-up: switched from `grid-template-rows: auto 1fr` to a
+   flex column. The grid layout was inflating the nav row to 1fr, which
+   created visual ambiguity about where the items "live" and shifted
+   brand visually toward center on tall viewports. Flex column with
+   `justify-content: flex-start` anchors brand + nav to the top with
+   their natural heights; the rest of the column is just empty space. */
 .sidenav {
   position: sticky;
   top: 48px;
   grid-area: sidenav;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   height: calc(100vh - 48px);
-  min-height: 640px;
-  grid-template-rows: auto 1fr;
   overflow: hidden;
   border-right: 1px solid var(--border-strong);
   background: rgba(20, 23, 27, 0.55); /* ~55% of --surface */
@@ -1393,51 +1400,21 @@ input,
 
 /* ─── R-1 redesign: shell, landing, route pages ────────────────────────── */
 
-/* SideNav v2 — replaces the old "Diagnostics" heading with a clean
-   icon-rail. The .sidenav base rule above already positions it. */
-.sidenav-v2 {
-  display: grid;
-  grid-template-rows: 1fr auto;
-  padding-top: var(--space-3);
-}
-
-.sidenav-v2 .nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 40px;
-  padding: var(--space-2) var(--space-5);
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 20px;
-  text-transform: none;
-  cursor: pointer;
-  text-align: left;
-  border-left: 2px solid transparent;
-}
-
-.sidenav-v2 .nav-item svg {
-  width: 18px;
-  height: 18px;
-  flex: none;
-}
-
-.sidenav-v2 .nav-item:hover,
-.sidenav-v2 .nav-item:focus-visible {
-  color: var(--fg);
-  background: var(--panel);
-  outline: 0;
-}
-
-.sidenav-v2 .nav-item-active {
-  color: var(--accent);
-  background: var(--panel-raised);
-  border-left-color: var(--accent);
-}
+/* SideNav v2 was originally a grid with `1fr auto` rows so the
+   Documentation/Support footer pinned to the bottom while nav filled
+   the space. R-11 removed both the footer and the grid layout — but
+   left this `.sidenav-v2` block in place by accident. Codex caught
+   the cascade: `display: grid; grid-template-rows: 1fr auto` here
+   overrode the flex layout I added to `.sidenav` in #77, AND swapped
+   the row sizing so the brand (now the first child) consumed `1fr`
+   and pushed nav to the bottom.
+   The duplicated `.sidenav-v2 .nav-item*` rules were also fighting the
+   R-11 `.nav-item` pill design (smaller font, left-border instead of
+   rounded background, etc.). All deleted — the base `.sidenav` /
+   `.nav-item` rules above are now the single source of truth. The
+   `.sidenav-v2` class on the JSX element is kept for future-proofing
+   (so we have a hook if we ever ship a v3 layout side-by-side) but
+   carries no styles. */
 
 /* BottomNav — mobile only. Hidden on desktop via the media query at the
    end of the file. Safe-area inset baked in for notch devices. */
