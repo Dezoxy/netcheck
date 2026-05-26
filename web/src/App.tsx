@@ -146,6 +146,25 @@ const MODE_LABEL: Record<CheckMode, string> = {
   audit: "Audit",
 };
 
+// MODE_BLURB is the one-liner description shown on each ModeCard inside
+// a category-detail screen. R-2 surface.
+const MODE_BLURB: Record<CheckMode, string> = {
+  full: "DNS + TCP + TLS + HTTP probe with redirect chain and timing.",
+  dns: "Compare A/AAAA/MX/TXT answers across Cloudflare, Google, Quad9, system, and any custom resolvers.",
+  route: "Traceroute to the target with per-hop ASN annotation.",
+  ip: "RDAP, reverse DNS, CDN affiliation, ASN ownership.",
+  headers: "Grade HSTS, CSP, X-Frame-Options, and the rest of the security-relevant response headers.",
+  tech: "Fingerprint the CMS, framework, server, CDN, and language from one passive GET.",
+  subs: "Enumerate subdomains from Certificate Transparency logs (crt.sh + CertSpotter).",
+  reverse: "Other hostnames pointing at this IP — reverse DNS, Hackertarget, optional Shodan.",
+  arch: "Wayback Machine snapshot history — first/last seen, total snapshots, recent URLs.",
+  tls: "Protocol matrix + cipher suites + certificate chain + expiry. Active.",
+  takeover: "Is this CNAME pointing at an unclaimed third-party service? Active.",
+  ports: "Parallel TCP connect scan with banner grab. Active.",
+  enum: "HTTP path enumeration against a curated wordlist. Active.",
+  audit: "Aggregate report across Network + Recon (passive) — optionally also Scanning (active).",
+};
+
 // kindToMode maps the JSON `kind` field on a report back to the UI's
 // CheckMode. Most match 1:1; tls-audit is the only asymmetry.
 function kindToMode(kind: string): CheckMode {
@@ -221,9 +240,13 @@ export default function App() {
   // inside that component). No global watcher needed here in R-1.
 
   const runCheck = useCallback(
-    async (overrideMode?: CheckMode, overrideTarget?: string) => {
+    async (overrideMode?: CheckMode, overrideTarget?: string, overrideAuditActive?: boolean) => {
       const effectiveMode = overrideMode ?? mode;
       const effectiveTarget = (overrideTarget ?? target).trim();
+      // overrideAuditActive lets the ModeCard force the audit-active
+      // flag synchronously — without it we'd read the stale
+      // auditIncludeActive captured in this useCallback's closure.
+      const effectiveAuditActive = overrideAuditActive ?? auditIncludeActive;
       if (!effectiveTarget) {
         setError("Enter a URL, host, or IP address.");
         setRunState("error");
@@ -291,7 +314,7 @@ export default function App() {
             break;
           case "audit":
             next = await runAuditCheck(effectiveTarget, {
-              active: auditIncludeActive,
+              active: effectiveAuditActive,
               insecure,
             });
             break;
@@ -428,111 +451,29 @@ export default function App() {
         ) : null}
 
         {route === "workbench" && category !== null ? (
-          <>
-            <button className="back-link" onClick={backToLanding} type="button">
-              <ChevronLeft />
-              <span>Categories</span>
-            </button>
-
-            <form className="input-section" onSubmit={submitCheck}>
-              <div className="target-row">
-                <label className="target-field">
-                  <Globe />
-                  <span className="sr-only">Target</span>
-                  <input
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    onChange={(event) => setTarget(event.target.value)}
-                    spellCheck="false"
-                    value={target}
-                  />
-                </label>
-                <button className="run-button" disabled={runState === "loading" || runBlocked} type="submit">
-                  <Play />
-                  <span>{runState === "loading" ? "Running" : "Run Check"}</span>
-                </button>
-              </div>
-              {/* R-1: keep the existing mode-tabs UI inside the category
-                  view, filtered to the picked category's modes. R-2
-                  replaces this with ModeCards. */}
-              <div className="mode-groups" role="tablist" aria-label="Check mode">
-                {MODE_GROUPS.filter((group) =>
-                  CATEGORIES.find((c) => c.key === category)?.modes.some((m) => group.modes.includes(m)),
-                ).map((group) => (
-                  <div className="mode-group" key={group.label}>
-                    <span className="mode-group-label">{group.label}</span>
-                    <div className="mode-tabs">
-                      {group.modes
-                        .filter((m) => CATEGORIES.find((c) => c.key === category)?.modes.includes(m))
-                        .map((key) => (
-                          <button
-                            key={key}
-                            aria-selected={mode === key}
-                            className={`mode-tab ${mode === key ? "mode-tab-active" : ""} ${
-                              isActiveMode(key) ? "mode-tab-active-tier" : ""
-                            }`}
-                            onClick={() => setMode(key)}
-                            role="tab"
-                            type="button"
-                          >
-                            {MODE_LABEL[key]}
-                          </button>
-                        ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </form>
-
-            {mode === "audit" ? (
-              <section className="audit-options" aria-label="Audit options">
-                <label className="auth-gate-check">
-                  <input
-                    checked={auditIncludeActive}
-                    onChange={(event) => setAuditIncludeActive(event.target.checked)}
-                    type="checkbox"
-                  />
-                  <span>Also run active scans (TLS audit, takeover, ports, path enum)</span>
-                </label>
-              </section>
-            ) : null}
-
-            {requiresAuth ? (
-              <section className={`auth-gate ${activeAcknowledged ? "auth-gate-ack" : "auth-gate-pending"}`} aria-label="Active scan authorization">
-                <div className="auth-gate-icon">
-                  <AlertTriangle />
-                </div>
-                <div className="auth-gate-body">
-                  <strong>
-                    {mode === "audit" ? "Active audit" : MODE_LABEL[mode]} sends probes to the target.
-                  </strong>
-                  <p>
-                    Running this against a system you do not own or do not have written permission to test
-                    is illegal in most jurisdictions. Read{" "}
-                    <a href="https://github.com/Dezoxy/netcheck/blob/main/docs/ETHICS.md" rel="noreferrer" target="_blank">
-                      docs/ETHICS.md
-                    </a>
-                    .
-                  </p>
-                  <label className="auth-gate-check">
-                    <input
-                      checked={activeAcknowledged}
-                      onChange={(event) => setActiveAcknowledged(event.target.checked)}
-                      type="checkbox"
-                    />
-                    <span>I am authorized to actively probe this target.</span>
-                  </label>
-                </div>
-              </section>
-            ) : null}
-
-            {runState === "idle" ? <EmptyWorkbench mode={mode} onRun={() => void submitCheck()} /> : null}
-            {runState === "error" ? <ErrorBanner message={error} /> : null}
-            {runState === "loading" && portsProgress ? (
-              <PortsProgressBanner progress={portsProgress} />
-            ) : null}
-            {report ? <ReportView loading={runState === "loading"} report={report} /> : null}
-          </>
+          <CategoryDetail
+            categoryDef={CATEGORIES.find((c) => c.key === category)!}
+            target={target}
+            onTargetChange={setTarget}
+            onBack={backToLanding}
+            onRun={(m, opts) => {
+              setMode(m);
+              if (opts?.auditActive !== undefined) {
+                setAuditIncludeActive(opts.auditActive);
+              }
+              // Pass auditActive as a third arg to dodge the stale
+              // closure on auditIncludeActive — the setState above
+              // won't be visible inside this same render's runCheck.
+              void runCheck(m, undefined, opts?.auditActive);
+            }}
+            runState={runState}
+            runningMode={mode}
+            activeAcknowledged={activeAcknowledged}
+            onAcknowledge={setActiveAcknowledged}
+            error={error}
+            report={report}
+            portsProgress={portsProgress}
+          />
         ) : null}
 
         {route === "history" ? (
@@ -743,6 +684,234 @@ function CategoryCard({ def, onClick }: { def: CategoryDef; onClick: () => void 
       </div>
       <span className="category-card-cta">Select</span>
     </button>
+  );
+}
+
+// CategoryDetail is the screen shown after the user picks a category
+// card. Layout: back link → target input bar → optional auth banner
+// (for Scanning) → list of ModeCards → result area.
+//
+// R-2 collapses the previous per-mode "form + tabs + auth + audit-
+// options" flow into one card per mode. Clicking a card's Run pill
+// sets the mode and kicks off the check in a single action.
+function CategoryDetail({
+  categoryDef,
+  target,
+  onTargetChange,
+  onBack,
+  onRun,
+  runState,
+  runningMode,
+  activeAcknowledged,
+  onAcknowledge,
+  error,
+  report,
+  portsProgress,
+}: {
+  categoryDef: CategoryDef;
+  target: string;
+  onTargetChange: (next: string) => void;
+  onBack: () => void;
+  onRun: (mode: CheckMode, opts?: { auditActive?: boolean }) => void;
+  runState: RunState;
+  runningMode: CheckMode;
+  activeAcknowledged: boolean;
+  onAcknowledge: (next: boolean) => void;
+  error: string;
+  report: AnyReport | null;
+  portsProgress: { scanned: number; total: number; open: number } | null;
+}) {
+  const isScanning = categoryDef.key === "scanning";
+  const isAggregate = categoryDef.key === "aggregate";
+  // Predicate used by the onKeyDown Enter handler — only Audit lives in
+  // Aggregate today, so this is just `m === "audit"` for now, but keep
+  // the categoryDef.key check explicit for when R-7 adds diff/watch.
+  const isAuditAggregateMode = (m: CheckMode) => isAggregate && m === "audit";
+  // Within the Aggregate category, the audit mode card surfaces both
+  // Passive and Active run buttons. Active reuses the same auth scope
+  // as the Scanning category (one checkbox unlocks all active probes).
+  const showAuthBanner = (isScanning || isAggregate);
+  const runDisabled = runState === "loading";
+
+  return (
+    <section className="category-detail" aria-label={categoryDef.label}>
+      <button className="back-link" onClick={onBack} type="button">
+        <ChevronLeft />
+        <span>Categories</span>
+      </button>
+
+      <div className="category-detail-header">
+        <h1>{categoryDef.label}</h1>
+        <p>{categoryDef.blurb}</p>
+      </div>
+
+      <label className="landing-input category-detail-input">
+        <Globe />
+        <span className="sr-only">Target</span>
+        <input
+          autoCapitalize="none"
+          autoCorrect="off"
+          onChange={(event) => onTargetChange(event.target.value)}
+          onKeyDown={(event) => {
+            // Codex P2 on #64: Enter used to submit the v1 form.
+            // R-2 replaced the form with ModeCards, so Enter became a
+            // no-op. Restore the keyboard-flow expectation by running
+            // the first mode in the category that isn't auth-blocked.
+            // Aggregate's audit defaults to Passive; Scanning needs the
+            // category-level checkbox first or Enter is suppressed.
+            if (event.key !== "Enter" || runDisabled) {
+              return;
+            }
+            const firstMode = categoryDef.modes.find((m) => {
+              if (isAuditAggregateMode(m)) return true; // Passive always OK
+              return !isActiveMode(m) || activeAcknowledged;
+            });
+            if (firstMode) {
+              event.preventDefault();
+              const opts = isAuditAggregateMode(firstMode) ? { auditActive: false } : undefined;
+              onRun(firstMode, opts);
+            }
+          }}
+          placeholder="Enter target URL (e.g. https://example.com) or IP address…"
+          spellCheck="false"
+          value={target}
+        />
+      </label>
+
+      {showAuthBanner ? (
+        <section
+          className={`auth-banner ${activeAcknowledged ? "auth-banner-ack" : "auth-banner-pending"}`}
+          aria-label="Active scan authorization"
+        >
+          <div className="auth-banner-icon">
+            <AlertTriangle />
+          </div>
+          <div className="auth-banner-body">
+            <strong>
+              {isScanning
+                ? "These probes actively touch the target."
+                : "Audit can include active probes."}
+            </strong>
+            <p>
+              Running active probes against a system you do not own — or do not have written
+              permission to test — is illegal in most jurisdictions. Read{" "}
+              <a
+                href="https://github.com/Dezoxy/netcheck/blob/main/docs/ETHICS.md"
+                rel="noreferrer"
+                target="_blank"
+              >
+                docs/ETHICS.md
+              </a>
+              .
+            </p>
+            <label className="auth-banner-check">
+              <input
+                checked={activeAcknowledged}
+                onChange={(event) => onAcknowledge(event.target.checked)}
+                type="checkbox"
+              />
+              <span>I am authorized to actively probe this target.</span>
+            </label>
+          </div>
+        </section>
+      ) : null}
+
+      <div className="modecard-list">
+        {categoryDef.modes.map((m) => (
+          <ModeCard
+            key={m}
+            mode={m}
+            isActive={isActiveMode(m)}
+            isAuditAggregate={isAggregate && m === "audit"}
+            runDisabled={runDisabled}
+            running={runState === "loading" && runningMode === m}
+            authReady={activeAcknowledged}
+            onRun={(opts) => onRun(m, opts)}
+          />
+        ))}
+      </div>
+
+      {runState === "error" ? <ErrorBanner message={error} /> : null}
+      {runState === "loading" && portsProgress ? (
+        <PortsProgressBanner progress={portsProgress} />
+      ) : null}
+      {report ? <ReportView loading={runState === "loading"} report={report} /> : null}
+    </section>
+  );
+}
+
+// ModeCard is one row inside a category-detail screen. Title +
+// description + Run pill. For audit (Aggregate category) the card
+// shows two pills: Passive and Active. Active-tier modes (tls /
+// takeover / ports / enum) are gated on the category-level auth
+// banner; Run is disabled until the user ticks the checkbox.
+function ModeCard({
+  mode,
+  isActive,
+  isAuditAggregate,
+  runDisabled,
+  running,
+  authReady,
+  onRun,
+}: {
+  mode: CheckMode;
+  isActive: boolean;
+  isAuditAggregate: boolean;
+  runDisabled: boolean;
+  running: boolean;
+  authReady: boolean;
+  onRun: (opts?: { auditActive?: boolean }) => void;
+}) {
+  // Lock the Run pill when the mode is active-tier and the user
+  // hasn't acknowledged the auth banner yet. For audit, the Passive
+  // button is always available; the Active button is gated.
+  const activeBlocked = isActive && !authReady;
+  return (
+    <article className={`modecard ${isActive ? "modecard-active-tier" : ""}`}>
+      <div className="modecard-body">
+        <div className="modecard-head">
+          <strong>{MODE_LABEL[mode]}</strong>
+          {isActive ? <span className="modecard-tier">Active</span> : null}
+        </div>
+        <p>{MODE_BLURB[mode]}</p>
+      </div>
+      <div className="modecard-actions">
+        {isAuditAggregate ? (
+          <>
+            <button
+              className="modecard-run modecard-run-secondary"
+              disabled={runDisabled}
+              onClick={() => onRun({ auditActive: false })}
+              type="button"
+            >
+              <Play />
+              <span>{running ? "Running…" : "Passive"}</span>
+            </button>
+            <button
+              className="modecard-run"
+              disabled={runDisabled || !authReady}
+              onClick={() => onRun({ auditActive: true })}
+              title={authReady ? undefined : "Confirm authorization above to enable active runs"}
+              type="button"
+            >
+              <Play />
+              <span>{running ? "Running…" : "Active"}</span>
+            </button>
+          </>
+        ) : (
+          <button
+            className="modecard-run"
+            disabled={runDisabled || activeBlocked}
+            onClick={() => onRun()}
+            title={activeBlocked ? "Confirm authorization above to enable active runs" : undefined}
+            type="button"
+          >
+            <Play />
+            <span>{running ? "Running…" : "Run"}</span>
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 
