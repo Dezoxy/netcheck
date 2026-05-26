@@ -426,8 +426,19 @@ export default function App() {
     setCategory(null);
   }
 
+  // R-12: when a check is running, blur the underlying shell + show a
+  // fixed-position progress overlay above it. `app-shell-loading` adds
+  // the blur and disables pointer interaction; the overlay handles its
+  // own dismissal animation when runState flips away from "loading".
+  const isLoading = runState === "loading";
+
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isLoading ? "app-shell-loading" : ""}`}>
+      <LoadingOverlay
+        visible={isLoading}
+        mode={mode}
+        portsProgress={portsProgress}
+      />
       <header className="topbar">
         <div className="topbar-leading">
           <div className="brand">
@@ -558,6 +569,165 @@ function BrandMark({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
+
+// LoadingOverlay — fixed-position glass card with animated progress ring,
+// percentage readout, and cycling status messages. Mounted whenever a
+// check is running; the underlying app-shell is blurred + scaled down
+// via the `app-shell-loading` class.
+//
+// Two progress models:
+//   - Real progress (ports SSE): pass `portsProgress` and the overlay
+//     mirrors the scanned/total ratio.
+//   - Synthetic ramp (every other mode): no real signal, so we ramp
+//     smoothly from 0 → 90% over ~6 seconds and hold at 90% until the
+//     check completes, then snap to 100% briefly before unmounting.
+//     Matches the Stitch animation feel without lying about progress.
+//
+// Status messages cycle every 1.6s through a per-mode list — gives the
+// user something to read while waiting. CSS pulse animation on the
+// status text reinforces the "working" feeling.
+function LoadingOverlay({
+  visible,
+  mode,
+  portsProgress,
+}: {
+  visible: boolean;
+  mode: CheckMode;
+  portsProgress: { scanned: number; total: number; open: number } | null;
+}) {
+  const [shown, setShown] = useState(visible);
+  const [progress, setProgress] = useState(0);
+  const [statusIdx, setStatusIdx] = useState(0);
+
+  // Mount/unmount with a brief delay so the exit animation can play.
+  useEffect(() => {
+    if (visible) {
+      setShown(true);
+      return;
+    }
+    // After fade-out, unmount.
+    const t = window.setTimeout(() => setShown(false), 280);
+    return () => window.clearTimeout(t);
+  }, [visible]);
+
+  // Reset progress + status whenever the overlay becomes visible.
+  useEffect(() => {
+    if (!visible) return;
+    setProgress(0);
+    setStatusIdx(0);
+  }, [visible]);
+
+  // Drive progress.
+  useEffect(() => {
+    if (!visible) {
+      // When the check finishes, snap to 100% so the ring fills before
+      // the overlay fades out.
+      setProgress(100);
+      return;
+    }
+    // Real progress wins when available (ports SSE).
+    if (portsProgress && portsProgress.total > 0) {
+      setProgress(Math.min(99, (portsProgress.scanned / portsProgress.total) * 100));
+      return;
+    }
+    // Synthetic ramp toward 90%, slowing as it gets there. 80ms tick
+    // with variable increment matches the Stitch demo's feel.
+    const interval = window.setInterval(() => {
+      setProgress((current) => {
+        if (current >= 90) return current;
+        const step = (90 - current) * 0.02 + Math.random() * 0.4;
+        return Math.min(90, current + step);
+      });
+    }, 80);
+    return () => window.clearInterval(interval);
+  }, [visible, portsProgress]);
+
+  // Cycle status messages every 1.6s.
+  useEffect(() => {
+    if (!visible) return;
+    const interval = window.setInterval(() => {
+      setStatusIdx((idx) => idx + 1);
+    }, 1600);
+    return () => window.clearInterval(interval);
+  }, [visible]);
+
+  if (!shown) return null;
+
+  const messages = LOADING_MESSAGES[mode as CheckMode] ?? LOADING_MESSAGES.default;
+  const status = visible
+    ? messages[statusIdx % messages.length]
+    : "Done";
+
+  // Progress ring math: r=54, circumference = 2πr ≈ 339.292.
+  const RADIUS = 54;
+  const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+  const offset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
+
+  return (
+    <div className={`loading-overlay ${visible ? "loading-overlay-visible" : "loading-overlay-leaving"}`} role="status" aria-live="polite">
+      <div className="loading-card">
+        <div className="loading-card-glow" aria-hidden="true" />
+
+        <div className="progress-ring">
+          <svg viewBox="0 0 120 120" width="176" height="176">
+            <circle cx="60" cy="60" r={RADIUS} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
+            <circle
+              className="progress-ring-arc"
+              cx="60"
+              cy="60"
+              r={RADIUS}
+              fill="transparent"
+              stroke="var(--accent)"
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={offset}
+            />
+          </svg>
+          <span className="progress-ring-value">{Math.floor(progress)}%</span>
+        </div>
+
+        <div className="loading-status">
+          <span className="loading-status-text">{status}</span>
+          <span className="loading-dots" aria-hidden="true">
+            <span /><span /><span />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Per-mode status message lists. `default` is required (it's the
+// fallback when a mode doesn't have a dedicated list); the per-mode
+// keys are optional. Keeping the data table-style makes future per-mode
+// flavor text a one-line edit away.
+const LOADING_MESSAGES: { default: string[] } & Partial<Record<CheckMode, string[]>> = {
+  default: [
+    "Initializing protocol…",
+    "Fetching network topology…",
+    "Probing target…",
+    "Establishing secure tunnel…",
+    "Calibrating analytics…",
+    "Streaming results…",
+  ],
+  ports: [
+    "Scanning open ports…",
+    "Probing TCP handshakes…",
+    "Reading service banners…",
+    "Classifying responses…",
+  ],
+  route: [
+    "Tracing network path…",
+    "Resolving hop ASNs…",
+    "Probing intermediate routers…",
+  ],
+  dns: [
+    "Querying resolvers in parallel…",
+    "Comparing answers…",
+    "Detecting CDN edge variance…",
+  ],
+};
 
 function SideNavV2({
   route,

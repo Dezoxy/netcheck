@@ -2310,3 +2310,174 @@ input,
     justify-content: space-between;
   }
 }
+
+/* ─── R-12: interactive loading overlay ──────────────────────────────────
+   Covers the (now-blurred) app shell while any check is in flight.
+   Mounted as a sibling of .topbar/.sidenav/.workbench inside .app-shell.
+   Uses position: fixed so it ignores the app-shell grid and overlays
+   the full viewport — overlapping the topbar / sidenav too, since the
+   intent is "the user is waiting, nothing else is interactive".
+
+   The Stitch demo (project 13607768137297805486, screen
+   8d5dc89dbf22453ab9946b84daf36977) drove the visual spec: black/40
+   dimmer + backdrop blur, glass card with subtle cyan corner glow,
+   176px progress ring with cyan stroke + drop-shadow glow, pulsing
+   cyan caps status text, three progressively-bright dots underneath.
+*/
+
+/* The shell-level state class: blurs + dims the workbench while the
+   overlay is up. Pointer events disabled so background clicks can't
+   accidentally fire under the overlay. */
+.app-shell-loading > .topbar,
+.app-shell-loading > .sidenav,
+.app-shell-loading > .workbench,
+.app-shell-loading > .status-footer,
+.app-shell-loading > .bottom-nav {
+  filter: blur(6px);
+  transform: scale(0.985);
+  transform-origin: center center;
+  pointer-events: none;
+  transition: filter 300ms ease, transform 300ms ease;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 250ms ease;
+}
+
+.loading-overlay-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.loading-overlay-leaving {
+  opacity: 0;
+}
+
+.loading-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-7);
+  width: min(400px, 90vw);
+  padding: var(--space-7) var(--space-6) var(--space-6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.03);
+  -webkit-backdrop-filter: blur(32px);
+  backdrop-filter: blur(32px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 24px 64px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+/* Subtle cyan glow blob in the top-right corner — purely decorative,
+   matches the Stitch design's depth. */
+.loading-card-glow {
+  position: absolute;
+  top: -96px;
+  right: -96px;
+  width: 192px;
+  height: 192px;
+  border-radius: 999px;
+  background: rgba(76, 215, 246, 0.18);
+  filter: blur(48px);
+  pointer-events: none;
+}
+
+/* Progress ring: SVG with cyan-glow drop shadow on the active arc.
+   stroke-dashoffset is set inline from JS — transition smooths it. */
+.progress-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 176px;
+  height: 176px;
+}
+
+.progress-ring svg {
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+.progress-ring-arc {
+  transition: stroke-dashoffset 150ms linear;
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+
+.progress-ring-value {
+  position: absolute;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.loading-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+}
+
+.loading-status-text {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  line-height: 16px;
+  text-transform: uppercase;
+  animation: loading-status-pulse 2s infinite ease-in-out;
+}
+
+@keyframes loading-status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.loading-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.loading-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.loading-dots span:nth-child(1) { opacity: 0.3; }
+.loading-dots span:nth-child(2) { opacity: 0.55; }
+.loading-dots span:nth-child(3) { opacity: 0.85; }
+
+/* Mobile — slightly tighter card so it fits 360px screens with
+   horizontal padding to spare. */
+@media (max-width: 480px) {
+  .loading-card {
+    padding: var(--space-6) var(--space-5) var(--space-5);
+    gap: var(--space-6);
+  }
+  .progress-ring,
+  .progress-ring svg {
+    width: 140px;
+    height: 140px;
+  }
+  .progress-ring-value {
+    font-size: 26px;
+  }
+}
