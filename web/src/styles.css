@@ -273,33 +273,41 @@ input,
 .recent-list {
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: var(--space-2);
   overflow: auto;
-  padding: 12px 8px;
+  padding: var(--space-3) var(--space-2);
+}
+
+/* R-8: list-page variant gets card-style rows (radius + border) so the
+   history/reports pages don't look like a sidebar dump. */
+.recent-list-page {
+  padding: 0;
 }
 
 .recent-item {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 9px 8px;
-  border: 1px solid transparent;
-  background: transparent;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
   cursor: pointer;
   text-align: left;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .recent-item:hover,
 .recent-item:focus-visible {
-  border-color: var(--border-strong);
-  background: #141414;
+  border-color: var(--accent);
+  background: var(--panel-raised);
   outline: 0;
 }
 
 .recent-item span:last-child {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -311,9 +319,9 @@ input,
 }
 
 .recent-item strong {
-  color: #e5e2e1;
-  font-size: 12px;
-  font-weight: 500;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .recent-item time {
@@ -322,9 +330,10 @@ input,
 }
 
 .recent-dot {
-  width: 8px;
-  height: 8px;
-  margin-top: 4px;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: var(--radius-pill);
   background: var(--border-strong);
 }
 
@@ -1134,67 +1143,82 @@ input,
 /* ─── v1.2: mode-switching, saved reports, four-column rows ────────────── */
 
 .empty-list {
-  margin: 1rem 1.5rem;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.85rem;
+  margin: var(--space-5);
+  color: var(--faint);
+  font-size: 13px;
+  text-align: center;
 }
 
-/* Two-column variant for saved reports: target/time on the left, delete on the right. */
+/* Multi-button variant for saved reports: row contains the main button
+   (target + time) plus 1–2 icon buttons (compare, delete). R-8: lifted
+   into the new card chrome — radius-md, border, panel bg. */
 .recent-item-saved {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-2);
   align-items: stretch;
-  gap: 0.25rem;
-  background: none;
-  border: none;
   padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.recent-item-saved:hover {
+  border-color: var(--border-strong);
 }
 
 .recent-item-saved .recent-item-main {
-  flex: 1 1 auto;
   background: none;
   border: none;
   display: grid;
   grid-template-columns: 12px 1fr;
-  gap: 0.6rem;
+  gap: var(--space-3);
   align-items: center;
-  padding: 0.6rem 1rem;
+  padding: var(--space-3) var(--space-4);
   text-align: left;
   color: inherit;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  min-width: 0;
 }
 
 .recent-item-saved .recent-item-main:hover,
 .recent-item-saved .recent-item-main:focus-visible {
-  background: rgba(255, 255, 255, 0.04);
-  outline: none;
+  background: var(--panel-raised);
+  outline: 0;
 }
 
 .recent-item-saved .recent-item-main span:last-child {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .recent-item-saved .recent-item-main strong,
 .recent-item-saved .recent-item-main time {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recent-item-saved .recent-item-main strong {
-  font-weight: 500;
-  font-size: 0.9rem;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fg);
 }
 
 .recent-item-saved .recent-item-main time {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  color: var(--muted);
   font-style: normal;
 }
 
 .recent-item-saved .icon-button {
   align-self: center;
-  padding: 0.3rem;
+  margin-right: var(--space-2);
 }
 
 /* Four-column variant used by DNS compare (resolver/address/time/answer) and
