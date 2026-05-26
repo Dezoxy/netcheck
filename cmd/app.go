@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Dezoxy/netcheck/internal/webui"
+	"github.com/Dezoxy/netcheck/pkg/diff"
 	"github.com/Dezoxy/netcheck/pkg/dnscompare"
 	"github.com/Dezoxy/netcheck/pkg/pathenum"
 	"github.com/Dezoxy/netcheck/pkg/portscan"
@@ -179,6 +180,7 @@ func newAppHandler() http.Handler {
 	mux.HandleFunc("/api/check/audit", handleAuditCheck)
 	mux.HandleFunc("/api/reports", handleReportsCollection)
 	mux.HandleFunc("/api/reports/", handleReportItem)
+	mux.HandleFunc("/api/diff", handleDiff)
 	mux.Handle("/", http.FileServer(http.FS(webui.Dist())))
 	return mux
 }
@@ -899,8 +901,20 @@ func requirePost(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+// defaultMaxBodyBytes is the request-body size cap used by single-report
+// endpoints. 1 MiB easily fits any single check result we emit today.
+const defaultMaxBodyBytes = 1 << 20 // 1 MiB
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	return decodeJSONWithLimit(w, r, v, defaultMaxBodyBytes)
+}
+
+// decodeJSONWithLimit is the variant used by endpoints whose body carries
+// more than a single report. /api/diff bundles two full reports (old + new)
+// in one body, so it needs ~2× the single-report ceiling. Codex flagged on
+// #69 that the default 1 MiB cap could 400 two valid saved reports.
+func decodeJSONWithLimit(w http.ResponseWriter, r *http.Request, v any, max int64) bool {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, max))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "invalid JSON request"})
@@ -1032,4 +1046,46 @@ func sniffTarget(raw json.RawMessage, kind string) string {
 		return s.Target
 	}
 	return ""
+}
+
+// ─── /api/diff ────────────────────────────────────────────────────────────
+
+// diffRequest is the body of POST /api/diff. `Old` and `New` are the
+// two reports to compare; either can be any of the kinds in
+// `report.AnyReport` — diff.Diff dispatches per-kind internally.
+type diffRequest struct {
+	Old json.RawMessage `json:"old"`
+	New json.RawMessage `json:"new"`
+}
+
+// handleDiff compares two saved/loaded JSON reports and returns the
+// structured diff.Report (the same shape the `netcheck diff` CLI emits
+// with --output json). The web UI calls this from the Reports route
+// when the user picks two reports to compare.
+//
+// Body carries TWO reports — uses decodeJSONWithLimit with an 8 MiB
+// ceiling instead of the 1 MiB default so paired large reports don't
+// 400. 8 MiB is ~4× a worst-case single report (top-1000 ports scan
+// with banners, audit aggregate) — generous headroom without being
+// silly. Codex P2 on #69.
+//
+// Parse errors → 400. Diff errors (e.g. nil) → 422. Success → 200.
+func handleDiff(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req diffRequest
+	if !decodeJSONWithLimit(w, r, &req, 8<<20) {
+		return
+	}
+	if len(req.Old) == 0 || len(req.New) == 0 {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "both 'old' and 'new' required"})
+		return
+	}
+	rep, err := diff.Diff(req.Old, req.New)
+	if err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, apiError{Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, rep)
 }

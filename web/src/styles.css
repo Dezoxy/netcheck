@@ -273,33 +273,41 @@ input,
 .recent-list {
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: var(--space-2);
   overflow: auto;
-  padding: 12px 8px;
+  padding: var(--space-3) var(--space-2);
+}
+
+/* R-8: list-page variant gets card-style rows (radius + border) so the
+   history/reports pages don't look like a sidebar dump. */
+.recent-list-page {
+  padding: 0;
 }
 
 .recent-item {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--space-3);
   width: 100%;
-  padding: 9px 8px;
-  border: 1px solid transparent;
-  background: transparent;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
   cursor: pointer;
   text-align: left;
+  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .recent-item:hover,
 .recent-item:focus-visible {
-  border-color: var(--border-strong);
-  background: #141414;
+  border-color: var(--accent);
+  background: var(--panel-raised);
   outline: 0;
 }
 
 .recent-item span:last-child {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -311,9 +319,9 @@ input,
 }
 
 .recent-item strong {
-  color: #e5e2e1;
-  font-size: 12px;
-  font-weight: 500;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .recent-item time {
@@ -322,9 +330,10 @@ input,
 }
 
 .recent-dot {
-  width: 8px;
-  height: 8px;
-  margin-top: 4px;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: var(--radius-pill);
   background: var(--border-strong);
 }
 
@@ -1134,67 +1143,82 @@ input,
 /* ─── v1.2: mode-switching, saved reports, four-column rows ────────────── */
 
 .empty-list {
-  margin: 1rem 1.5rem;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 0.85rem;
+  margin: var(--space-5);
+  color: var(--faint);
+  font-size: 13px;
+  text-align: center;
 }
 
-/* Two-column variant for saved reports: target/time on the left, delete on the right. */
+/* Multi-button variant for saved reports: row contains the main button
+   (target + time) plus 1–2 icon buttons (compare, delete). R-8: lifted
+   into the new card chrome — radius-md, border, panel bg. */
 .recent-item-saved {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-2);
   align-items: stretch;
-  gap: 0.25rem;
-  background: none;
-  border: none;
   padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.recent-item-saved:hover {
+  border-color: var(--border-strong);
 }
 
 .recent-item-saved .recent-item-main {
-  flex: 1 1 auto;
   background: none;
   border: none;
   display: grid;
   grid-template-columns: 12px 1fr;
-  gap: 0.6rem;
+  gap: var(--space-3);
   align-items: center;
-  padding: 0.6rem 1rem;
+  padding: var(--space-3) var(--space-4);
   text-align: left;
   color: inherit;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  min-width: 0;
 }
 
 .recent-item-saved .recent-item-main:hover,
 .recent-item-saved .recent-item-main:focus-visible {
-  background: rgba(255, 255, 255, 0.04);
-  outline: none;
+  background: var(--panel-raised);
+  outline: 0;
 }
 
 .recent-item-saved .recent-item-main span:last-child {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .recent-item-saved .recent-item-main strong,
 .recent-item-saved .recent-item-main time {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recent-item-saved .recent-item-main strong {
-  font-weight: 500;
-  font-size: 0.9rem;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fg);
 }
 
 .recent-item-saved .recent-item-main time {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  color: var(--muted);
   font-style: normal;
 }
 
 .recent-item-saved .icon-button {
   align-self: center;
-  padding: 0.3rem;
+  margin-right: var(--space-2);
 }
 
 /* Four-column variant used by DNS compare (resolver/address/time/answer) and
@@ -1905,5 +1929,267 @@ input,
   }
   .modecard-run {
     width: 100%;
+  }
+}
+
+/* ─── R-7 redesign: diff viewer + compare bar ────────────────────────── */
+
+.compare-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: rgb(76 215 246 / 6%);
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.compare-bar strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-bar-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.recent-item-picked {
+  border-color: var(--accent);
+  background: rgb(76 215 246 / 8%);
+}
+
+.diff-viewer {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  box-shadow: var(--elev-1);
+}
+
+.diff-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.diff-viewer-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.diff-viewer-head h2 span {
+  color: var(--accent);
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.diff-viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.diff-viewer-meta code {
+  font-size: 11px;
+  color: var(--fg);
+}
+
+.diff-section-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.diff-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel-raised);
+  overflow: hidden;
+}
+
+.diff-section > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: rgb(255 255 255 / 2%);
+}
+
+.diff-section > header strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.diff-section > header .muted {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.diff-change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diff-change {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-change:last-child {
+  border-bottom: 0;
+}
+
+.diff-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.diff-chip-info {
+  background: rgb(141 177 255 / 14%);
+  color: var(--info);
+}
+
+.diff-chip-ok {
+  background: rgb(78 222 163 / 14%);
+  color: var(--good);
+}
+
+.diff-chip-warn {
+  background: rgb(231 148 0 / 14%);
+  color: var(--warn);
+}
+
+.diff-chip-err {
+  background: rgb(243 95 99 / 14%);
+  color: var(--fail);
+}
+
+.diff-change-msg {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .diff-change {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+  .compare-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ─── R-9 redesign: mobile polish ────────────────────────────────────── */
+@media (max-width: 720px) {
+  /* Tighten workbench padding on phones — env() safe-area still
+     handled in .workbench base rule. */
+  .workbench {
+    padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right))
+             var(--space-5) max(var(--space-3), env(safe-area-inset-left));
+    gap: var(--space-3);
+  }
+
+  /* Result-area gap shrinks on portrait so panels don't waste
+     vertical real estate. */
+  .result-area {
+    gap: var(--space-3);
+  }
+
+  /* Summary strip: 4 columns → 2 columns at phone widths so each
+     stat card stays readable without ellipsis-truncating the value. */
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  /* HTTP timing grid: 3 columns → 1 column. The DNS/Connect/TLS/TTFB/
+     Total readout reads top-to-bottom on phone. */
+  .http-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Brand at 24px reads fine on phones but the topbar gets cramped —
+     dial back to 20px so save/export icons have room.
+
+     Codex P2 on #71: keep the left/right safe-area-inset handling
+     from the base .topbar rule. Notched phones in landscape (and
+     standalone-mode iOS) have non-zero horizontal insets; without
+     `max(token, env(...))` the brand and action icons would clip
+     into the rounded corner / notch area. */
+  .topbar {
+    padding: env(safe-area-inset-top)
+             max(var(--space-3), env(safe-area-inset-right))
+             0
+             max(var(--space-3), env(safe-area-inset-left));
+  }
+  .brand {
+    font-size: 20px;
+  }
+
+  /* Bottom-nav active state — soft accent-tinted background behind
+     the icon-and-label stack, not just an icon colour change.
+     Makes the active route obviously selected at glance. */
+  .bottom-nav-item-active {
+    background: rgb(76 215 246 / 8%);
+  }
+
+  /* Recent-item gets denser on mobile so 8 entries don't fill the
+     viewport. */
+  .recent-item,
+  .recent-item-saved .recent-item-main {
+    padding: var(--space-3);
+  }
+
+  /* Category-detail header drops the body blurb on phones — the user
+     just navigated from the card that showed it. */
+  .category-detail-header p {
+    display: none;
+  }
+
+  /* Status-footer remains hidden by R-1's rule; nothing to add here. */
+
+  /* Result-header h1 wraps instead of ellipsizing — the target URL
+     should stay readable even at narrow widths. */
+  .result-header h1 {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Diff viewer: tighter padding, change chip moves to its own row. */
+  .diff-viewer {
+    padding: var(--space-4);
+  }
+  .diff-viewer-meta {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: space-between;
   }
 }
