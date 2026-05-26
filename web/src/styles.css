@@ -1585,8 +1585,18 @@ input,
   font-size: 11px;
 }
 
-/* ─── Mobile (≤720px) — collapse desktop chrome, show bottom-nav ─────── */
-@media (max-width: 720px) {
+/* ─── Tablet + mobile (≤920px) — collapse desktop chrome, show bottom-nav.
+
+   Codex flagged on #63 that 721–920px had no navigation: the legacy
+   v1 rule above (`@media (max-width: 920px)`) pushes `.sidenav`
+   off-canvas (`translateX(-104%)`) but the v1 hamburger toggle that
+   used to open it is gone with R-1, and the bottom-nav was only
+   active at ≤720px. Bumping the breakpoint to 920px gives tablets
+   the same bottom-nav layout as phones.
+
+   Force-hide `.sidenav` so the legacy 920px translate-off rule
+   doesn't leak interactive elements off-screen. */
+@media (max-width: 920px) {
   .app-shell {
     grid-template:
       "topbar" 48px
