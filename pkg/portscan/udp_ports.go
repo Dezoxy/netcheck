@@ -101,8 +101,8 @@ var nmapUDPTop100 = []int{
 	27015, // Source engine games
 	27016, // Source engine games
 	27017, // MongoDB (default is TCP; UDP rare)
-	37, // time
-	53, // dup; harmless if duplicates
+	37,    // time
+	53,    // dup; harmless if duplicates
 	123,
 	161,
 	137,

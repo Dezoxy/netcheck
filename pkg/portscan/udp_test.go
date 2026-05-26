@@ -25,13 +25,13 @@ func TestUDPProbeForKnownPorts(t *testing.T) {
 		prefix  []byte // first few bytes that uniquely identify the probe
 		minSize int
 	}{
-		{53, []byte{0xab, 0xcd, 0x01, 0x00}, 17},                // DNS header
-		{123, []byte{0x1b}, 48},                                 // NTPv4 client
-		{161, []byte{0x30}, 30},                                 // SNMP SEQUENCE
-		{137, []byte{0xab, 0xcd}, 50},                           // NetBIOS-NS
-		{500, []byte{0x00, 0x11, 0x22, 0x33}, 28},               // ISAKMP
-		{443, []byte{0xc0, 0x00, 0x00, 0x00, 0x01}, 9},          // QUIC Initial
-		{5353, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, 30},  // mDNS
+		{53, []byte{0xab, 0xcd, 0x01, 0x00}, 17},               // DNS header
+		{123, []byte{0x1b}, 48},                                // NTPv4 client
+		{161, []byte{0x30}, 30},                                // SNMP SEQUENCE
+		{137, []byte{0xab, 0xcd}, 50},                          // NetBIOS-NS
+		{500, []byte{0x00, 0x11, 0x22, 0x33}, 28},              // ISAKMP
+		{443, []byte{0xc0, 0x00, 0x00, 0x00, 0x01}, 9},         // QUIC Initial
+		{5353, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x01}, 30}, // mDNS
 	}
 	for _, c := range cases {
 		p := udpProbeFor(c.port)
