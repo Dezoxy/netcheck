@@ -681,16 +681,21 @@ input,
 
 .value-ok {
   color: var(--good);
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .value-fail,
 .detail-error {
   color: var(--fail);
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .value-warn {
-  color: #b86200;
+  color: var(--warn);
   font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 /* ─── Mode groups (v1.4 web parity) ─────────────────────────────────────── */
@@ -906,8 +911,20 @@ input,
 
 .dns-row code {
   overflow: auto;
-  color: #e5e2e1;
+  color: var(--fg);
   white-space: nowrap;
+}
+
+/* Tech / subs / reverse / arch rows often want strong+code stacks
+   inside a single cell. Tighten the inline stacks so they don't blow
+   out the row height. */
+.dns-row strong {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.dns-row .muted {
+  color: var(--muted);
 }
 
 .certificate-grid {
