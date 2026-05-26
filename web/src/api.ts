@@ -2,6 +2,7 @@ import type {
   AnyReport,
   ArchReport,
   AuditReport,
+  DiffReport,
   DNSCompareReport,
   FullCheckReport,
   HeadersReport,
@@ -293,4 +294,14 @@ export async function deleteSavedReport(id: string): Promise<void> {
   if (!response.ok && response.status !== 404) {
     throw new Error("failed to delete report");
   }
+}
+
+// ─── Diff (R-7) ────────────────────────────────────────────────────────────
+
+// diffReports compares two report bodies via the server's /api/diff
+// endpoint and returns the structured diff. The server delegates to
+// pkg/diff so the result is byte-identical to `netcheck diff --output
+// json a.json b.json`.
+export function diffReports(oldReport: AnyReport, newReport: AnyReport): Promise<DiffReport> {
+  return postJSON<DiffReport>("/api/diff", { old: oldReport, new: newReport });
 }

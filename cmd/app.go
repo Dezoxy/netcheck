@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Dezoxy/netcheck/internal/webui"
+	"github.com/Dezoxy/netcheck/pkg/diff"
 	"github.com/Dezoxy/netcheck/pkg/dnscompare"
 	"github.com/Dezoxy/netcheck/pkg/pathenum"
 	"github.com/Dezoxy/netcheck/pkg/portscan"
@@ -179,6 +180,7 @@ func newAppHandler() http.Handler {
 	mux.HandleFunc("/api/check/audit", handleAuditCheck)
 	mux.HandleFunc("/api/reports", handleReportsCollection)
 	mux.HandleFunc("/api/reports/", handleReportItem)
+	mux.HandleFunc("/api/diff", handleDiff)
 	mux.Handle("/", http.FileServer(http.FS(webui.Dist())))
 	return mux
 }
@@ -1032,4 +1034,40 @@ func sniffTarget(raw json.RawMessage, kind string) string {
 		return s.Target
 	}
 	return ""
+}
+
+// ─── /api/diff ────────────────────────────────────────────────────────────
+
+// diffRequest is the body of POST /api/diff. `Old` and `New` are the
+// two reports to compare; either can be any of the kinds in
+// `report.AnyReport` — diff.Diff dispatches per-kind internally.
+type diffRequest struct {
+	Old json.RawMessage `json:"old"`
+	New json.RawMessage `json:"new"`
+}
+
+// handleDiff compares two saved/loaded JSON reports and returns the
+// structured diff.Report (the same shape the `netcheck diff` CLI emits
+// with --output json). The web UI calls this from the Reports route
+// when the user picks two reports to compare.
+//
+// Parse errors → 400. Diff errors (e.g. nil) → 422. Success → 200.
+func handleDiff(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req diffRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Old) == 0 || len(req.New) == 0 {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "both 'old' and 'new' required"})
+		return
+	}
+	rep, err := diff.Diff(req.Old, req.New)
+	if err != nil {
+		writeJSON(w, http.StatusUnprocessableEntity, apiError{Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, rep)
 }
