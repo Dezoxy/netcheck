@@ -875,24 +875,29 @@ input,
 .dns-table {
   display: grid;
   gap: 0;
-  color: #e5e2e1;
+  color: var(--fg);
   font-size: 12px;
-  line-height: 16px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .dns-header,
 .dns-row {
   display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--space-3);
   min-width: 0;
-  padding: 0 0 6px;
+  padding: 0 0 var(--space-2);
   border-bottom: 1px solid var(--border);
 }
 
 .dns-row {
-  padding: 6px 0;
+  padding: var(--space-2) 0;
   font-weight: 500;
+}
+
+.dns-row:last-of-type {
+  border-bottom: 0;
 }
 
 .dns-row span {
@@ -908,12 +913,12 @@ input,
 .certificate-grid {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
-  gap: 4px 0;
+  gap: var(--space-1) var(--space-3);
   margin: 0;
-  color: #e5e2e1;
+  color: var(--fg);
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 12px;
-  line-height: 16px;
+  line-height: 18px;
 }
 
 .certificate-grid dt {
@@ -932,17 +937,18 @@ input,
 
 .http-grid {
   display: grid;
-  gap: 16px;
+  gap: var(--space-4);
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .metric {
   display: grid;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
-  color: #e5e2e1;
+  color: var(--fg);
   font-size: 12px;
-  line-height: 16px;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .metric strong {
