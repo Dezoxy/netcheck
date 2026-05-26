@@ -430,7 +430,10 @@ export default function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-leading">
-          <div className="brand">netcheck</div>
+          <div className="brand">
+            <BrandMark />
+            <span>netcheck</span>
+          </div>
         </div>
         <div className="topbar-actions">
           <IconButton disabled={!report || savingNow} label={savedJustNow ? "Saved" : "Save report"} onClick={saveCurrent}>
@@ -450,6 +453,8 @@ export default function App() {
             target={target}
             onTargetChange={setTarget}
             onPickCategory={pickCategory}
+            onRunDefault={() => void runCheck("full")}
+            runDisabled={runState === "loading"}
           />
         ) : null}
 
@@ -508,6 +513,33 @@ export default function App() {
 
 // SideNavV2 renders the desktop sidenav with four top-level routes.
 // Mobile users get a fixed BottomNav instead — see CSS media queries.
+// BrandMark is the inline SVG icon that sits next to the "netcheck" wordmark
+// in the topbar (and in the sidenav header). Derived from the X-shape mark in
+// the Stitch Modern v1 mockup — two crossed lines forming an `x`, with a
+// subtle horizontal accent bar. Sized to match the wordmark's cap height.
+// Stroked rather than filled so it picks up `currentColor` and inherits the
+// accent on hover where applicable.
+function BrandMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="brand-mark"
+      fill="none"
+      height="20"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      width="20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M5 5l14 14M19 5L5 19" />
+      <path d="M3 12h4M17 12h4" />
+    </svg>
+  );
+}
+
 function SideNavV2({
   route,
   onRouteChange,
@@ -636,14 +668,23 @@ function StatusFooter({ lastScanAt }: { lastScanAt: string | undefined }) {
 // grid of category cards. Picking a card → setCategory → enters the
 // category-detail view (R-1 reuses the existing form + mode tabs; R-2
 // replaces them with ModeCards).
+//
+// R-10: added the central "Run Check" CTA below the grid (matches the
+// Modern v1 mockup). Clicking it runs a Full Check on the target without
+// requiring a category pick — the default-action shortcut for users who
+// just typed a URL and want the headline check.
 function Landing({
   target,
   onTargetChange,
   onPickCategory,
+  onRunDefault,
+  runDisabled,
 }: {
   target: string;
   onTargetChange: (next: string) => void;
   onPickCategory: (cat: Category) => void;
+  onRunDefault: () => void;
+  runDisabled: boolean;
 }) {
   return (
     <section className="landing" aria-label="Workbench landing">
@@ -654,6 +695,14 @@ function Landing({
           autoCapitalize="none"
           autoCorrect="off"
           onChange={(event) => onTargetChange(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter on the landing input fires the default Run Check action,
+            // matching the v1 form-submit keyboard behavior.
+            if (event.key === "Enter" && !runDisabled) {
+              event.preventDefault();
+              onRunDefault();
+            }
+          }}
           placeholder="Enter target URL (e.g. https://example.com) or IP address…"
           spellCheck="false"
           value={target}
@@ -665,6 +714,16 @@ function Landing({
           <CategoryCard key={cat.key} def={cat} onClick={() => onPickCategory(cat.key)} />
         ))}
       </div>
+
+      <button
+        className="run-check-cta"
+        disabled={runDisabled}
+        onClick={onRunDefault}
+        type="button"
+      >
+        <Play />
+        <span>Run Check</span>
+      </button>
     </section>
   );
 }
