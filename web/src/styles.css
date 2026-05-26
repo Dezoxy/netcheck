@@ -1,21 +1,57 @@
 :root {
-  color: #e5e2e1;
-  background: #0d0d0d;
+  color: #e8eef2;
+  background: #0b0d0e;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+
+  /* Canvas + surfaces. R-1 redesign tokens — slightly cooler darks with
+     more separation between canvas / surface / panel so cards feel raised. */
+  --canvas: #0b0d0e;
+  --surface: #14171b;
+  --panel: #1a1e23;
+  --panel-raised: #1f242a;
+  --border: #2a2e33;
+  --border-strong: #3a3f47;
+
+  /* Text */
+  --fg: #e8eef2;
+  --muted: #9aa3ac;
+  --faint: #5d6671;
+
+  /* Accent (kept on-spec with the existing cyan). */
   --accent: #4cd7f6;
   --accent-strong: #06b6d4;
-  --border: #2e2e2e;
-  --border-strong: #3d494c;
-  --canvas: #0d0d0d;
+  --accent-glow: 0 0 0 1px var(--accent), 0 0 16px -4px var(--accent);
+
+  /* Status */
   --good: #4edea3;
-  --muted: #bcc9cd;
-  --panel: #121212;
-  --surface: #131313;
   --warn: #e79400;
   --fail: #f35f63;
+  --info: #8db1ff;
+
+  /* Radius scale — pill buttons + soft cards. */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* Elevation. Cards: subtle inset highlight + drop shadow. */
+  --elev-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elev-2: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 4px 12px rgba(0, 0, 0, 0.45);
+  --elev-hover: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 8px 24px rgba(0, 0, 0, 0.55);
+
+  /* Spacing (4-base). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
 }
 
 * {
@@ -58,11 +94,15 @@ input,
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
+/* R-1 shell. Desktop = topbar + (sidenav, workbench) + status footer.
+   Mobile (≤720px) collapses to a single workbench column with a fixed
+   bottom-nav; rules at the bottom of this file. */
 .app-shell {
   display: grid;
   grid-template:
     "topbar topbar" 48px
-    "sidenav workbench" minmax(calc(100vh - 48px), auto) / 256px minmax(0, 1fr);
+    "sidenav workbench" 1fr
+    "footer footer" 28px / 240px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--canvas);
 }
@@ -1188,4 +1228,396 @@ input,
   height: 100%;
   background: var(--accent, #5ec27a);
   transition: width 100ms linear;
+}
+
+/* ─── R-1 redesign: shell, landing, route pages ────────────────────────── */
+
+/* SideNav v2 — replaces the old "Diagnostics" heading with a clean
+   icon-rail. The .sidenav base rule above already positions it. */
+.sidenav-v2 {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding-top: var(--space-3);
+}
+
+.sidenav-v2 .nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 40px;
+  padding: var(--space-2) var(--space-5);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 20px;
+  text-transform: none;
+  cursor: pointer;
+  text-align: left;
+  border-left: 2px solid transparent;
+}
+
+.sidenav-v2 .nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.sidenav-v2 .nav-item:hover,
+.sidenav-v2 .nav-item:focus-visible {
+  color: var(--fg);
+  background: var(--panel);
+  outline: 0;
+}
+
+.sidenav-v2 .nav-item-active {
+  color: var(--accent);
+  background: var(--panel-raised);
+  border-left-color: var(--accent);
+}
+
+/* BottomNav — mobile only. Hidden on desktop via the media query at the
+   end of the file. Safe-area inset baked in for notch devices. */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: calc(56px + env(safe-area-inset-bottom));
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--surface);
+  border-top: 1px solid var(--border-strong);
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.bottom-nav-item {
+  display: grid;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  padding: var(--space-2) 0;
+}
+
+.bottom-nav-item svg {
+  width: 22px;
+  height: 22px;
+}
+
+.bottom-nav-item-active {
+  color: var(--accent);
+}
+
+/* StatusFooter — desktop only. Sits in the `footer` grid area. */
+.status-footer {
+  grid-area: footer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 28px;
+}
+
+.status-footer .muted {
+  color: var(--faint);
+}
+
+.status-footer code {
+  font-size: 11px;
+  color: var(--fg);
+  background: transparent;
+  padding: 0;
+}
+
+/* Back link — "← Categories". Used to leave a category-detail view. */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  align-self: flex-start;
+  margin-bottom: var(--space-2);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.back-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+.back-link:hover,
+.back-link:focus-visible {
+  color: var(--accent);
+  border-color: var(--border-strong);
+  outline: 0;
+}
+
+/* Landing — the workbench-route default view. Target input on top,
+   2×2 category grid below. */
+.landing {
+  display: grid;
+  gap: var(--space-6);
+  padding: var(--space-7) 0 var(--space-6);
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.landing-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.landing-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+.landing-input svg {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  flex: none;
+}
+
+.landing-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-size: 15px;
+  line-height: 24px;
+  outline: 0;
+}
+
+.landing-input input::placeholder {
+  color: var(--faint);
+}
+
+/* Category grid — 2×2 on desktop, single column on mobile (see media). */
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.category-card {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  grid-template-rows: 1fr;
+  align-items: start;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--elev-1);
+  transition: transform 100ms ease, box-shadow 120ms ease, border-color 120ms ease,
+    background 120ms ease;
+}
+
+.category-card:hover,
+.category-card:focus-visible {
+  background: var(--panel-raised);
+  border-color: var(--accent);
+  box-shadow: var(--elev-hover);
+  outline: 0;
+  transform: translateY(-1px);
+}
+
+.category-card-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: rgb(76 215 246 / 8%);
+  color: var(--accent);
+}
+
+.category-card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.category-card-body {
+  display: grid;
+  gap: var(--space-2);
+  align-self: center;
+  min-width: 0;
+}
+
+.category-card-body strong {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--fg);
+}
+
+.category-card-body p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.category-card-cta {
+  align-self: center;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: #001218;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.category-card:hover .category-card-cta,
+.category-card:focus-visible .category-card-cta {
+  background: var(--accent-strong);
+}
+
+/* Route pages — generic shell for History / Reports / Settings routes.
+   R-8 will properly redesign each; R-1 just gives them a consistent
+   page header so they don't look like floating fragments. */
+.route-page {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-6) 0;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.route-page-head h1 {
+  margin: 0 0 var(--space-2);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+
+.route-page-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.route-page-head code {
+  font-size: 12px;
+  padding: 1px 6px;
+}
+
+.recent-list-page {
+  padding: 0;
+}
+
+.settings-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.settings-row input[type="checkbox"] {
+  margin-top: 4px;
+  accent-color: var(--accent);
+}
+
+.settings-row strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--fg);
+}
+
+.settings-row p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.settings-row code {
+  font-size: 11px;
+}
+
+/* ─── Tablet + mobile (≤920px) — collapse desktop chrome, show bottom-nav.
+
+   Codex flagged on #63 that 721–920px had no navigation: the legacy
+   v1 rule above (`@media (max-width: 920px)`) pushes `.sidenav`
+   off-canvas (`translateX(-104%)`) but the v1 hamburger toggle that
+   used to open it is gone with R-1, and the bottom-nav was only
+   active at ≤720px. Bumping the breakpoint to 920px gives tablets
+   the same bottom-nav layout as phones.
+
+   Force-hide `.sidenav` so the legacy 920px translate-off rule
+   doesn't leak interactive elements off-screen. */
+@media (max-width: 920px) {
+  .app-shell {
+    grid-template:
+      "topbar" 48px
+      "workbench" 1fr / 1fr;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+
+  .sidenav,
+  .status-footer {
+    display: none;
+  }
+
+  .bottom-nav {
+    display: grid;
+  }
+
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing {
+    padding: var(--space-4) 0;
+  }
 }
