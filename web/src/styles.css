@@ -160,12 +160,15 @@ input,
   color: var(--accent);
 }
 
-/* The sidenav variant — bigger mark, used at the top of the sidebar. */
+/* The sidenav variant — bigger mark, used at the top of the sidebar.
+   R-11 follow-up: tightened the top padding (was --space-5 = 20px) to
+   --space-4 (16px) so the brand sits closer to the sidebar's top
+   edge rather than floating mid-column. */
 .sidenav-brand {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-5) var(--space-5) var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-2);
   color: var(--accent);
   font-size: 22px;
   font-weight: 700;
@@ -229,20 +232,24 @@ input,
 }
 
 /* R-11 sidebar — glassy: semi-transparent surface + backdrop blur so the
-   canvas color bleeds through. Brand block at the top, nav below, empty
-   space at the bottom. The grid-rows now match the new content: brand row
-   (auto) + nav (1fr) — the legacy "heading + 2 lists + footer" layout is
-   gone because R-11 dropped the sidenav-heading and the Documentation /
-   Support footer links. Mobile (≤920px) keeps `display: none` (see media
-   query at the bottom of this file). */
+   canvas color bleeds through. Brand block at the top, nav directly
+   below, then the remaining height is empty (fades into the canvas).
+   Mobile (≤920px) keeps `display: none` (see media query at the
+   bottom of this file).
+   R-11 follow-up: switched from `grid-template-rows: auto 1fr` to a
+   flex column. The grid layout was inflating the nav row to 1fr, which
+   created visual ambiguity about where the items "live" and shifted
+   brand visually toward center on tall viewports. Flex column with
+   `justify-content: flex-start` anchors brand + nav to the top with
+   their natural heights; the rest of the column is just empty space. */
 .sidenav {
   position: sticky;
   top: 48px;
   grid-area: sidenav;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   height: calc(100vh - 48px);
-  min-height: 640px;
-  grid-template-rows: auto 1fr;
   overflow: hidden;
   border-right: 1px solid var(--border-strong);
   background: rgba(20, 23, 27, 0.55); /* ~55% of --surface */
