@@ -4,6 +4,17 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.1.0](https://github.com/Dezoxy/netcheck/compare/v2.0.1...v2.1.0) (2026-05-26)
+
+
+### Features
+
+* **web:** R-1 design tokens, AppShell, landing (redesign 1/9) ([#63](https://github.com/Dezoxy/netcheck/issues/63)) ([230192a](https://github.com/Dezoxy/netcheck/commit/230192a94dcc5d7f7f4667e4fd5c351bebacca2b))
+* **web:** R-2 ModeCards + category-level auth banner (redesign 2/9) ([#64](https://github.com/Dezoxy/netcheck/issues/64)) ([37c5131](https://github.com/Dezoxy/netcheck/commit/37c5131d3a88b5e81a9e6153433f0142521c5184))
+* **web:** R-4 Network workbench touch-ups (redesign 4/9) ([#66](https://github.com/Dezoxy/netcheck/issues/66)) ([6593d61](https://github.com/Dezoxy/netcheck/commit/6593d61c689c8caf1513b9748187446d3d258595))
+* **web:** R-6 Scanning workbench touch-ups (redesign 6/9) ([#68](https://github.com/Dezoxy/netcheck/issues/68)) ([7c4296c](https://github.com/Dezoxy/netcheck/commit/7c4296c5b9a5ee4980175c44f9c49e41e726b6cd))
+* **web:** R-9 mobile polish (redesign 9/9) ([#71](https://github.com/Dezoxy/netcheck/issues/71)) ([a8c5958](https://github.com/Dezoxy/netcheck/commit/a8c59584361c83c6f2e8b6dd9d1ea216b9033c3a))
+
 ## [2.0.1](https://github.com/Dezoxy/netcheck/compare/v2.0.0...v2.0.1) (2026-05-25)
 
 
