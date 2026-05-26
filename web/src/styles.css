@@ -2105,3 +2105,82 @@ input,
     align-items: stretch;
   }
 }
+
+/* ─── R-9 redesign: mobile polish ────────────────────────────────────── */
+@media (max-width: 720px) {
+  /* Tighten workbench padding on phones — env() safe-area still
+     handled in .workbench base rule. */
+  .workbench {
+    padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right))
+             var(--space-5) max(var(--space-3), env(safe-area-inset-left));
+    gap: var(--space-3);
+  }
+
+  /* Result-area gap shrinks on portrait so panels don't waste
+     vertical real estate. */
+  .result-area {
+    gap: var(--space-3);
+  }
+
+  /* Summary strip: 4 columns → 2 columns at phone widths so each
+     stat card stays readable without ellipsis-truncating the value. */
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  /* HTTP timing grid: 3 columns → 1 column. The DNS/Connect/TLS/TTFB/
+     Total readout reads top-to-bottom on phone. */
+  .http-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Brand at 24px reads fine on phones but the topbar gets cramped —
+     dial back to 20px so save/export icons have room. */
+  .topbar {
+    padding: env(safe-area-inset-top) var(--space-3) 0 var(--space-3);
+  }
+  .brand {
+    font-size: 20px;
+  }
+
+  /* Bottom-nav active state — soft accent-tinted background behind
+     the icon-and-label stack, not just an icon colour change.
+     Makes the active route obviously selected at glance. */
+  .bottom-nav-item-active {
+    background: rgb(76 215 246 / 8%);
+  }
+
+  /* Recent-item gets denser on mobile so 8 entries don't fill the
+     viewport. */
+  .recent-item,
+  .recent-item-saved .recent-item-main {
+    padding: var(--space-3);
+  }
+
+  /* Category-detail header drops the body blurb on phones — the user
+     just navigated from the card that showed it. */
+  .category-detail-header p {
+    display: none;
+  }
+
+  /* Status-footer remains hidden by R-1's rule; nothing to add here. */
+
+  /* Result-header h1 wraps instead of ellipsizing — the target URL
+     should stay readable even at narrow widths. */
+  .result-header h1 {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* Diff viewer: tighter padding, change chip moves to its own row. */
+  .diff-viewer {
+    padding: var(--space-4);
+  }
+  .diff-viewer-meta {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: space-between;
+  }
+}
