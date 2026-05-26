@@ -1327,6 +1327,19 @@ input,
   grid-template-columns: minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(140px, 4fr);
 }
 
+/* R-13 four-column variant: proto / port / state / service. Used by the
+   Ports panel when the result mixes TCP and UDP. Proto and Port stay
+   tight; state ("open|filtered") gets a comfortable column. */
+.dns-row-4-ports {
+  grid-template-columns: minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr);
+}
+
+/* R-13 five-column variant: same as -4-ports but with the banner column
+   appended. Banner still owns the long tail. */
+.dns-row-5 {
+  grid-template-columns: minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr) minmax(140px, 3.5fr);
+}
+
 /* Banner cells are user-supplied free text — they can be long. We let them
    ellipsize visually but keep the full string accessible via the `title`
    attribute. Monospace because banners are protocol output, not prose. */
@@ -1340,12 +1353,52 @@ input,
 
 @media (max-width: 720px) {
   .dns-row-4,
-  .dns-row-3 {
+  .dns-row-3,
+  .dns-row-4-ports,
+  .dns-row-5 {
     grid-template-columns: 1fr;
   }
   .banner-cell {
     white-space: normal;
   }
+}
+
+/* R-13: TCP / UDP / Both segmented control rendered inside the Ports
+   modecard. Matches the visual weight of the surrounding modecard text
+   without competing with the Run pill. */
+.ports-proto-toggle {
+  display: inline-flex;
+  margin-top: var(--space-2);
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  gap: 2px;
+}
+
+.ports-proto-option {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.ports-proto-option:hover {
+  color: var(--fg, #fff);
+}
+
+.ports-proto-option-active {
+  background: var(--accent, #5ac8fa);
+  color: #000;
+}
+
+.ports-proto-option-active:hover {
+  color: #000;
 }
 
 /* Live progress banner shown above the ports workbench during a streaming
