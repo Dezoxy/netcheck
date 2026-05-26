@@ -453,7 +453,19 @@ export default function App() {
             target={target}
             onTargetChange={setTarget}
             onPickCategory={pickCategory}
-            onRunDefault={() => void runCheck("full")}
+            onRunDefault={() => {
+              // Codex P1 on #73: the landing screen doesn't render the
+              // report or the error banner. If we only called runCheck
+              // here, a successful run would silently update `report`
+              // state but the user would still see the landing — no
+              // visible feedback. Navigate into the Network category
+              // (which owns the Full check) and set mode=full BEFORE
+              // kicking off the run, so CategoryDetail mounts with the
+              // result area visible.
+              setMode("full");
+              setCategory("network");
+              void runCheck("full");
+            }}
             runDisabled={runState === "loading"}
           />
         ) : null}
