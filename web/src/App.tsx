@@ -723,6 +723,10 @@ function CategoryDetail({
 }) {
   const isScanning = categoryDef.key === "scanning";
   const isAggregate = categoryDef.key === "aggregate";
+  // Predicate used by the onKeyDown Enter handler — only Audit lives in
+  // Aggregate today, so this is just `m === "audit"` for now, but keep
+  // the categoryDef.key check explicit for when R-7 adds diff/watch.
+  const isAuditAggregateMode = (m: CheckMode) => isAggregate && m === "audit";
   // Within the Aggregate category, the audit mode card surfaces both
   // Passive and Active run buttons. Active reuses the same auth scope
   // as the Scanning category (one checkbox unlocks all active probes).
@@ -748,6 +752,26 @@ function CategoryDetail({
           autoCapitalize="none"
           autoCorrect="off"
           onChange={(event) => onTargetChange(event.target.value)}
+          onKeyDown={(event) => {
+            // Codex P2 on #64: Enter used to submit the v1 form.
+            // R-2 replaced the form with ModeCards, so Enter became a
+            // no-op. Restore the keyboard-flow expectation by running
+            // the first mode in the category that isn't auth-blocked.
+            // Aggregate's audit defaults to Passive; Scanning needs the
+            // category-level checkbox first or Enter is suppressed.
+            if (event.key !== "Enter" || runDisabled) {
+              return;
+            }
+            const firstMode = categoryDef.modes.find((m) => {
+              if (isAuditAggregateMode(m)) return true; // Passive always OK
+              return !isActiveMode(m) || activeAcknowledged;
+            });
+            if (firstMode) {
+              event.preventDefault();
+              const opts = isAuditAggregateMode(firstMode) ? { auditActive: false } : undefined;
+              onRun(firstMode, opts);
+            }
+          }}
           placeholder="Enter target URL (e.g. https://example.com) or IP address…"
           spellCheck="false"
           value={target}
