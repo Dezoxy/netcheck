@@ -451,3 +451,29 @@ export type SavedReportMeta = {
   label?: string;
   ok?: boolean;
 };
+
+// ─── Diff (R-7 web viewer) ────────────────────────────────────────────────
+//
+// Shape mirrors pkg/diff.Report on the Go side. /api/diff returns this
+// when the user compares two saved reports in the web UI.
+
+export type DiffSeverity = "info" | "ok" | "warn" | "err";
+
+export type DiffChange = {
+  severity: DiffSeverity;
+  message: string;
+};
+
+export type DiffSection = {
+  title: string;
+  changes?: DiffChange[];
+};
+
+export type DiffReport = {
+  kind: string;          // "ports", "subs", … or "mixed" if old/new differ
+  target?: string;
+  old_started?: string;
+  new_started?: string;
+  sections?: DiffSection[];
+  changed: boolean;
+};

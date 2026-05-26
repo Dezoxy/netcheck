@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   Download,
   FileText,
+  GitCompare,
   Globe,
   History,
   Layers,
@@ -20,6 +21,7 @@ import {
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteSavedReport,
+  diffReports,
   listSavedReports,
   loadSavedReport,
   runArchCheck,
@@ -46,6 +48,7 @@ import type {
   AuditGrade,
   AuditReport,
   CheckMode,
+  DiffReport,
   DNSCompareReport,
   FullCheckReport,
   HeadersReport,
@@ -972,37 +975,216 @@ function RouteReportsList({
     onRefresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // R-7: track which reports the user has picked for compare. Up to two
+  // — the first becomes "old", the second "new". Both must share the
+  // same kind; cross-kind diffs are surfaced as kind:"mixed" by the
+  // server which is rarely useful, so we enforce same-kind in the UI.
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffError, setDiffError] = useState("");
+  const [diffResult, setDiffResult] = useState<DiffReport | null>(null);
+  const [diffMeta, setDiffMeta] = useState<{ oldMeta?: SavedReportMeta; newMeta?: SavedReportMeta }>({});
+
+  function toggleCompare(meta: SavedReportMeta) {
+    setDiffResult(null);
+    setDiffError("");
+    setCompareIds((prev) => {
+      if (prev.includes(meta.id)) {
+        return prev.filter((id) => id !== meta.id);
+      }
+      // Enforce same-kind constraint. If the already-selected item is a
+      // different kind, replace it; otherwise append (cap at 2).
+      const head = prev[0];
+      if (head) {
+        const headMeta = saved.find((s) => s.id === head);
+        if (headMeta && headMeta.kind !== meta.kind) {
+          return [meta.id];
+        }
+      }
+      return [...prev, meta.id].slice(-2);
+    });
+  }
+
+  async function runCompare() {
+    if (compareIds.length !== 2) return;
+    // Sort the two picks by saved_at so the older one is "old". Users
+    // can pick in either order; the diff is always old→new chronological.
+    const a = saved.find((s) => s.id === compareIds[0]);
+    const b = saved.find((s) => s.id === compareIds[1]);
+    if (!a || !b) return;
+    const [oldMeta, newMeta] = a.saved_at <= b.saved_at ? [a, b] : [b, a];
+
+    setDiffLoading(true);
+    setDiffError("");
+    setDiffResult(null);
+    try {
+      const [oldFull, newFull] = await Promise.all([
+        loadSavedReport(oldMeta.id),
+        loadSavedReport(newMeta.id),
+      ]);
+      const diff = await diffReports(oldFull.report, newFull.report);
+      setDiffResult(diff);
+      setDiffMeta({ oldMeta, newMeta });
+    } catch (cause) {
+      setDiffError(cause instanceof Error ? cause.message : "diff failed");
+    } finally {
+      setDiffLoading(false);
+    }
+  }
+
+  function clearCompare() {
+    setCompareIds([]);
+    setDiffResult(null);
+    setDiffError("");
+    setDiffMeta({});
+  }
+
+  const compareReady = compareIds.length === 2;
+
   return (
     <section className="route-page" aria-label="Reports">
       <header className="route-page-head">
         <h1>Reports</h1>
-        <p>Reports saved server-side via the Save button. Click to open in the workbench.</p>
+        <p>
+          Reports saved server-side via the Save button. Click a row to open it in the
+          workbench, or pick two of the same kind to compare.
+        </p>
       </header>
+
+      {compareIds.length > 0 ? (
+        <div className="compare-bar">
+          <span>
+            <strong>{compareIds.length}</strong> selected
+            {compareIds.length === 1 ? " — pick one more of the same kind" : ""}
+          </span>
+          <div className="compare-bar-actions">
+            <button className="modecard-run-secondary modecard-run" disabled={diffLoading} onClick={clearCompare} type="button">
+              <span>Clear</span>
+            </button>
+            <button className="modecard-run" disabled={!compareReady || diffLoading} onClick={runCompare} type="button">
+              <GitCompare />
+              <span>{diffLoading ? "Diffing…" : "Compare"}</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {diffError ? <ErrorBanner message={diffError} /> : null}
+      {diffResult ? (
+        <DiffViewer
+          report={diffResult}
+          oldMeta={diffMeta.oldMeta}
+          newMeta={diffMeta.newMeta}
+        />
+      ) : null}
+
       <div className="recent-list recent-list-page">
         {savedError ? <p className="detail-error">{savedError}</p> : null}
         {saved.length === 0 && !savedError ? (
           <p className="empty-list">No saved reports yet.</p>
         ) : null}
-        {saved.map((item) => (
-          <div className="recent-item recent-item-saved" key={item.id}>
-            <button className="recent-item-main" onClick={() => onOpen(item)} type="button">
-              <span
-                className={`recent-dot ${item.ok === false ? "recent-dot-fail" : "recent-dot-ok"}`}
-              />
-              <span>
-                <strong>{item.target}</strong>
-                <time>
-                  {MODE_LABEL[kindToMode(item.kind)] || item.kind} ·{" "}
-                  {formatRecentTime(item.saved_at)}
-                </time>
-              </span>
-            </button>
-            <IconButton label="Delete saved report" onClick={() => onRemove(item)}>
-              <Trash2 />
-            </IconButton>
-          </div>
-        ))}
+        {saved.map((item) => {
+          const picked = compareIds.includes(item.id);
+          return (
+            <div
+              className={`recent-item recent-item-saved ${picked ? "recent-item-picked" : ""}`}
+              key={item.id}
+            >
+              <button className="recent-item-main" onClick={() => onOpen(item)} type="button">
+                <span
+                  className={`recent-dot ${item.ok === false ? "recent-dot-fail" : "recent-dot-ok"}`}
+                />
+                <span>
+                  <strong>{item.target}</strong>
+                  <time>
+                    {MODE_LABEL[kindToMode(item.kind)] || item.kind} ·{" "}
+                    {formatRecentTime(item.saved_at)}
+                  </time>
+                </span>
+              </button>
+              <IconButton
+                label={picked ? "Remove from compare" : "Add to compare"}
+                onClick={() => toggleCompare(item)}
+              >
+                <GitCompare />
+              </IconButton>
+              <IconButton label="Delete saved report" onClick={() => onRemove(item)}>
+                <Trash2 />
+              </IconButton>
+            </div>
+          );
+        })}
       </div>
+    </section>
+  );
+}
+
+// DiffViewer renders the server's pkg/diff.Report as a stack of
+// section cards. Each section's title sits at the top, then a list
+// of changes each with a severity-coded chip and message.
+//
+// "info"  → blue chip (neutral observation, e.g. new subdomain)
+// "ok"    → green chip (improvement, e.g. port closed, header→pass)
+// "warn"  → orange chip (worth attention, e.g. cert closer to expiry)
+// "err"   → red chip (regression, e.g. new open port, missing header)
+function DiffViewer({
+  report,
+  oldMeta,
+  newMeta,
+}: {
+  report: DiffReport;
+  oldMeta?: SavedReportMeta;
+  newMeta?: SavedReportMeta;
+}) {
+  const sections = report.sections ?? [];
+  return (
+    <section className="diff-viewer" aria-label="Diff result">
+      <header className="diff-viewer-head">
+        <h2>
+          Diff: <span>{report.target || report.kind}</span>
+        </h2>
+        <div className="diff-viewer-meta">
+          {oldMeta && newMeta ? (
+            <span>
+              <code>{formatRecentTime(oldMeta.saved_at)}</code> →{" "}
+              <code>{formatRecentTime(newMeta.saved_at)}</code>
+            </span>
+          ) : null}
+          <span className={`health-pill ${report.changed ? "health-pill-fail" : "health-pill-ok"}`}>
+            <span />
+            {report.changed ? "Changed" : "No changes"}
+          </span>
+        </div>
+      </header>
+
+      {sections.length === 0 ? (
+        <p className="muted">No meaningful changes between these two reports.</p>
+      ) : (
+        <div className="diff-section-list">
+          {sections.map((section) => (
+            <article className="diff-section" key={section.title}>
+              <header>
+                <strong>{section.title}</strong>
+                <span className="muted">
+                  {section.changes?.length ?? 0} change
+                  {(section.changes?.length ?? 0) === 1 ? "" : "s"}
+                </span>
+              </header>
+              <ul className="diff-change-list">
+                {(section.changes ?? []).map((change, i) => (
+                  <li key={i} className="diff-change">
+                    <span className={`diff-chip diff-chip-${change.severity}`}>
+                      {change.severity}
+                    </span>
+                    <span className="diff-change-msg">{change.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
