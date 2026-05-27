@@ -53,6 +53,7 @@ linters:
       # the existing codebase uses so we still catch genuine typos.
       locale: US
       ignore-rules:
+        - behavioural
         - behaviour
         - cancelled
         - catalogue
@@ -63,6 +64,8 @@ linters:
         - flavoured
         - honour
         - honoured
+        - recognisable
+        - recognise
         - summarises
         - synthesise
         - synthesised
