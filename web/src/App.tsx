@@ -18,7 +18,7 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { Component, ErrorInfo, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteSavedReport,
   diffReports,
@@ -182,6 +182,11 @@ export default function App() {
   const [target, setTarget] = useState("google.com");
   const [report, setReport] = useState<AnyReport | null>(null);
   const [runState, setRunState] = useState<RunState>("idle");
+  // Monotonic counter bumped at the start of every run. Used as the
+  // ReportErrorBoundary key so a render crash on one report doesn't
+  // permanently poison the panel — the next run mounts a fresh
+  // boundary and gets a clean shot at rendering.
+  const [runSeq, setRunSeq] = useState(0);
   const [error, setError] = useState("");
   const [insecure, setInsecure] = useState(false);
   // R-1 redesign state. `route` is the top-level page (workbench /
@@ -255,6 +260,7 @@ export default function App() {
       setRunState("loading");
       setError("");
       setSavedJustNow(false);
+      setRunSeq((s) => s + 1);
       try {
         let next: AnyReport;
         switch (effectiveMode) {
@@ -509,6 +515,7 @@ export default function App() {
             onAcknowledge={setActiveAcknowledged}
             error={error}
             report={report}
+            runSeq={runSeq}
             portsProgress={portsProgress}
             portsProto={portsProto}
             onPortsProtoChange={setPortsProto}
@@ -1013,6 +1020,7 @@ function CategoryDetail({
   onAcknowledge,
   error,
   report,
+  runSeq,
   portsProgress,
   portsProto,
   onPortsProtoChange,
@@ -1028,6 +1036,9 @@ function CategoryDetail({
   onAcknowledge: (next: boolean) => void;
   error: string;
   report: AnyReport | null;
+  // Bumped on every run; used as the ReportErrorBoundary key so a
+  // crash on one report doesn't get latched across retries.
+  runSeq: number;
   portsProgress: { scanned: number; total: number; open: number } | null;
   // R-13: port-scan protocol selector lives on the App and is threaded
   // through here so the Ports modecard can surface a TCP/UDP/Both
@@ -1154,7 +1165,11 @@ function CategoryDetail({
       {runState === "loading" && portsProgress ? (
         <PortsProgressBanner progress={portsProgress} />
       ) : null}
-      {report ? <ReportView loading={runState === "loading"} report={report} /> : null}
+      {report ? (
+        <ReportErrorBoundary key={runSeq}>
+          <ReportView loading={runState === "loading"} report={report} />
+        </ReportErrorBoundary>
+      ) : null}
     </section>
   );
 }
@@ -2828,6 +2843,31 @@ function ErrorBanner({ message }: { message: string }) {
       {message}
     </section>
   );
+}
+
+// Contains render-time crashes inside the report panel so one bad
+// shape (e.g. an unexpected null) doesn't blank the entire app.
+// React requires class components for error boundaries (no hooks
+// equivalent yet). Reset via `key` from the parent — incrementing
+// runSeq on each new run remounts a fresh boundary.
+class ReportErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Report render crashed:", error, info.componentStack);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <ErrorBanner
+          message={`Couldn't render this report: ${this.state.error.message}. Run again or check the browser console.`}
+        />
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function IconButton({
