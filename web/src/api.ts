@@ -37,8 +37,46 @@ export function runFullCheck(target: string, insecure: boolean): Promise<FullChe
   return postJSON<FullCheckReport>("/api/check/full", { target, insecure });
 }
 
-export function runDNSCheck(host: string): Promise<DNSCompareReport> {
-  return postJSON<DNSCompareReport>("/api/check/dns", { host });
+// DNS_DEFAULT_TYPES mirrors dnscompare.DefaultScanTypes (Go side). Tier 1:
+// always queried on a default scan. Kept here so the UI can pre-compute the
+// extended set without a round-trip; the Go-side TestScanTypeSetsDisjoint
+// guards against drift between tiers.
+export const DNS_DEFAULT_TYPES = ["A", "AAAA", "CNAME", "NS", "MX", "TXT", "SOA", "CAA"] as const;
+
+// DNS_EXTENDED_TYPES mirrors dnscompare.ExtendedScanTypes (Go side). Tier 2:
+// queried only when the user opens the "show more" disclosure.
+export const DNS_EXTENDED_TYPES = ["SRV", "PTR", "NAPTR", "HINFO", "HTTPS", "SVCB", "SPF"] as const;
+
+// DNS_DNSSEC_TYPES mirrors dnscompare.DNSSECTypes (Go side). Tier 3: queried
+// only when the DNSSEC toggle is on, and only then with `dnssec: true` so the
+// DO bit is set on the wire-format query. The set is intentionally narrow —
+// RRSIG/DNSKEY blobs dominate the output, so we render them in a separate
+// panel group rather than mixed into the main table.
+export const DNS_DNSSEC_TYPES = [
+  "DNSKEY",
+  "DS",
+  "RRSIG",
+  "NSEC",
+  "NSEC3",
+  "CDS",
+  "CDNSKEY",
+] as const;
+
+export type DNSCheckOpts = {
+  // Override the record-type list. Omit (or pass undefined) for the
+  // server-side default (DNS_DEFAULT_TYPES).
+  types?: readonly string[];
+  // Set the DO bit so resolvers return DNSSEC records (RRSIG, NSEC, …).
+  // The wire-format query carries the bit; no validation is performed.
+  dnssec?: boolean;
+};
+
+export function runDNSCheck(host: string, opts?: DNSCheckOpts): Promise<DNSCompareReport> {
+  return postJSON<DNSCompareReport>("/api/check/dns", {
+    host,
+    types: opts?.types,
+    dnssec: opts?.dnssec,
+  });
 }
 
 export function runRouteCheck(
