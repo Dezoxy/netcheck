@@ -609,54 +609,59 @@ function LoadingOverlay({
   portsProgress: { scanned: number; total: number; open: number } | null;
 }) {
   const [shown, setShown] = useState(visible);
-  const [progress, setProgress] = useState(0);
+  // syntheticProgress is the local ramp state; the displayed progress
+  // is derived below from this + visible + portsProgress. Splitting
+  // "what we drive in a timer" from "what we render" is what lets us
+  // drop the setState-in-effect calls that the old three-effect form
+  // needed for the snap-to-100 / mirror-ports-ratio / reset-on-show
+  // transitions.
+  const [syntheticProgress, setSyntheticProgress] = useState(0);
   const [statusIdx, setStatusIdx] = useState(0);
 
-  // Mount/unmount with a brief delay so the exit animation can play.
-  useEffect(() => {
+  // React 19 + react-hooks v7 discourage setState inside effect bodies
+  // (cascading renders) AND mutating refs during render. The "show" /
+  // "reset" transitions used to be three effects with setState in the
+  // synchronous path; here we collapse them into a single render-time
+  // check against the previous visible value, using a state slot
+  // (not a ref) for that previous value. setState during render is
+  // documented and allowed when guarded by an equality check — React
+  // batches it into the current render rather than scheduling a
+  // follow-up. Reference:
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const [lastVisible, setLastVisible] = useState(visible);
+  if (visible !== lastVisible) {
+    setLastVisible(visible);
     if (visible) {
-      // TODO(react19-effects): rewrite these three effects to derive
-      // state instead of setState-in-effect. Flagged by react-hooks v7's
-      // new set-state-in-effect rule (introduced when #101 bumped the
-      // plugin from v5 → v7). Suppressed inline to land the CI safety
-      // net in #104 without expanding scope.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // visible just flipped true: snap shown immediately so the
+      // overlay mounts before the entrance animation starts, and
+      // reset the per-session ramp + status cursor.
       setShown(true);
-      return;
+      setSyntheticProgress(0);
+      setStatusIdx(0);
     }
-    // After fade-out, unmount.
+    // visible flipped false: leave shown=true so the fade-out can
+    // play; the effect below schedules setShown(false) after 280ms.
+  }
+
+  // Unmount delay: after visible flips false, wait for the exit
+  // animation to finish before pulling the DOM. setState lives in the
+  // setTimeout callback (rule-compliant — not in the effect body).
+  useEffect(() => {
+    if (visible) return;
     const t = window.setTimeout(() => setShown(false), 280);
     return () => window.clearTimeout(t);
   }, [visible]);
 
-  // Reset progress + status whenever the overlay becomes visible.
+  // Synthetic progress ramp — only runs when there's no real progress
+  // source. Real ports-scan progress is derived inline below; this
+  // interval just keeps the ring moving for non-streaming checks. The
+  // setState here is inside the interval callback, so the rule
+  // doesn't flag it.
   useEffect(() => {
     if (!visible) return;
-    // TODO(react19-effects): see App.tsx setShown comment above.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProgress(0);
-    setStatusIdx(0);
-  }, [visible]);
-
-  // Drive progress.
-  useEffect(() => {
-    if (!visible) {
-      // When the check finishes, snap to 100% so the ring fills before
-      // the overlay fades out.
-      // TODO(react19-effects): see App.tsx setShown comment above.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setProgress(100);
-      return;
-    }
-    // Real progress wins when available (ports SSE).
-    if (portsProgress && portsProgress.total > 0) {
-      setProgress(Math.min(99, (portsProgress.scanned / portsProgress.total) * 100));
-      return;
-    }
-    // Synthetic ramp toward 90%, slowing as it gets there. 80ms tick
-    // with variable increment matches the Stitch demo's feel.
+    if (portsProgress && portsProgress.total > 0) return;
     const interval = window.setInterval(() => {
-      setProgress((current) => {
+      setSyntheticProgress((current) => {
         if (current >= 90) return current;
         const step = (90 - current) * 0.02 + Math.random() * 0.4;
         return Math.min(90, current + step);
@@ -679,10 +684,24 @@ function LoadingOverlay({
   const messages = LOADING_MESSAGES[mode as CheckMode] ?? LOADING_MESSAGES.default;
   const status = visible ? messages[statusIdx % messages.length] : "Done";
 
+  // Derived display progress, replacing the old `progress` state.
+  //   - !visible → snap to 100 (ring fills before the overlay fades).
+  //   - real ports-scan progress → mirror its scanned/total ratio,
+  //     capped at 99 so the final tick comes from the !visible branch.
+  //   - otherwise → the synthetic ramp.
+  let displayProgress: number;
+  if (!visible) {
+    displayProgress = 100;
+  } else if (portsProgress && portsProgress.total > 0) {
+    displayProgress = Math.min(99, (portsProgress.scanned / portsProgress.total) * 100);
+  } else {
+    displayProgress = syntheticProgress;
+  }
+
   // Progress ring math: r=54, circumference = 2πr ≈ 339.292.
   const RADIUS = 54;
   const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-  const offset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
+  const offset = CIRCUMFERENCE - (displayProgress / 100) * CIRCUMFERENCE;
 
   return (
     <div
@@ -716,7 +735,7 @@ function LoadingOverlay({
               strokeDashoffset={offset}
             />
           </svg>
-          <span className="progress-ring-value">{Math.floor(progress)}%</span>
+          <span className="progress-ring-value">{Math.floor(displayProgress)}%</span>
         </div>
 
         <div className="loading-status">
