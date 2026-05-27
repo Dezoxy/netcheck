@@ -58,7 +58,7 @@ func TestDoHRoundTrip(t *testing.T) {
 	resolvers := []Resolver{
 		{Name: "test-doh", Address: srv.URL, Type: TypeDoH},
 	}
-	result := Compare(context.Background(), resolvers, "example.com", "A", 5*time.Second, CompareOpts{})
+	result := Compare(context.Background(), resolvers, "example.com", "A", 5*time.Second)
 	if len(result.Results) != 1 {
 		t.Fatalf("got %d results, want 1", len(result.Results))
 	}
@@ -85,7 +85,7 @@ func TestDoHServerError(t *testing.T) {
 	defer srv.Close()
 
 	resolvers := []Resolver{{Name: "broken", Address: srv.URL, Type: TypeDoH}}
-	result := Compare(context.Background(), resolvers, "example.com", "A", 2*time.Second, CompareOpts{})
+	result := Compare(context.Background(), resolvers, "example.com", "A", 2*time.Second)
 	if result.Results[0].Err == nil {
 		t.Error("expected error on HTTP 503, got nil")
 	}
@@ -125,7 +125,7 @@ func TestDNSSECOptSetsDOBit(t *testing.T) {
 			defer srv.Close()
 
 			resolvers := []Resolver{{Name: "do-bit", Address: srv.URL, Type: TypeDoH}}
-			_ = Compare(context.Background(), resolvers, "example.com", "A", 2*time.Second, c.opts)
+			_ = CompareWithOpts(context.Background(), resolvers, "example.com", "A", 2*time.Second, c.opts)
 			if observedDO != c.wantDO {
 				t.Errorf("DO bit observed=%v, want %v", observedDO, c.wantDO)
 			}

@@ -42,7 +42,17 @@ type CompareOpts struct {
 // Compare queries every resolver in parallel for host/qtype and returns the
 // per-resolver results. Failures are captured in ResolverResult.Err — Compare
 // itself does not return an error.
-func Compare(ctx context.Context, resolvers []Resolver, host, qtype string, timeout time.Duration, opts CompareOpts) Result {
+//
+// This is the v2.0 signature (no opts). It is preserved for backward
+// compatibility per STABILITY.md. New code should call CompareWithOpts
+// directly so it can set DNSSEC and other future query options.
+func Compare(ctx context.Context, resolvers []Resolver, host, qtype string, timeout time.Duration) Result {
+	return CompareWithOpts(ctx, resolvers, host, qtype, timeout, CompareOpts{})
+}
+
+// CompareWithOpts is the v2.1+ entry point. Behaves like Compare but lets the
+// caller supply CompareOpts (e.g. opts.DNSSEC to set the DO bit on EDNS0).
+func CompareWithOpts(ctx context.Context, resolvers []Resolver, host, qtype string, timeout time.Duration, opts CompareOpts) Result {
 	results := make([]ResolverResult, len(resolvers))
 	var wg sync.WaitGroup
 	for i, r := range resolvers {

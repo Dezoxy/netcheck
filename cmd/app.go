@@ -269,7 +269,7 @@ func handleDNSCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := BuildDNSCompare(r.Context(), host, resolvers, parsedTypes, 5*time.Second, dnscompare.CompareOpts{DNSSEC: req.DNSSEC})
+	out := BuildDNSCompareWithOpts(r.Context(), host, resolvers, parsedTypes, 5*time.Second, dnscompare.CompareOpts{DNSSEC: req.DNSSEC})
 	writeJSON(w, http.StatusOK, out)
 }
 
