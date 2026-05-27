@@ -2455,10 +2455,7 @@ function PortScanWorkbench({ loading, report }: { loading: boolean; report: Port
       <div className="summary-strip">
         <SummaryCard label="Open" value={String(report.stats.open)} />
         {report.stats.open_filtered ? (
-          <SummaryCard
-            label="Open|Filtered"
-            value={String(report.stats.open_filtered)}
-          />
+          <SummaryCard label="Open|Filtered" value={String(report.stats.open_filtered)} />
         ) : null}
         <SummaryCard label="Closed" value={String(report.stats.closed)} />
         <SummaryCard label="Filtered" value={String(report.stats.filtered)} />
