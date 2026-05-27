@@ -244,7 +244,7 @@ func menuDNS(in *bufio.Reader, out io.Writer) (*savable, error) {
 
 	const timeout = 5 * time.Second
 	var collected []dnscompare.Result
-	for _, qt := range []string{"A", "AAAA"} {
+	for _, qt := range dnscompare.DefaultScanTypes {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout*2)
 		result := dnscompare.Compare(ctx, resolvers, host, qt, timeout)
 		cancel()

@@ -29,7 +29,7 @@ type fullCheckRequest struct {
 
 type dnsCheckRequest struct {
 	Host              string   `json:"host"`
-	Types             []string `json:"types,omitempty"`     // default A,AAAA
+	Types             []string `json:"types,omitempty"`     // default dnscompare.DefaultScanTypes (Tier 1)
 	Resolvers         []string `json:"resolvers,omitempty"` // extra URL-style resolvers
 	NoSystem          bool     `json:"no_system,omitempty"`
 	NoDefaults        bool     `json:"no_defaults,omitempty"`
@@ -233,7 +233,7 @@ func handleDNSCheck(w http.ResponseWriter, r *http.Request) {
 
 	types := req.Types
 	if len(types) == 0 {
-		types = []string{"A", "AAAA"}
+		types = dnscompare.DefaultScanTypes
 	}
 	parsedTypes, err := dnscompare.ParseTypes(strings.Join(types, ","))
 	if err != nil {
