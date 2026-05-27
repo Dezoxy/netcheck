@@ -43,7 +43,12 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.5.0
+          # Pinned to v2.12.2 — v2.5.0 was built with Go 1.25 and its
+          # embedded go/types panics on transitively-imported Go 1.26
+          # source files ("file requires newer Go version go1.26"),
+          # which is what the runner's `go-version: stable` now resolves
+          # to. Bump again when Go 1.27 ships and the same issue recurs.
+          version: v2.12.2
 
       - name: go test
         run: go test -race -coverprofile=coverage.out ./...
