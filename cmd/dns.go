@@ -70,6 +70,7 @@ func RunDNS(args []string) int {
 	skipSystem := fs.Bool("no-system", false, "skip the system resolver")
 	skipDefaults := fs.Bool("no-defaults", false, "skip built-in resolvers (Cloudflare/Google/Quad9)")
 	skipConfig := fs.Bool("no-config-resolvers", false, "skip resolvers defined in the config file")
+	dnssec := fs.Bool("dnssec", false, "set the DO bit so resolvers return DNSSEC records (RRSIG, NSEC, etc.) — does not perform validation")
 	outputFlag := addOutputFlag(fs)
 	outFlag := addOutFlag(fs)
 
@@ -133,11 +134,12 @@ func RunDNS(args []string) int {
 
 	startedAt := time.Now()
 
+	opts := dnscompare.CompareOpts{DNSSEC: *dnssec}
 	anyError := false
 	collected := make([]dnscompare.Result, 0, len(types))
 	for _, qt := range types {
 		ctx, cancel := context.WithTimeout(context.Background(), *timeout*2)
-		result := dnscompare.Compare(ctx, resolvers, host, qt, *timeout)
+		result := dnscompare.CompareWithOpts(ctx, resolvers, host, qt, *timeout, opts)
 		cancel()
 		collected = append(collected, result)
 		// Disagreement is expected for CDN-fronted hosts (GeoDNS), so only
@@ -188,7 +190,18 @@ func RunDNS(args []string) int {
 // to dnscompare.DefaultScanTypes (Tier 1). Errors from individual resolvers
 // are recorded inside the result (per-resolver Err); BuildDNSCompare itself
 // never returns an error.
+//
+// This is the v2.0 signature (no opts), preserved for backward compatibility.
+// New code should call BuildDNSCompareWithOpts to set DNSSEC and other
+// future query options.
 func BuildDNSCompare(ctx context.Context, host string, resolvers []dnscompare.Resolver, types []string, timeout time.Duration) report.DNSCompareJSON {
+	return BuildDNSCompareWithOpts(ctx, host, resolvers, types, timeout, dnscompare.CompareOpts{})
+}
+
+// BuildDNSCompareWithOpts is the v2.1+ entry point. Behaves like
+// BuildDNSCompare but forwards opts (e.g. opts.DNSSEC) to each underlying
+// Compare call.
+func BuildDNSCompareWithOpts(ctx context.Context, host string, resolvers []dnscompare.Resolver, types []string, timeout time.Duration, opts dnscompare.CompareOpts) report.DNSCompareJSON {
 	if len(types) == 0 {
 		types = dnscompare.DefaultScanTypes
 	}
@@ -196,7 +209,7 @@ func BuildDNSCompare(ctx context.Context, host string, resolvers []dnscompare.Re
 	collected := make([]dnscompare.Result, 0, len(types))
 	for _, qt := range types {
 		qctx, cancel := context.WithTimeout(ctx, timeout*2)
-		collected = append(collected, dnscompare.Compare(qctx, resolvers, host, qt, timeout))
+		collected = append(collected, dnscompare.CompareWithOpts(qctx, resolvers, host, qt, timeout, opts))
 		cancel()
 	}
 	return report.ToDNSCompareJSON(host, startedAt, collected)
