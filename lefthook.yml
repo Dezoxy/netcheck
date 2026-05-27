@@ -1,0 +1,124 @@
+# lefthook — git hook manager for netcheck.
+#
+# Why lefthook over alternatives:
+#   - single Go binary, no Python (pre-commit) or Node (husky) bootstrap
+#     required just to run the hooks
+#   - parallel execution by default — hook latency stays sub-second on
+#     small changes
+#   - native auto-staging of files modified by formatters (`stage_fixed`)
+#
+# Bootstrap (one-time, per clone):
+#   brew install lefthook golangci-lint gitleaks
+#   lefthook install
+#   cd web && npm install
+#
+# Skip everything for an emergency commit (use sparingly):
+#   LEFTHOOK=0 git commit ...
+#   git commit --no-verify ...
+
+# ─── pre-commit ─────────────────────────────────────────────────────────────
+# Fast, auto-fixing hooks that run on each `git commit`. Anything that
+# touches the filesystem also sets `stage_fixed: true` so the autofix
+# lands in the same commit instead of leaving a dirty tree.
+pre-commit:
+  parallel: true
+  commands:
+    # ── Go ────────────────────────────────────────────────────────────────
+    gofmt:
+      glob: "*.go"
+      run: gofmt -l -w {staged_files}
+      stage_fixed: true
+
+    go-vet:
+      # vet is fast but operates on packages, not files. Run it over the
+      # whole module — incremental analysis isn't worth the complexity
+      # at this codebase size.
+      glob: "*.go"
+      run: go vet ./...
+
+    golangci-lint:
+      # Scope is controlled by .golangci.yml — we enable a curated set
+      # of linters (errcheck, govet, staticcheck, ineffassign, unused,
+      # bodyclose, errorlint, misspell, ...) that finishes sub-second
+      # on a warm cache. golangci-lint v2 dropped the --fast flag; the
+      # config file is now the single source of truth.
+      glob: "*.go"
+      run: golangci-lint run ./...
+
+    # ── Web (TypeScript / React / CSS) ───────────────────────────────────
+    prettier:
+      glob: "web/**/*.{ts,tsx,js,jsx,json,css,html,md}"
+      run: cd web && npx --no-install prettier --write {staged_files}
+      stage_fixed: true
+
+    eslint:
+      glob: "web/**/*.{ts,tsx,js,jsx}"
+      # `--no-warn-ignored` keeps the run quiet when prettier already
+      # auto-staged a file that ESLint's ignore patterns would skip.
+      run: cd web && npx --no-install eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true
+
+    # ── Security ─────────────────────────────────────────────────────────
+    gitleaks:
+      # Scans the staged diff for secret-like strings. Strict by default —
+      # add allowlist entries to .gitleaks.toml when something legitimate
+      # gets flagged (test fixtures, public sample keys, etc.).
+      run: gitleaks protect --staged --redact --no-banner --verbose
+
+    # ── Hygiene ──────────────────────────────────────────────────────────
+    large-files:
+      # Block accidental commits of binaries / dataset dumps. 512KB ceiling
+      # is generous for source but catches >100KB images, .pem dumps, etc.
+      # Adjust if you start embedding genuine large assets.
+      run: |
+        out=$(find {staged_files} -type f -size +512k 2>/dev/null || true)
+        if [ -n "$out" ]; then
+          echo "Refusing to commit large files (>512KB):"
+          echo "$out"
+          echo "If intentional, commit with --no-verify."
+          exit 1
+        fi
+
+# ─── commit-msg ─────────────────────────────────────────────────────────────
+# Validates the commit message before the commit lands. The shape is the
+# conventional-commits spec — release-please depends on it to compute
+# semver bumps and assemble the changelog.
+commit-msg:
+  commands:
+    commitlint:
+      # `--no-install` would fail because commitlint is a devDependency of
+      # web/package.json — we DO want npx to find it via the workspace.
+      # Falls back to downloading if not yet installed (e.g. before
+      # `npm install` runs); first hook on a fresh clone is slow once,
+      # then cached.
+      run: cd web && npx commitlint --edit {1}
+
+# ─── pre-push ───────────────────────────────────────────────────────────────
+# Slower checks deferred to push. ~10s budget; if it gets longer than
+# that, demote individual checks to CI-only.
+pre-push:
+  parallel: true
+  commands:
+    go-test:
+      glob: "*.go"
+      # `-race` mirrors CI exactly. -count=1 disables the test cache so
+      # we always exercise the actual current code (cached pass results
+      # have lied to us before).
+      run: go test -race -count=1 ./...
+
+    tsc:
+      glob: "web/**/*.{ts,tsx}"
+      run: cd web && npx --no-install tsc --noEmit
+
+    go-mod-tidy:
+      glob: "go.{mod,sum}"
+      # `-diff` makes tidy emit the diff it WOULD apply rather than
+      # mutating files. Exit 1 if there's anything to apply — we want
+      # the dev to run `go mod tidy` and re-commit cleanly.
+      run: |
+        diff=$(go mod tidy -diff 2>&1)
+        if [ -n "$diff" ]; then
+          echo "go.mod / go.sum out of date — run 'go mod tidy':"
+          echo "$diff"
+          exit 1
+        fi

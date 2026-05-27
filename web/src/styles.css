@@ -1,7 +1,14 @@
 :root {
   color: #e8eef2;
   background: #0b0d0e;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -119,7 +126,8 @@ input,
   align-items: center;
   justify-content: space-between;
   height: calc(48px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0
+    max(16px, env(safe-area-inset-left));
   border-bottom: 1px solid var(--border-strong);
   background: var(--surface);
 }
@@ -337,7 +345,9 @@ input,
   line-height: 20px;
   cursor: pointer;
   text-align: left;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .nav-item svg {
@@ -388,7 +398,9 @@ input,
   background: var(--panel);
   cursor: pointer;
   text-align: left;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
 .recent-item:hover,
@@ -474,7 +486,8 @@ input,
   min-width: 0;
   align-content: start;
   gap: 16px;
-  padding: 16px max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding: 16px max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
   background: var(--surface);
 }
 
@@ -644,9 +657,7 @@ input,
   gap: 24px;
   padding: 32px;
   border: 1px dashed var(--border-strong);
-  background:
-    linear-gradient(90deg, rgb(76 215 246 / 6%), transparent 42%),
-    var(--panel);
+  background: linear-gradient(90deg, rgb(76 215 246 / 6%), transparent 42%), var(--panel);
 }
 
 .empty-workbench h1 {
@@ -1254,7 +1265,9 @@ input,
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  transition: border-color 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
 .recent-item-saved:hover {
@@ -1317,7 +1330,10 @@ input,
 /* Four-column variant used by DNS compare (resolver/address/time/answer) and
    Route (hop/address/rtt/asn). Apply .dns-row-4 to BOTH the header and rows. */
 .dns-row-4 {
-  grid-template-columns: minmax(80px, 1.5fr) minmax(120px, 2fr) minmax(60px, 0.8fr) minmax(140px, 3fr);
+  grid-template-columns: minmax(80px, 1.5fr) minmax(120px, 2fr) minmax(60px, 0.8fr) minmax(
+      140px,
+      3fr
+    );
 }
 
 /* Three-column variant used by the Ports panel when banners are present
@@ -1584,7 +1600,9 @@ input,
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--panel);
-  transition: box-shadow 120ms ease, border-color 120ms ease;
+  transition:
+    box-shadow 120ms ease,
+    border-color 120ms ease;
 }
 
 .landing-input:focus-within {
@@ -1635,7 +1653,10 @@ input,
   text-align: left;
   cursor: pointer;
   box-shadow: var(--elev-1);
-  transition: transform 100ms ease, box-shadow 120ms ease, border-color 120ms ease,
+  transition:
+    transform 100ms ease,
+    box-shadow 120ms ease,
+    border-color 120ms ease,
     background 120ms ease;
 }
 
@@ -1732,7 +1753,10 @@ input,
     0 0 0 1px var(--accent),
     0 0 24px -2px rgba(76, 215, 246, 0.55),
     0 0 48px -8px rgba(76, 215, 246, 0.4);
-  transition: background 120ms ease, box-shadow 120ms ease, transform 100ms ease;
+  transition:
+    background 120ms ease,
+    box-shadow 120ms ease,
+    transform 100ms ease;
 }
 
 .run-check-cta:hover:not(:disabled),
@@ -1989,7 +2013,10 @@ input,
   border-radius: var(--radius-md);
   background: var(--panel);
   box-shadow: var(--elev-1);
-  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
 }
 
 .modecard:hover {
@@ -2055,7 +2082,10 @@ input,
   letter-spacing: 0.01em;
   cursor: pointer;
   justify-content: center;
-  transition: background 120ms ease, transform 80ms ease, opacity 120ms ease;
+  transition:
+    background 120ms ease,
+    transform 80ms ease,
+    opacity 120ms ease;
 }
 
 .modecard-run svg {
@@ -2281,8 +2311,8 @@ input,
   /* Tighten workbench padding on phones — env() safe-area still
      handled in .workbench base rule. */
   .workbench {
-    padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right))
-             var(--space-5) max(var(--space-3), env(safe-area-inset-left));
+    padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right)) var(--space-5)
+      max(var(--space-3), env(safe-area-inset-left));
     gap: var(--space-3);
   }
 
@@ -2314,10 +2344,8 @@ input,
      `max(token, env(...))` the brand and action icons would clip
      into the rounded corner / notch area. */
   .topbar {
-    padding: env(safe-area-inset-top)
-             max(var(--space-3), env(safe-area-inset-right))
-             0
-             max(var(--space-3), env(safe-area-inset-left));
+    padding: env(safe-area-inset-top) max(var(--space-3), env(safe-area-inset-right)) 0
+      max(var(--space-3), env(safe-area-inset-left));
   }
   .brand {
     font-size: 20px;
@@ -2390,7 +2418,9 @@ input,
   transform: scale(0.985);
   transform-origin: center center;
   pointer-events: none;
-  transition: filter 300ms ease, transform 300ms ease;
+  transition:
+    filter 300ms ease,
+    transform 300ms ease;
 }
 
 .loading-overlay {
@@ -2498,8 +2528,13 @@ input,
 }
 
 @keyframes loading-status-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .loading-dots {
@@ -2514,9 +2549,15 @@ input,
   background: var(--accent);
 }
 
-.loading-dots span:nth-child(1) { opacity: 0.3; }
-.loading-dots span:nth-child(2) { opacity: 0.55; }
-.loading-dots span:nth-child(3) { opacity: 0.85; }
+.loading-dots span:nth-child(1) {
+  opacity: 0.3;
+}
+.loading-dots span:nth-child(2) {
+  opacity: 0.55;
+}
+.loading-dots span:nth-child(3) {
+  opacity: 0.85;
+}
 
 /* Mobile — slightly tighter card so it fits 360px screens with
    horizontal padding to spare. */

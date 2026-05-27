@@ -26,7 +26,8 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
   });
   const payload = (await response.json()) as T | { error?: string };
   if (!response.ok) {
-    const message = "error" in (payload as object) ? (payload as { error?: string }).error : "request failed";
+    const message =
+      "error" in (payload as object) ? (payload as { error?: string }).error : "request failed";
     throw new Error(message || "request failed");
   }
   return payload as T;
@@ -40,7 +41,10 @@ export function runDNSCheck(host: string): Promise<DNSCompareReport> {
   return postJSON<DNSCompareReport>("/api/check/dns", { host });
 }
 
-export function runRouteCheck(host: string, opts?: { noASN?: boolean; maxHops?: number }): Promise<RouteReport> {
+export function runRouteCheck(
+  host: string,
+  opts?: { noASN?: boolean; maxHops?: number },
+): Promise<RouteReport> {
   return postJSON<RouteReport>("/api/check/route", {
     host,
     no_asn: opts?.noASN ?? false,
@@ -246,7 +250,9 @@ function dispatchFrame(frame: string, handlers: StreamPortsHandlers) {
       handlers.onDone?.(payload as PortScanReport);
       break;
     case "error":
-      handlers.onError?.(new Error(String((payload as { error?: string }).error || "stream error")));
+      handlers.onError?.(
+        new Error(String((payload as { error?: string }).error || "stream error")),
+      );
       break;
   }
 }
@@ -297,7 +303,9 @@ export function saveReport(report: AnyReport, label?: string): Promise<SavedRepo
   return postJSON<SavedReportMeta>("/api/reports", { report, label });
 }
 
-export async function loadSavedReport(id: string): Promise<{ report: AnyReport; meta: SavedReportMeta }> {
+export async function loadSavedReport(
+  id: string,
+): Promise<{ report: AnyReport; meta: SavedReportMeta }> {
   const response = await fetch(`/api/reports/${encodeURIComponent(id)}`);
   if (!response.ok) {
     throw new Error("failed to load report");

@@ -1,0 +1,44 @@
+# gitleaks configuration for netcheck.
+#
+# Defaults are strict — we inherit gitleaks' built-in detectors for
+# common cloud credentials, API keys, private keys, and JWT secrets.
+# Allowlist entries below cover the few legitimate places where strings
+# *look* like secrets but aren't:
+#
+#   - test fixtures with fake-but-realistic shapes
+#   - public sample tokens documented by upstream services
+#   - golden-file snapshots that include the redacted dumps
+#
+# Add new exceptions only with a comment explaining WHY the match is safe.
+# Drift here is how real leaks slip through pre-commit.
+
+[extend]
+# Pulls in the built-in default ruleset. Without this, the `[allowlist]`
+# below would be the entire config and gitleaks would scan for nothing.
+useDefault = true
+
+[allowlist]
+description = "netcheck false-positives"
+
+# Files that legitimately contain credential-shaped strings. Keep this
+# list minimal — a misplaced glob neutralizes secret scanning entirely.
+paths = [
+  # Goldens may capture redacted output that looks like tokens.
+  '''pkg/report/testdata/.*\.golden''',
+  # The lockfile contains long base64-ish integrity hashes that
+  # occasionally trip the high-entropy detector.
+  '''web/package-lock\.json''',
+  '''.*\.svg''',
+]
+
+# Inline overrides for documented sample values (public, intentional).
+regexes = [
+  # SNMPv1 sample community string — public-by-convention in our probes.
+  '''community.*=.*"public"''',
+  # Public mDNS / SSDP discovery markers carried as literal probe bytes.
+  '''ssdp:discover''',
+]
+
+# Commits known to predate gitleaks adoption and contain unrelated
+# code only — kept empty until we hit a real false-positive in history.
+commits = []
