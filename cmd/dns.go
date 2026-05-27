@@ -63,7 +63,7 @@ func RunDNS(args []string) int {
 	fs := flag.NewFlagSet("netcheck dns", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	configPath := addConfigFlag(fs)
-	typesFlag := fs.String("type", "A,AAAA", "comma-separated record types (A,AAAA,CNAME,MX,TXT,NS,SOA)")
+	typesFlag := fs.String("type", strings.Join(dnscompare.DefaultScanTypes, ","), "comma-separated record types (default scans A,AAAA,CNAME,NS,MX,TXT,SOA,CAA; also accepts SRV,PTR,NAPTR,HINFO,HTTPS,SVCB,SPF,DNSKEY,DS,RRSIG,NSEC,NSEC3,CDS,CDNSKEY)")
 	timeout := fs.Duration("timeout", 5*time.Second, "per-query timeout")
 	var extra stringSlice
 	fs.Var(&extra, "resolver", "additional resolver (host, host:port, or udp://, tcp://, tls://, dot://, https://, doh:// URL) (repeatable)")
@@ -185,11 +185,12 @@ func RunDNS(args []string) int {
 //
 // The caller chooses the resolver set (typically: SystemResolvers +
 // DefaultResolvers + config-defined). Pass `nil` or empty `types` to default
-// to A,AAAA. Errors from individual resolvers are recorded inside the result
-// (per-resolver Err); BuildDNSCompare itself never returns an error.
+// to dnscompare.DefaultScanTypes (Tier 1). Errors from individual resolvers
+// are recorded inside the result (per-resolver Err); BuildDNSCompare itself
+// never returns an error.
 func BuildDNSCompare(ctx context.Context, host string, resolvers []dnscompare.Resolver, types []string, timeout time.Duration) report.DNSCompareJSON {
 	if len(types) == 0 {
-		types = []string{"A", "AAAA"}
+		types = dnscompare.DefaultScanTypes
 	}
 	startedAt := time.Now()
 	collected := make([]dnscompare.Result, 0, len(types))
