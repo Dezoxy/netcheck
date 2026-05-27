@@ -29,29 +29,39 @@ type Result struct {
 	Results []ResolverResult
 }
 
+// CompareOpts tunes the DNS queries that Compare issues. The zero value
+// matches the historical behavior (no DO bit, default UDP/TCP fallback).
+type CompareOpts struct {
+	// DNSSEC, when true, sets the DO (DNSSEC OK) bit on EDNS0 so resolvers
+	// include DNSSEC records (RRSIG, NSEC, etc.) in their responses. It does
+	// not perform validation — that's the resolver's job, surfaced via the
+	// AD flag in a future extension.
+	DNSSEC bool
+}
+
 // Compare queries every resolver in parallel for host/qtype and returns the
 // per-resolver results. Failures are captured in ResolverResult.Err — Compare
 // itself does not return an error.
-func Compare(ctx context.Context, resolvers []Resolver, host, qtype string, timeout time.Duration) Result {
+func Compare(ctx context.Context, resolvers []Resolver, host, qtype string, timeout time.Duration, opts CompareOpts) Result {
 	results := make([]ResolverResult, len(resolvers))
 	var wg sync.WaitGroup
 	for i, r := range resolvers {
 		wg.Add(1)
 		go func(i int, r Resolver) {
 			defer wg.Done()
-			results[i] = queryResolver(ctx, r, host, qtype, timeout)
+			results[i] = queryResolver(ctx, r, host, qtype, timeout, opts)
 		}(i, r)
 	}
 	wg.Wait()
 	return Result{Host: host, QType: qtype, Results: results}
 }
 
-func queryResolver(ctx context.Context, r Resolver, host string, qtypeName string, timeout time.Duration) ResolverResult {
+func queryResolver(ctx context.Context, r Resolver, host string, qtypeName string, timeout time.Duration, opts CompareOpts) ResolverResult {
 	qtype := qtypeByName[qtypeName]
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(host), qtype)
 	m.RecursionDesired = true
-	m.SetEdns0(4096, false)
+	m.SetEdns0(4096, opts.DNSSEC)
 
 	start := time.Now()
 	var (

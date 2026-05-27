@@ -246,7 +246,7 @@ func menuDNS(in *bufio.Reader, out io.Writer) (*savable, error) {
 	var collected []dnscompare.Result
 	for _, qt := range dnscompare.DefaultScanTypes {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout*2)
-		result := dnscompare.Compare(ctx, resolvers, host, qt, timeout)
+		result := dnscompare.Compare(ctx, resolvers, host, qt, timeout, dnscompare.CompareOpts{})
 		cancel()
 		collected = append(collected, result)
 		report.RenderDNSCompare(out, &result)
