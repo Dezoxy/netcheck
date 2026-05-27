@@ -4,6 +4,22 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.2.0](https://github.com/Dezoxy/netcheck/compare/v2.1.0...v2.2.0) (2026-05-27)
+
+
+### Features
+
+* R-13 UDP port scan (service-aware, privilege-free) ([#80](https://github.com/Dezoxy/netcheck/issues/80)) ([c6577c2](https://github.com/Dezoxy/netcheck/commit/c6577c26fd206b6934fd572549aa74f77c350498))
+* **web:** R-10 visual fidelity polish (brand mark + card glow + central Run Check) ([#73](https://github.com/Dezoxy/netcheck/issues/73)) ([33f3ab2](https://github.com/Dezoxy/netcheck/commit/33f3ab27bf3540bef407692f1c177e82c94c1a53))
+* **web:** R-11 polish v2 — glassy sidebar + brand-in-sidebar + atom icon ([#76](https://github.com/Dezoxy/netcheck/issues/76)) ([7bb7e30](https://github.com/Dezoxy/netcheck/commit/7bb7e30d75b2fa128748fdce91fd318705c84482))
+* **web:** R-12 interactive loading overlay (progress ring + cycling status) ([#78](https://github.com/Dezoxy/netcheck/issues/78)) ([7c8d691](https://github.com/Dezoxy/netcheck/commit/7c8d69196972cfae40d90bd24cd13d12e911851c))
+
+
+### Bug fixes
+
+* **web:** anchor sidenav brand + nav to the top (R-11 follow-up) ([#77](https://github.com/Dezoxy/netcheck/issues/77)) ([c558768](https://github.com/Dezoxy/netcheck/commit/c5587686df77c16017f3c3b08cd9917e6049ab28))
+* **web:** show results after landing Run Check (Codex P1 follow-up to [#73](https://github.com/Dezoxy/netcheck/issues/73)) ([#74](https://github.com/Dezoxy/netcheck/issues/74)) ([4105ee7](https://github.com/Dezoxy/netcheck/commit/4105ee7a3bfe9941459d8e8e2bb24c6fc8c0bb6f))
+
 ## [2.1.0](https://github.com/Dezoxy/netcheck/compare/v2.0.1...v2.1.0) (2026-05-26)
 
 
