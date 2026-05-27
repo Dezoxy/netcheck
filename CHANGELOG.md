@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.3.0](https://github.com/Dezoxy/netcheck/compare/v2.2.0...v2.3.0) (2026-05-27)
+
+
+### Features
+
+* **dnscompare:** expand queryable record types and add scan-type tiers ([#84](https://github.com/Dezoxy/netcheck/issues/84)) ([31d3c89](https://github.com/Dezoxy/netcheck/commit/31d3c892fa59ec833552c8d460411bd7c387eeed))
+
 ## [2.2.0](https://github.com/Dezoxy/netcheck/compare/v2.1.0...v2.2.0) (2026-05-27)
 
 
