@@ -21,6 +21,13 @@ func TestParseTypes(t *testing.T) {
 		{" A , AAAA ", []string{"A", "AAAA"}}, // trimming + spaces
 		{"A,A,AAAA", []string{"A", "AAAA"}},   // dedup, preserves order
 		{"AAAA,A", []string{"AAAA", "A"}},     // order preserved
+		// Tier 1 (default) — every entry must parse.
+		{"CAA", []string{"CAA"}},
+		{"A,AAAA,CNAME,NS,MX,TXT,SOA,CAA", []string{"A", "AAAA", "CNAME", "NS", "MX", "TXT", "SOA", "CAA"}},
+		// Tier 2 (extended) sample.
+		{"SRV,HTTPS,SVCB,PTR", []string{"SRV", "HTTPS", "SVCB", "PTR"}},
+		// Tier 3 (DNSSEC) sample.
+		{"DNSKEY,DS,RRSIG", []string{"DNSKEY", "DS", "RRSIG"}},
 	}
 	for _, c := range cases {
 		got, err := ParseTypes(c.in)
@@ -111,6 +118,26 @@ func TestRecordValueAllTypes(t *testing.T) {
 			rr:   &dns.SOA{Hdr: dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeSOA}, Ns: "ns.example.com.", Mbox: "admin.example.com.", Serial: 2026052100},
 			want: "ns.example.com admin.example.com 2026052100",
 		},
+		{
+			name: "CAA quoted value",
+			rr:   &dns.CAA{Hdr: dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeCAA}, Flag: 0, Tag: "issue", Value: "letsencrypt.org"},
+			want: `0 issue "letsencrypt.org"`,
+		},
+		{
+			name: "SRV",
+			rr:   &dns.SRV{Hdr: dns.RR_Header{Name: "_sip._tcp.example.com.", Rrtype: dns.TypeSRV}, Priority: 10, Weight: 20, Port: 5060, Target: "sip.example.com."},
+			want: "10 20 5060 sip.example.com",
+		},
+		{
+			name: "PTR strips trailing dot",
+			rr:   &dns.PTR{Hdr: dns.RR_Header{Name: "4.3.2.1.in-addr.arpa.", Rrtype: dns.TypePTR}, Ptr: "host.example.com."},
+			want: "host.example.com",
+		},
+		{
+			name: "DS",
+			rr:   &dns.DS{Hdr: dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeDS}, KeyTag: 12345, Algorithm: 13, DigestType: 2, Digest: "ABCDEF"},
+			want: "12345 13 2 ABCDEF",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -122,12 +149,51 @@ func TestRecordValueAllTypes(t *testing.T) {
 }
 
 func TestRecordValueUnknownFallsThrough(t *testing.T) {
-	// An unknown record type falls through to the default rr.String() path —
-	// just verify it doesn't crash and returns something non-empty.
+	// HINFO is in qtypeByName (queryable) but has no custom formatter —
+	// verify it falls through to rr.String() without crashing.
 	hinfo := &dns.HINFO{Hdr: dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeHINFO}, Cpu: "x86", Os: "linux"}
 	got := recordValue(hinfo)
 	if !strings.Contains(got, "x86") {
 		t.Errorf("HINFO fallback = %q, expected to contain 'x86'", got)
+	}
+}
+
+// TestScanTypeSetsParse confirms every type named in the canonical scan-type
+// sets round-trips through ParseTypes. Catches typos that would otherwise
+// only surface at runtime as "unsupported record type".
+func TestScanTypeSetsParse(t *testing.T) {
+	sets := map[string][]string{
+		"DefaultScanTypes":  DefaultScanTypes,
+		"ExtendedScanTypes": ExtendedScanTypes,
+		"DNSSECTypes":       DNSSECTypes,
+	}
+	for name, set := range sets {
+		got, err := ParseTypes(strings.Join(set, ","))
+		if err != nil {
+			t.Errorf("%s: ParseTypes error: %v", name, err)
+			continue
+		}
+		if len(got) != len(set) {
+			t.Errorf("%s: ParseTypes dedup changed length (set=%v got=%v)", name, set, got)
+		}
+	}
+}
+
+// TestScanTypeSetsDisjoint confirms the three tiers don't share members —
+// the UI relies on this to render each record type in exactly one place.
+func TestScanTypeSetsDisjoint(t *testing.T) {
+	seen := map[string]string{}
+	for tier, set := range map[string][]string{
+		"DefaultScanTypes":  DefaultScanTypes,
+		"ExtendedScanTypes": ExtendedScanTypes,
+		"DNSSECTypes":       DNSSECTypes,
+	} {
+		for _, qt := range set {
+			if other, dup := seen[qt]; dup {
+				t.Errorf("%q appears in both %s and %s", qt, other, tier)
+			}
+			seen[qt] = tier
+		}
 	}
 }
 

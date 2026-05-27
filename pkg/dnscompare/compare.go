@@ -149,8 +149,41 @@ func recordValue(rr dns.RR) string {
 		return strings.TrimSuffix(v.Ns, ".")
 	case *dns.SOA:
 		return fmt.Sprintf("%s %s %d", strings.TrimSuffix(v.Ns, "."), strings.TrimSuffix(v.Mbox, "."), v.Serial)
+	case *dns.CAA:
+		// flags tag "value" — quoting the value keeps tooling-friendly parsing.
+		return fmt.Sprintf("%d %s %q", v.Flag, v.Tag, v.Value)
+	case *dns.SRV:
+		return fmt.Sprintf("%d %d %d %s", v.Priority, v.Weight, v.Port, strings.TrimSuffix(v.Target, "."))
+	case *dns.PTR:
+		return strings.TrimSuffix(v.Ptr, ".")
+	case *dns.HTTPS:
+		// HTTPS embeds dns.SVCB; reuse the SVCB renderer below.
+		return svcbValue(&v.SVCB)
+	case *dns.SVCB:
+		return svcbValue(v)
+	case *dns.DS:
+		return fmt.Sprintf("%d %d %d %s", v.KeyTag, v.Algorithm, v.DigestType, v.Digest)
+	case *dns.DNSKEY:
+		// Algorithm and key tag are the cheap bits to surface; full key blob
+		// is huge and lives in rr.String() if a user really wants it.
+		return fmt.Sprintf("%d %d %d %s", v.Flags, v.Protocol, v.Algorithm, v.PublicKey)
 	}
 	return rr.String()
+}
+
+// svcbValue renders an SVCB / HTTPS record's priority, target, and key=value
+// param list in zone-file order. Used by both *dns.SVCB and *dns.HTTPS.
+func svcbValue(v *dns.SVCB) string {
+	target := strings.TrimSuffix(v.Target, ".")
+	if target == "" {
+		target = "."
+	}
+	parts := make([]string, 0, len(v.Value)+2)
+	parts = append(parts, fmt.Sprintf("%d", v.Priority), target)
+	for _, kv := range v.Value {
+		parts = append(parts, fmt.Sprintf("%s=%q", kv.Key(), kv.String()))
+	}
+	return strings.Join(parts, " ")
 }
 
 // Verdict reports whether successful resolvers returned identical answer sets,
