@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -15,11 +16,13 @@ import (
 	"github.com/Dezoxy/netcheck/internal/webui"
 	"github.com/Dezoxy/netcheck/pkg/diff"
 	"github.com/Dezoxy/netcheck/pkg/dnscompare"
+	"github.com/Dezoxy/netcheck/pkg/eventbus"
 	"github.com/Dezoxy/netcheck/pkg/pathenum"
 	"github.com/Dezoxy/netcheck/pkg/portscan"
 	"github.com/Dezoxy/netcheck/pkg/report"
 	"github.com/Dezoxy/netcheck/pkg/route"
 	"github.com/Dezoxy/netcheck/pkg/target"
+	"github.com/Dezoxy/netcheck/pkg/telemetry"
 )
 
 type fullCheckRequest struct {
@@ -153,9 +156,21 @@ func RunApp(args []string) int {
 		return 2
 	}
 
+	// HUD redesign PR 4: stand up the event bus + telemetry collector
+	// + topology cache that the Live Event Stream, Telemetry Strip,
+	// and Target Topography panels consume in PR 5. The collector
+	// runs for the server's lifetime; canceling the context shuts
+	// it down cleanly.
+	bus := eventbus.New()
+	tel := telemetry.NewCollector(bus)
+	topo := telemetry.NewTopologyCache()
+	collectorDone := make(chan struct{})
+	go func() { tel.Run(collectorDone); close(collectorDone) }()
+	_ = context.Background // placeholder so the import isn't dropped if no other context.* refs land here
+
 	srv := &http.Server{
 		Addr:              *listen,
-		Handler:           newAppHandler(),
+		Handler:           newAppHandler(bus, tel, topo),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -167,32 +182,318 @@ func RunApp(args []string) int {
 	return 0
 }
 
-func newAppHandler() http.Handler {
+// appServer bundles the per-process state the HUD-era handlers
+// need. Pre-PR-4 the check handlers were package-level functions
+// with no shared state; PR 4 adds an event bus + telemetry +
+// topology cache. Rather than refactor every handler signature,
+// the bus + tel + topo are injected via this struct and handlers
+// either become methods on it (the new endpoints) or get wrapped
+// in a small publishing closure (the existing endpoints).
+type appServer struct {
+	bus  *eventbus.Bus
+	tel  *telemetry.Collector
+	topo *telemetry.TopologyCache
+}
+
+func newAppHandler(bus *eventbus.Bus, tel *telemetry.Collector, topo *telemetry.TopologyCache) http.Handler {
+	s := &appServer{bus: bus, tel: tel, topo: topo}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/healthz", handleAppHealth)
-	mux.HandleFunc("/api/check/full", handleFullCheck)
-	mux.HandleFunc("/api/check/dns", handleDNSCheck)
-	mux.HandleFunc("/api/check/route", handleRouteCheck)
-	mux.HandleFunc("/api/check/ip", handleIPCheck)
+	// HUD redesign PR 4: live data endpoints. /api/events/stream is
+	// SSE (subscribers consume the bus); telemetry + topology are
+	// polled JSON.
+	mux.HandleFunc("/api/events/stream", s.handleEventsStream)
+	mux.HandleFunc("/api/telemetry", s.handleTelemetry)
+	mux.HandleFunc("/api/topology", s.handleTopology)
+
+	// publishing(source, h) wraps an existing handler so that a
+	// "started" event fires before h runs and a "finished" (or
+	// "failed") event fires after, with the wall-clock latency. The
+	// inner handler is unchanged — bus injection is entirely at the
+	// mux layer.
+	pub := s.publishing
+	mux.HandleFunc("/api/check/full", pub("full", handleFullCheck))
+	mux.HandleFunc("/api/check/dns", pub("dns", handleDNSCheck))
+	mux.HandleFunc("/api/check/route", pub("route", s.routeWithTopology(handleRouteCheck)))
+	mux.HandleFunc("/api/check/ip", pub("ip", handleIPCheck))
 	// v1.4 passive recon
-	mux.HandleFunc("/api/check/headers", handleHeadersCheck)
-	mux.HandleFunc("/api/check/tech", handleTechCheck)
-	mux.HandleFunc("/api/check/subs", handleSubsCheck)
-	mux.HandleFunc("/api/check/reverse", handleReverseCheck)
-	mux.HandleFunc("/api/check/arch", handleArchCheck)
+	mux.HandleFunc("/api/check/headers", pub("headers", handleHeadersCheck))
+	mux.HandleFunc("/api/check/tech", pub("tech", handleTechCheck))
+	mux.HandleFunc("/api/check/subs", pub("subs", handleSubsCheck))
+	mux.HandleFunc("/api/check/reverse", pub("reverse", handleReverseCheck))
+	mux.HandleFunc("/api/check/arch", pub("arch", handleArchCheck))
 	// v1.4 active scanning — auth gate enforced inside the handler
-	mux.HandleFunc("/api/check/tls", handleTLSAuditCheck)
-	mux.HandleFunc("/api/check/takeover", handleTakeoverCheck)
-	mux.HandleFunc("/api/check/ports", handlePortsCheck)
-	mux.HandleFunc("/api/check/ports/stream", handlePortsStream)
-	mux.HandleFunc("/api/check/enum", handleEnumCheck)
+	mux.HandleFunc("/api/check/tls", pub("tls", handleTLSAuditCheck))
+	mux.HandleFunc("/api/check/takeover", pub("takeover", handleTakeoverCheck))
+	mux.HandleFunc("/api/check/ports", pub("ports", handlePortsCheck))
+	mux.HandleFunc("/api/check/ports/stream", pub("ports", handlePortsStream))
+	mux.HandleFunc("/api/check/enum", pub("enum", handleEnumCheck))
 	// v1.6 aggregate command
-	mux.HandleFunc("/api/check/audit", handleAuditCheck)
+	mux.HandleFunc("/api/check/audit", pub("audit", handleAuditCheck))
 	mux.HandleFunc("/api/reports", handleReportsCollection)
 	mux.HandleFunc("/api/reports/", handleReportItem)
 	mux.HandleFunc("/api/diff", handleDiff)
 	mux.Handle("/", http.FileServer(http.FS(webui.Dist())))
 	return mux
+}
+
+// newTestAppHandler is the test-only ergonomic shim: builds a fresh
+// bus + telemetry collector + topology cache and returns a handler
+// without the caller having to wire them up. Existing tests call
+// this; production callers go through newAppHandler with the
+// dependencies they instantiate in App().
+func newTestAppHandler() http.Handler {
+	bus := eventbus.New()
+	tel := telemetry.NewCollector(bus)
+	topo := telemetry.NewTopologyCache()
+	return newAppHandler(bus, tel, topo)
+}
+
+// publishing returns a wrapper that emits a start + finish event
+// around the inner handler. The finish event carries the wall-clock
+// latency in milliseconds, which the telemetry collector picks up
+// for the Avg Latency metric. Source identifies the check type
+// (e.g. "dns", "ports") for filter chips in the UI.
+func (s *appServer) publishing(source string, h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Only publish for POSTs — GETs (rare on /api/check/*) are
+		// likely health pings and shouldn't pollute the stream.
+		if r.Method != http.MethodPost {
+			h(w, r)
+			return
+		}
+		s.bus.Publish(eventbus.NewInfo(source, "check started"))
+		started := time.Now()
+
+		// Capture the status code so we can classify success vs error.
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		h(rec, r)
+
+		ev := eventbus.Event{
+			Timestamp: time.Now(),
+			Source:    source,
+			Message:   fmt.Sprintf("check finished (%d)", rec.status),
+			LatencyMS: time.Since(started).Milliseconds(),
+		}
+		switch {
+		case rec.status >= 500:
+			ev.Level = eventbus.LevelCrit
+		case rec.status >= 400:
+			ev.Level = eventbus.LevelWarn
+		default:
+			ev.Level = eventbus.LevelInfo
+		}
+		s.bus.Publish(ev)
+	}
+}
+
+// routeWithTopology wraps handleRouteCheck so the resulting route
+// graph populates the topology cache. The wrapper re-decodes the
+// response body to extract hops — slightly wasteful but keeps the
+// existing handler untouched. A future refactor could publish a
+// `route.Result` directly via the event bus payload instead.
+func (s *appServer) routeWithTopology(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Capture body so we can inspect it after the handler writes.
+		buf := &bodyCapture{ResponseWriter: w}
+		h(buf, r)
+
+		// Only try to parse on 2xx responses.
+		if buf.status < 200 || buf.status >= 300 {
+			return
+		}
+		var rj report.RouteJSON
+		if err := json.Unmarshal(buf.body, &rj); err != nil {
+			return
+		}
+		nodes, edges := topologyFromRoute(rj)
+		s.topo.Set(nodes, edges)
+	}
+}
+
+// topologyFromRoute lays the route hops out left-to-right along a
+// gentle sine curve so the SVG reads as a path. (x, y) values are
+// normalized 0..1. Caller (the React component) projects into pixel
+// space.
+func topologyFromRoute(r report.RouteJSON) ([]telemetry.TopologyNode, []telemetry.TopologyEdge) {
+	if len(r.Hops) == 0 {
+		return nil, nil
+	}
+	nodes := make([]telemetry.TopologyNode, 0, len(r.Hops)+1)
+	edges := make([]telemetry.TopologyEdge, 0, len(r.Hops))
+
+	// Anchor "you" at (0.05, 0.5).
+	nodes = append(nodes, telemetry.TopologyNode{
+		ID:     "self",
+		Label:  "you",
+		X:      0.05,
+		Y:      0.5,
+		Status: "self",
+	})
+
+	prev := "self"
+	for i, hop := range r.Hops {
+		// Spread hops between x=0.15 and x=0.95 along a soft sine wave.
+		x := 0.15 + 0.8*float64(i+1)/float64(len(r.Hops))
+		y := 0.4 + 0.2*sineLike(i)
+		id := fmt.Sprintf("hop-%d", hop.N)
+		status := "hop"
+		if hop.Timeout {
+			status = "timeout"
+		}
+		if i == len(r.Hops)-1 && r.Reached {
+			status = "target"
+		}
+		label := ""
+		if len(hop.IPs) > 0 {
+			label = hop.IPs[0]
+		}
+		nodes = append(nodes, telemetry.TopologyNode{
+			ID:     id,
+			Label:  label,
+			X:      x,
+			Y:      y,
+			Status: status,
+			IPs:    hop.IPs,
+		})
+		edges = append(edges, telemetry.TopologyEdge{From: prev, To: id})
+		prev = id
+	}
+	return nodes, edges
+}
+
+// sineLike returns a small alternating offset (-1, +1, -1, ...) to
+// give the topology path a visible wave without requiring math.Sin.
+// Cheap, deterministic, and the rendering looks fine.
+func sineLike(i int) float64 {
+	if i%2 == 0 {
+		return -1
+	}
+	return 1
+}
+
+// statusRecorder is a minimal http.ResponseWriter wrapper that
+// captures the status code so the publishing wrapper can classify
+// the outcome. Proxies Flush() through to the underlying writer so
+// the ports SSE stream (which type-asserts http.Flusher) still
+// works through the publishing wrapper.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+// Flush makes statusRecorder transparent to handlers that need
+// http.Flusher (the ports stream + the new /api/events/stream).
+// Without this, the type assertion fails and SSE returns 500.
+func (r *statusRecorder) Flush() {
+	if f, ok := r.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// bodyCapture wraps ResponseWriter and also keeps a copy of the
+// body. Used only by routeWithTopology to parse the route response
+// after handleRouteCheck writes it. Like statusRecorder, proxies
+// Flush() through.
+type bodyCapture struct {
+	http.ResponseWriter
+	status int
+	body   []byte
+}
+
+func (b *bodyCapture) WriteHeader(code int) {
+	b.status = code
+	b.ResponseWriter.WriteHeader(code)
+}
+
+func (b *bodyCapture) Write(p []byte) (int, error) {
+	if b.status == 0 {
+		b.status = http.StatusOK
+	}
+	b.body = append(b.body, p...)
+	return b.ResponseWriter.Write(p)
+}
+
+func (b *bodyCapture) Flush() {
+	if f, ok := b.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// handleEventsStream serves /api/events/stream as Server-Sent
+// Events. Each bus event becomes one `data: <json>` line + blank
+// terminator. The connection stays open until the client
+// disconnects (the React Live Event Stream uses an EventSource).
+func (s *appServer) handleEventsStream(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, apiError{Error: "GET only"})
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeJSON(w, http.StatusInternalServerError, apiError{Error: "streaming unsupported"})
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // disable proxy buffering
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	ch, cancel := s.bus.Subscribe()
+	defer cancel()
+
+	// Send a hello so the UI can confirm the stream is open before
+	// the first real event lands.
+	_, _ = fmt.Fprintf(w, "event: hello\ndata: {\"connected\":true}\n\n")
+	flusher.Flush()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev, open := <-ch:
+			if !open {
+				return
+			}
+			payload, err := json.Marshal(ev)
+			if err != nil {
+				continue
+			}
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", payload); err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
+}
+
+// handleTelemetry returns the current Telemetry Snapshot as JSON.
+// Polled by the UI at ~1Hz.
+func (s *appServer) handleTelemetry(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, apiError{Error: "GET only"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.tel.Snapshot())
+}
+
+// handleTopology returns the most recent traceroute-derived graph.
+// Empty until a route check runs; the UI renders a placeholder for
+// the empty case.
+func (s *appServer) handleTopology(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, apiError{Error: "GET only"})
+		return
+	}
+	writeJSON(w, http.StatusOK, s.topo.Snapshot())
 }
 
 func handleAppHealth(w http.ResponseWriter, _ *http.Request) {

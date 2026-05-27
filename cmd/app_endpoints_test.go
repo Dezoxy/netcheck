@@ -32,7 +32,7 @@ func appRequest(t *testing.T, method, path string, body any) (*http.Response, []
 		}
 		reqBody = bytes.NewReader(data)
 	}
-	srv := httptest.NewServer(newAppHandler())
+	srv := httptest.NewServer(newTestAppHandler())
 	t.Cleanup(srv.Close)
 
 	req, err := http.NewRequest(method, srv.URL+path, reqBody)
