@@ -1,0 +1,334 @@
+/* netcheck — Tailwind v4 entry point.
+ *
+ * Tailwind v4 uses a CSS-first config: design tokens live in @theme,
+ * not in a tailwind.config.ts file. Custom utilities go in @layer
+ * utilities. Plugins (forms, container-queries) are loaded via
+ * @plugin directives.
+ *
+ * Token palette + scale are derived from the Stitch "Advanced HUD"
+ * design system. Brand cyan #00dbe7 is the primary accent; tertiary
+ * yellow #e8c423 marks warnings / Recon module; error #ffb4ab marks
+ * critical / Scanning module. Surface ladder steps from #0b0e14
+ * (lowest) to #32353c (highest) for tonal layering — no shadows.
+ *
+ * During the redesign migration this file is imported BEFORE the
+ * legacy styles.css so utilities are available without breaking the
+ * current visual layer. styles.css will be deleted in PR 5.
+ */
+
+@import "tailwindcss";
+
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/container-queries";
+
+@theme {
+  /* ─── Color: surface ladder ──────────────────────────────────────── */
+  /* Tonal layering for depth in the dark UI. No drop shadows in the
+     HUD aesthetic — depth comes from these step changes plus low-
+     contrast borders. */
+  --color-surface: #10131a;
+  --color-surface-dim: #10131a;
+  --color-surface-bright: #363940;
+  --color-surface-container-lowest: #0b0e14;
+  --color-surface-container-low: #191c22;
+  --color-surface-container: #1d2026;
+  --color-surface-container-high: #272a31;
+  --color-surface-container-highest: #32353c;
+  --color-surface-variant: #32353c;
+
+  --color-on-surface: #e1e2eb;
+  --color-on-surface-variant: #b9cacb;
+  --color-outline: #849495;
+  --color-outline-variant: #3a494b;
+
+  --color-background: #10131a;
+  --color-on-background: #e1e2eb;
+
+  --color-inverse-surface: #e1e2eb;
+  --color-inverse-on-surface: #2e3037;
+  --color-inverse-primary: #00696f;
+
+  /* ─── Color: brand cyan (primary) ────────────────────────────────── */
+  --color-primary: #e1fdff;
+  --color-on-primary: #00363a;
+  --color-primary-container: #00f2ff;
+  --color-on-primary-container: #006a71;
+  --color-primary-fixed: #74f5ff;
+  --color-primary-fixed-dim: #00dbe7;
+  --color-on-primary-fixed: #002022;
+  --color-on-primary-fixed-variant: #004f54;
+  --color-surface-tint: #00dbe7;
+
+  /* ─── Color: secondary (muted slate, for tags / chips) ───────────── */
+  --color-secondary: #c2c7d0;
+  --color-on-secondary: #2c3138;
+  --color-secondary-container: #42474f;
+  --color-on-secondary-container: #b1b5bf;
+  --color-secondary-fixed: #dee2ec;
+  --color-secondary-fixed-dim: #c2c7d0;
+  --color-on-secondary-fixed: #171c23;
+  --color-on-secondary-fixed-variant: #42474f;
+
+  /* ─── Color: tertiary yellow (warnings / Recon) ──────────────────── */
+  --color-tertiary: #fff6e4;
+  --color-on-tertiary: #3b2f00;
+  --color-tertiary-container: #fed83a;
+  --color-on-tertiary-container: #725e00;
+  --color-tertiary-fixed: #ffe173;
+  --color-tertiary-fixed-dim: #e8c423;
+  --color-on-tertiary-fixed: #221b00;
+  --color-on-tertiary-fixed-variant: #554500;
+
+  /* ─── Color: error red (critical / Scanning) ─────────────────────── */
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+
+  /* ─── Typography ─────────────────────────────────────────────────── */
+  /* Two-font system: Inter for UI chrome, JetBrains Mono for data.
+     Loaded from Google Fonts in index.html. */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-symbols: "Material Symbols Outlined";
+
+  /* Headline + label + body scale matches the Stitch design tokens. */
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--letter-spacing: -0.02em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 32px;
+  --text-headline-md--letter-spacing: -0.01em;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 18px;
+  --text-headline-sm--line-height: 24px;
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg: 16px;
+  --text-body-lg--line-height: 24px;
+
+  --text-body-md: 14px;
+  --text-body-md--line-height: 20px;
+
+  --text-label-md: 13px;
+  --text-label-md--line-height: 16px;
+  --text-label-md--letter-spacing: 0.02em;
+  --text-label-md--font-weight: 500;
+
+  --text-label-sm: 11px;
+  --text-label-sm--line-height: 14px;
+  --text-label-sm--letter-spacing: 0.05em;
+  --text-label-sm--font-weight: 500;
+
+  --text-label-caps: 11px;
+  --text-label-caps--line-height: 16px;
+  --text-label-caps--letter-spacing: 0.05em;
+  --text-label-caps--font-weight: 700;
+
+  --text-code-md: 14px;
+  --text-code-md--line-height: 20px;
+
+  --text-code-sm: 12px;
+  --text-code-sm--line-height: 16px;
+  --text-code-sm--font-weight: 500;
+
+  /* ─── Spacing scale ──────────────────────────────────────────────── */
+  /* Compact-but-readable scale used across the HUD. `gutter` and
+     `margin` are aliases mirroring the Stitch tokens for grid layout. */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 40px;
+  --spacing-gutter: 16px;
+  --spacing-margin: 24px;
+
+  /* ─── Radii ──────────────────────────────────────────────────────── */
+  /* Soft-geometric: 4/8/12px corner steps. No fully circular pills
+     for chrome — they break the technical aesthetic. */
+  --radius-DEFAULT: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* ─── Custom keyframes ───────────────────────────────────────────── */
+  /* translateX: the shimmer that crosses progress bars.
+     radarPulse: expanding ring on the active node in the topography panel.
+     scanline: CRT-style overhead scan effect on the event stream. */
+  --animate-translate-x-shimmer: translateX 1s linear infinite;
+  --animate-radar-pulse: radarPulse 3s ease-out infinite;
+  --animate-scanline: scanline 6s linear infinite;
+  --animate-heartbeat: heartbeat 1.4s ease-in-out infinite;
+}
+
+@keyframes translateX {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes radarPulse {
+  0% {
+    r: 5;
+    stroke-opacity: 0.8;
+  }
+  100% {
+    r: 25;
+    stroke-opacity: 0;
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@layer utilities {
+  /* ─── Glassmorphism panels ───────────────────────────────────────── */
+  /* HUD panels share a glass-on-glass look: deep translucent fill +
+     thin white-low-alpha border + heavy backdrop blur. Two variants:
+     glass-card is for clickable surfaces (slight 10% white inset),
+     glass-panel is for read-only data containers. */
+  .glass-card {
+    background: rgb(16 19 26 / 0.8);
+    border: 1px solid rgb(255 255 255 / 0.08);
+    backdrop-filter: blur(20px);
+  }
+
+  .glass-panel {
+    background: rgb(8 10 15 / 0.9);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    backdrop-filter: blur(16px);
+  }
+
+  /* ─── Glow effects ───────────────────────────────────────────────── */
+  /* Used sparingly on focused or active elements. Brand-cyan glow
+     for primary affordances; the colored variants pick up per-card
+     accent (recon=yellow, scanning=red). */
+  .glow-text {
+    text-shadow: 0 0 8px rgb(0 219 231 / 0.5);
+  }
+
+  .glow-active {
+    box-shadow:
+      0 0 24px rgb(0 219 231 / 0.15),
+      inset 0 0 12px rgb(0 219 231 / 0.05);
+  }
+
+  .input-glow:focus-within {
+    box-shadow: 0 0 16px rgb(0 219 231 / 0.25);
+    border-color: rgb(0 219 231 / 0.5);
+  }
+
+  /* ─── Background patterns ────────────────────────────────────────── */
+  /* Subtle 24px grid behind the main workbench canvas. Low-contrast
+     (white at 2%) so it never competes with content. */
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.02) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Scanline overlay: a single bright line that drifts down the
+     container. Positioned via ::before so consumers just add this
+     class to a relative parent. */
+  .scanline-container {
+    position: relative;
+    overflow: hidden;
+  }
+  .scanline-container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgb(0 219 231 / 0.06) 50%,
+      transparent 100%
+    );
+    background-size: 100% 8px;
+    pointer-events: none;
+    animation: scanline 6s linear infinite;
+  }
+
+  /* ─── Status indicators ──────────────────────────────────────────── */
+  /* status-dot-online: pulsing green dot for "system healthy".
+     status-pill-{info,warn,crit}: tiny pill chips for log levels;
+     subtle 10% tint + matching border + solid text. */
+  .status-dot-online {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: #4edea3;
+    box-shadow: 0 0 8px rgb(78 222 163 / 0.6);
+    animation: heartbeat 1.4s ease-in-out infinite;
+  }
+
+  .status-pill {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .status-info {
+    color: #00dbe7;
+    border-color: rgb(0 219 231 / 0.4);
+    background: rgb(0 219 231 / 0.1);
+  }
+  .status-warn {
+    color: #e8c423;
+    border-color: rgb(232 196 35 / 0.4);
+    background: rgb(232 196 35 / 0.1);
+  }
+  .status-crit {
+    color: #ffb4ab;
+    border-color: rgb(255 180 171 / 0.5);
+    background: rgb(255 180 171 / 0.12);
+  }
+
+  /* ─── Data values ────────────────────────────────────────────────── */
+  /* Anywhere a raw value needs to read as data (IP, latency, count),
+     use this class to switch to JetBrains Mono with a touch of weight. */
+  .data-value {
+    font-family: var(--font-mono);
+    font-feature-settings:
+      "tnum" 1,
+      "calt" 0;
+  }
+
+  /* ─── Heartbeat icon ─────────────────────────────────────────────── */
+  /* For the System Health pulse on the top bar. */
+  .heartbeat-icon {
+    color: #4edea3;
+    animation: heartbeat 1.4s ease-in-out infinite;
+  }
+}
