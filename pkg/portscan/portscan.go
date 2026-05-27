@@ -38,24 +38,36 @@ type Result struct {
 	Err       error
 }
 
-// PortResult is one open port.
+// PortResult is one open port. R-13 added Proto to disambiguate
+// TCP vs UDP results in mixed-protocol scans. State is the open-state
+// of the port — for TCP it's always "open" (closed/filtered ports
+// aren't added to Result.Ports); for UDP it's either "open" (got a
+// response) or "open|filtered" (no response, can't distinguish without
+// raw-socket ICMP access).
 type PortResult struct {
 	Port    int
+	Proto   string // "tcp" or "udp"; empty defaults to "tcp" for back-compat
+	State   string // "open" | "open|filtered" (UDP only)
 	Service string // best-guess service from the builtin port→service map
 	Banner  string // best-effort banner grab; first printable line, may be empty
 }
 
-// Stats summarises the scan.
+// Stats summarises the scan. R-13 added OpenFiltered for UDP — when a
+// UDP port doesn't respond to our probe we can't reliably distinguish
+// "open but silent" from "filtered by a firewall" without raw-socket
+// access to read ICMP unreachables. Nmap convention: report as
+// `open|filtered` and count it here.
 type Stats struct {
-	Total    int // total ports scanned
-	Open     int
-	Closed   int // RST received
-	Filtered int // timeout / no response — could be firewall, could be down
+	Total        int // total ports scanned across all protocols
+	Open         int // got a definite response (TCP handshake or UDP reply)
+	Closed       int // active RST/refused (TCP); always 0 for UDP-only scans
+	Filtered     int // timeout / drop / no route
+	OpenFiltered int // UDP ports with no response — open or filtered, ambiguous
 }
 
 // Options control the scan behaviour.
 type Options struct {
-	Ports          []int         // exact port list. If nil, falls back to TopPorts(Top).
+	Ports          []int         // exact TCP port list. If nil, falls back to TopPorts(Top).
 	Top            int           // when Ports is nil, use the top-N nmap-style ports. 0/<0 → 100.
 	Concurrency    int           // parallel dials. 0/<0 → 50.
 	PerPortTimeout time.Duration // per-dial timeout. 0/<0 → 2s.
@@ -68,6 +80,22 @@ type Options struct {
 	// minimal `GET /` probe; for TLS-wrapped ports we skip entirely (use
 	// `netcheck tls` for those).
 	BannerTimeout time.Duration
+
+	// Protocols selects which protocols to scan. Default (nil or empty)
+	// is ["tcp"] for backward compatibility. Valid values: "tcp", "udp".
+	// Multi-protocol scans run in sequence (TCP first, then UDP) so the
+	// concurrency cap is shared across protocols.
+	//
+	// UDP scan caveat: we don't have raw socket access (would need root),
+	// so we can't read ICMP unreachable replies. That means UDP ports
+	// with no response can't be distinguished from filtered ports — both
+	// land in Stats.OpenFiltered. See docs/ETHICS.md and README.
+	Protocols []string
+
+	// UDPPorts overrides the UDP port list. If nil and "udp" is in
+	// Protocols, defaults to TopUDPPorts(50) — service-probe-aware
+	// common UDP ports. Ignored when "udp" is not selected.
+	UDPPorts []int
 
 	// OnProgress, if non-nil, is called once per port as each result is
 	// known — open (with service name from the builtin map), closed (RST),
@@ -83,16 +111,25 @@ type Options struct {
 }
 
 // Progress is one per-port event surfaced via Options.OnProgress.
+// R-13 added Proto so SSE consumers can route UDP and TCP progress
+// to separate UI buckets if they want.
 type Progress struct {
 	Port       int
-	State      string // "open" | "closed" | "filtered"
+	Proto      string // "tcp" or "udp"
+	State      string // tcp: "open" | "closed" | "filtered". udp: "open" | "open|filtered".
 	Service    string // for open ports, from the builtin map
 	Index      int    // 1-based completion order within this scan
-	TotalPorts int    // total scanned in this run (constant per scan)
+	TotalPorts int    // total scanned in this run (across all protocols)
 }
 
-// Scan resolves host, opens parallel TCP connections to each port, and
-// returns a Result. Returns Err set on resolution failure.
+// Scan resolves host, opens parallel TCP and/or UDP probes, and returns
+// a Result. R-13 split the implementation: this top-level Scan handles
+// validation and resolution, then dispatches to scanTCP / scanUDP per
+// the protocols selected in Options.
+//
+// Protocols default to ["tcp"] when Options.Protocols is nil/empty —
+// callers built against the pre-R-13 API keep getting a TCP-only scan
+// with no behavioural change.
 func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Duration) Result {
 	started := time.Now()
 	out := Result{Host: host, StartedAt: started}
@@ -127,18 +164,23 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 	}
 	out.IP = target.String()
 
-	// Resolve port list.
-	ports := opts.Ports
-	if len(ports) == 0 {
+	// Resolve TCP port list (used only when "tcp" is in protocols).
+	tcpPorts := opts.Ports
+	if len(tcpPorts) == 0 {
 		top := opts.Top
 		if top <= 0 {
 			top = 100
 		}
-		ports = TopPorts(top)
+		tcpPorts = TopPorts(top)
 	}
-	out.Stats.Total = len(ports)
 
-	// Concurrency cap.
+	// Resolve UDP port list (used only when "udp" is in protocols).
+	udpPorts := opts.UDPPorts
+	if len(udpPorts) == 0 {
+		udpPorts = TopUDPPorts(50)
+	}
+
+	// Concurrency + timeout defaults.
 	conc := opts.Concurrency
 	if conc <= 0 {
 		conc = 50
@@ -147,14 +189,69 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 	if perPort <= 0 {
 		perPort = 2 * time.Second
 	}
-	// 0 → 500ms default; <0 → disabled. A small budget keeps the wall-clock
-	// impact bounded — the read fires only on already-open ports, and the
-	// per-port goroutine is the same one that already held the connect slot.
 	bannerTimeout := opts.BannerTimeout
 	if bannerTimeout == 0 {
 		bannerTimeout = 500 * time.Millisecond
 	}
 
+	// Default protocols = ["tcp"] for backward compat with pre-R-13 callers.
+	protocols := opts.Protocols
+	if len(protocols) == 0 {
+		protocols = []string{"tcp"}
+	}
+
+	// Pre-count total ports across all selected protocols so Progress.TotalPorts
+	// is correct from the first event onward.
+	total := 0
+	for _, proto := range protocols {
+		switch proto {
+		case "tcp":
+			total += len(tcpPorts)
+		case "udp":
+			total += len(udpPorts)
+		}
+	}
+	out.Stats.Total = total
+
+	// completed is a shared 1-based counter for Progress.Index across both
+	// protocols. The atomic ensures index uniqueness even though TCP and
+	// UDP are run sequentially (one goroutine pool at a time) so the lock-
+	// free counter is overkill in practice — but it keeps the call shape
+	// identical to single-protocol Scan callers that already relied on it.
+	var completed int64
+
+	for _, proto := range protocols {
+		switch proto {
+		case "tcp":
+			scanTCP(c, target, tcpPorts, perPort, bannerTimeout, conc, total, &completed, &out, opts.OnProgress)
+		case "udp":
+			scanUDP(c, target, udpPorts, perPort, conc, total, &completed, &out, opts.OnProgress)
+		}
+	}
+
+	sort.Slice(out.Ports, func(i, j int) bool {
+		if out.Ports[i].Proto != out.Ports[j].Proto {
+			return out.Ports[i].Proto < out.Ports[j].Proto // "tcp" before "udp"
+		}
+		return out.Ports[i].Port < out.Ports[j].Port
+	})
+	out.Took = time.Since(started)
+	return out
+}
+
+// scanTCP runs a TCP connect scan over the given ports. Appends open
+// results to out.Ports (stamped with Proto="tcp") and increments the
+// Stats fields. Mirrors the pre-R-13 single-protocol behaviour.
+func scanTCP(
+	ctx context.Context,
+	target net.IP,
+	ports []int,
+	perPort, bannerTimeout time.Duration,
+	conc, totalPorts int,
+	completed *int64,
+	out *Result,
+	onProgress func(Progress),
+) {
 	type portRes struct {
 		port   int
 		open   bool
@@ -165,11 +262,6 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 	sem := make(chan struct{}, conc)
 	var wg sync.WaitGroup
 
-	// completed counter for OnProgress.Index. atomic increment because
-	// callbacks fire from many goroutines.
-	var completed int64
-	totalPorts := len(ports)
-
 	for i, p := range ports {
 		i, p := i, p
 		wg.Add(1)
@@ -177,7 +269,7 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			pCtx, pCancel := context.WithTimeout(c, perPort)
+			pCtx, pCancel := context.WithTimeout(ctx, perPort)
 			defer pCancel()
 			conn, err := dialer(pCtx, "tcp", net.JoinHostPort(target.String(), strconv.Itoa(p)))
 			pr := portRes{port: p}
@@ -185,17 +277,14 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 				pr.errStr = err.Error()
 			} else {
 				pr.open = true
-				// Banner grab is best-effort. Errors are swallowed —
-				// banner is optional information, not a reason to fail
-				// the port result.
 				if bannerTimeout > 0 {
 					pr.banner = grabBanner(conn, p, bannerTimeout)
 				}
 				conn.Close()
 			}
 			results[i] = pr
-			if opts.OnProgress != nil {
-				idx := int(atomic.AddInt64(&completed, 1))
+			if onProgress != nil {
+				idx := int(atomic.AddInt64(completed, 1))
 				state := "open"
 				if !pr.open {
 					if isFiltered(pr.errStr) {
@@ -204,8 +293,9 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 						state = "closed"
 					}
 				}
-				opts.OnProgress(Progress{
+				onProgress(Progress{
 					Port:       p,
+					Proto:      "tcp",
 					State:      state,
 					Service:    serviceName(p),
 					Index:      idx,
@@ -222,6 +312,8 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 			out.Stats.Open++
 			out.Ports = append(out.Ports, PortResult{
 				Port:    r.port,
+				Proto:   "tcp",
+				State:   "open",
 				Service: serviceName(r.port),
 				Banner:  r.banner,
 			})
@@ -231,10 +323,6 @@ func Scan(ctx context.Context, host string, opts Options, overallTimeout time.Du
 			out.Stats.Closed++
 		}
 	}
-
-	sort.Slice(out.Ports, func(i, j int) bool { return out.Ports[i].Port < out.Ports[j].Port })
-	out.Took = time.Since(started)
-	return out
 }
 
 // isFiltered classifies an error string as "filtered" (timeout / drop) vs

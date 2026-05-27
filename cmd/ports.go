@@ -25,17 +25,21 @@ func RunPorts(args []string) int {
 	perPort := fs.Duration("per-port-timeout", 2*time.Second, "per-port connect timeout")
 	noBanners := fs.Bool("no-banners", false, "disable best-effort banner grab on open ports")
 	bannerTimeout := fs.Duration("banner-timeout", 500*time.Millisecond, "per-port banner-grab read deadline")
+	udpFlag := fs.Bool("udp", false, "also run a UDP scan (service-aware probes, top-50 UDP ports by default)")
+	udpOnly := fs.Bool("udp-only", false, "scan UDP only and skip the TCP pass")
+	udpPortsFlag := fs.String("udp-ports", "", "explicit UDP port list (e.g. \"53,123,161,5353\"). Overrides the top-50 UDP default. Implies --udp.")
 	outputFlag := addOutputFlag(fs)
 	outFlag := addOutFlag(fs)
 	authzCheck := requireAuthorization(fs, "ports")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck ports [flags] <host>")
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "TCP connect scan against <host>. Default: top-100 most-likely-open ports.")
+		fmt.Fprintln(os.Stderr, "TCP connect scan against <host>. Default: top-100 most-likely-open TCP ports.")
 		fmt.Fprintln(os.Stderr, "Pass --ports to scan an explicit list; --top to change the top-N count.")
+		fmt.Fprintln(os.Stderr, "Add --udp to also probe common UDP services (top-50 unless --udp-ports overrides).")
 		fmt.Fprintln(os.Stderr)
-		fmt.Fprintln(os.Stderr, "ACTIVE — opens parallel TCP handshakes to the target. Requires")
-		fmt.Fprintln(os.Stderr, "--i-have-authorization or NETCHECK_AUTHORIZED=1. See docs/ETHICS.md.")
+		fmt.Fprintln(os.Stderr, "ACTIVE — opens parallel TCP handshakes and/or UDP datagram probes to the target.")
+		fmt.Fprintln(os.Stderr, "Requires --i-have-authorization or NETCHECK_AUTHORIZED=1. See docs/ETHICS.md.")
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "flags:")
 		fs.PrintDefaults()
@@ -76,6 +80,26 @@ func RunPorts(args []string) int {
 			return 2
 		}
 		opts.Ports = ports
+	}
+
+	// Protocol selection. Default is TCP-only. --udp adds UDP on top of
+	// TCP. --udp-only replaces TCP with UDP. --udp-ports implies --udp.
+	wantUDP := *udpFlag || *udpOnly || *udpPortsFlag != ""
+	if *udpPortsFlag != "" {
+		ports, err := portscan.ParsePortList(*udpPortsFlag)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 2
+		}
+		opts.UDPPorts = ports
+	}
+	switch {
+	case *udpOnly:
+		opts.Protocols = []string{"udp"}
+	case wantUDP:
+		opts.Protocols = []string{"tcp", "udp"}
+	default:
+		// Leave nil — engine defaults to ["tcp"], byte-identical to pre-R-13.
 	}
 
 	w, closer, err := openOut(*outFlag)

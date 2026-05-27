@@ -517,9 +517,16 @@ func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
 		return
 	}
 
-	fmt.Fprintf(w, "<p><b>Scanned:</b> %d · <span class=\"ok\">%d open</span> · "+
-		"<span class=\"muted\">%d closed</span> · <span class=\"weak\">%d filtered</span></p>\n",
-		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+	if d.Stats.OpenFiltered > 0 {
+		fmt.Fprintf(w, "<p><b>Scanned:</b> %d · <span class=\"ok\">%d open</span> · "+
+			"<span class=\"weak\">%d open|filtered</span> · "+
+			"<span class=\"muted\">%d closed</span> · <span class=\"weak\">%d filtered</span></p>\n",
+			d.Stats.Total, d.Stats.Open, d.Stats.OpenFiltered, d.Stats.Closed, d.Stats.Filtered)
+	} else {
+		fmt.Fprintf(w, "<p><b>Scanned:</b> %d · <span class=\"ok\">%d open</span> · "+
+			"<span class=\"muted\">%d closed</span> · <span class=\"weak\">%d filtered</span></p>\n",
+			d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+	}
 
 	if len(d.Ports) == 0 {
 		fmt.Fprintln(w, `<p class="muted">(no open ports found)</p>`)
@@ -528,16 +535,24 @@ func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
 	}
 
 	anyBanner := false
+	anyUDP := false
 	for _, p := range d.Ports {
 		if p.Banner != "" {
 			anyBanner = true
-			break
+		}
+		if p.Proto == "udp" {
+			anyUDP = true
 		}
 	}
 	fmt.Fprintln(w, "<table>")
-	if anyBanner {
+	switch {
+	case anyUDP && anyBanner:
+		fmt.Fprintln(w, "<thead><tr><th>Proto</th><th>Port</th><th>State</th><th>Service</th><th>Banner</th></tr></thead>")
+	case anyUDP:
+		fmt.Fprintln(w, "<thead><tr><th>Proto</th><th>Port</th><th>State</th><th>Service</th></tr></thead>")
+	case anyBanner:
 		fmt.Fprintln(w, "<thead><tr><th>Port</th><th>Service</th><th>Banner</th></tr></thead>")
-	} else {
+	default:
 		fmt.Fprintln(w, "<thead><tr><th>Port</th><th>Service</th></tr></thead>")
 	}
 	fmt.Fprintln(w, "<tbody>")
@@ -548,13 +563,28 @@ func RenderPortScanHTML(w io.Writer, d PortScanJSON) {
 		} else {
 			svc = html.EscapeString(svc)
 		}
-		if anyBanner {
-			banner := `<span class="muted">—</span>`
-			if p.Banner != "" {
-				banner = "<code>" + html.EscapeString(p.Banner) + "</code>"
-			}
+		proto := p.Proto
+		if proto == "" {
+			proto = "tcp"
+		}
+		state := p.State
+		if state == "" {
+			state = "open"
+		}
+		banner := `<span class="muted">—</span>`
+		if p.Banner != "" {
+			banner = "<code>" + html.EscapeString(p.Banner) + "</code>"
+		}
+		switch {
+		case anyUDP && anyBanner:
+			fmt.Fprintf(w, "<tr><td><code>%s</code></td><td><code>%d</code></td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+				proto, p.Port, html.EscapeString(state), svc, banner)
+		case anyUDP:
+			fmt.Fprintf(w, "<tr><td><code>%s</code></td><td><code>%d</code></td><td>%s</td><td>%s</td></tr>\n",
+				proto, p.Port, html.EscapeString(state), svc)
+		case anyBanner:
 			fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td><td>%s</td></tr>\n", p.Port, svc, banner)
-		} else {
+		default:
 			fmt.Fprintf(w, "<tr><td><code>%d</code></td><td>%s</td></tr>\n", p.Port, svc)
 		}
 	}

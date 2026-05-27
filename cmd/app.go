@@ -92,10 +92,19 @@ type takeoverCheckRequest struct {
 
 type portsCheckRequest struct {
 	Host        string `json:"host"`
-	Ports       string `json:"ports,omitempty"` // explicit list, e.g. "22,80,443,8000-8010"
+	Ports       string `json:"ports,omitempty"` // explicit TCP list, e.g. "22,80,443,8000-8010"
 	Top         int    `json:"top,omitempty"`   // default 100
 	Concurrency int    `json:"concurrency,omitempty"`
 	PerPortMS   int    `json:"per_port_timeout_ms,omitempty"`
+	// Protocols selects which protocols to scan. nil/empty → ["tcp"] for
+	// back-compat. Valid values: "tcp", "udp". Web UI sends one of:
+	//   ["tcp"]          — default
+	//   ["udp"]          — UDP only
+	//   ["tcp", "udp"]   — both
+	Protocols []string `json:"protocols,omitempty"`
+	// UDPPorts is the explicit UDP port list. Optional — engine defaults
+	// to a curated top-50 UDP list when "udp" is in Protocols.
+	UDPPorts    string `json:"udp_ports,omitempty"`
 	IAuthorized bool   `json:"i_have_authorization"`
 }
 
@@ -463,6 +472,19 @@ func handlePortsCheck(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "host required"})
 		return
 	}
+	opts, err := portsOptionsFromRequest(req)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
+		return
+	}
+	out := BuildPorts(r.Context(), req.Host, opts, portsDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+// portsOptionsFromRequest builds a portscan.Options from an HTTP request
+// body. Centralised so both the POST and SSE endpoints validate input
+// identically — including the protocol selector added in R-13.
+func portsOptionsFromRequest(req portsCheckRequest) (portscan.Options, error) {
 	opts := portscan.Options{
 		Top:         req.Top,
 		Concurrency: req.Concurrency,
@@ -473,13 +495,34 @@ func handlePortsCheck(w http.ResponseWriter, r *http.Request) {
 	if req.Ports != "" {
 		ports, err := portscan.ParsePortList(req.Ports)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
-			return
+			return portscan.Options{}, err
 		}
 		opts.Ports = ports
 	}
-	out := BuildPorts(r.Context(), req.Host, opts, portsDefaultTimeout(loadedConfig.Timeout))
-	writeJSON(w, http.StatusOK, out)
+	if req.UDPPorts != "" {
+		ports, err := portscan.ParsePortList(req.UDPPorts)
+		if err != nil {
+			return portscan.Options{}, err
+		}
+		opts.UDPPorts = ports
+	}
+	// Validate and normalise Protocols. nil/empty stays nil (engine
+	// defaults to ["tcp"]); otherwise we accept "tcp" and "udp" only.
+	if len(req.Protocols) > 0 {
+		seen := map[string]bool{}
+		for _, p := range req.Protocols {
+			switch p {
+			case "tcp", "udp":
+			default:
+				return portscan.Options{}, fmt.Errorf("invalid protocol %q (want tcp or udp)", p)
+			}
+			if !seen[p] {
+				seen[p] = true
+				opts.Protocols = append(opts.Protocols, p)
+			}
+		}
+	}
+	return opts, nil
 }
 
 // handlePortsStream is the SSE-flavoured variant of handlePortsCheck. Returns
@@ -523,20 +566,10 @@ func handlePortsStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	opts := portscan.Options{
-		Top:         req.Top,
-		Concurrency: req.Concurrency,
-	}
-	if req.PerPortMS > 0 {
-		opts.PerPortTimeout = time.Duration(req.PerPortMS) * time.Millisecond
-	}
-	if req.Ports != "" {
-		ports, err := portscan.ParsePortList(req.Ports)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
-			return
-		}
-		opts.Ports = ports
+	opts, err := portsOptionsFromRequest(req)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: err.Error()})
+		return
 	}
 
 	// SSE headers. text/event-stream + Cache-Control: no-store is the
@@ -588,6 +621,7 @@ func handlePortsStream(w http.ResponseWriter, r *http.Request) {
 				}
 				emit("progress", map[string]any{
 					"port":    p.Port,
+					"proto":   p.Proto,
 					"state":   p.State,
 					"service": p.Service,
 					"index":   p.Index,

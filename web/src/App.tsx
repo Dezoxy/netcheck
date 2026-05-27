@@ -214,6 +214,10 @@ export default function App() {
   // the active sub-checks (tls / takeover / ports / enum). Independent
   // from `activeAcknowledged` — both must be true to run an active audit.
   const [auditIncludeActive, setAuditIncludeActive] = useState(false);
+  // R-13: port-scan protocol selector. "tcp" everywhere is the default
+  // (matches the CLI). "udp" probes only the curated UDP top-50 with
+  // service-aware payloads; "both" runs TCP first, then UDP.
+  const [portsProto, setPortsProto] = useState<"tcp" | "udp" | "both">("tcp");
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(recents));
@@ -291,17 +295,31 @@ export default function App() {
             // of the flow (save, diff, recent) is unchanged.
             next = await new Promise<PortScanReport>((resolve, reject) => {
               setPortsProgress({ scanned: 0, total: 0, open: 0 });
-              streamPortsCheck(effectiveTarget, {
-                onProgress: (p: PortProgress) => {
-                  setPortsProgress((prev) => ({
-                    scanned: p.index,
-                    total: p.total,
-                    open: (prev?.open ?? 0) + (p.state === "open" ? 1 : 0),
-                  }));
+              // Translate the UI's 3-option selector into the API's
+              // `protocols` array. "tcp" stays `undefined` so the request
+              // body is byte-identical to pre-R-13 (engine defaults to TCP
+              // when the field is missing).
+              const protocols =
+                portsProto === "tcp"
+                  ? undefined
+                  : portsProto === "udp"
+                    ? (["udp"] as Array<"tcp" | "udp">)
+                    : (["tcp", "udp"] as Array<"tcp" | "udp">);
+              streamPortsCheck(
+                effectiveTarget,
+                {
+                  onProgress: (p: PortProgress) => {
+                    setPortsProgress((prev) => ({
+                      scanned: p.index,
+                      total: p.total,
+                      open: (prev?.open ?? 0) + (p.state === "open" ? 1 : 0),
+                    }));
+                  },
+                  onDone: (r) => resolve(r),
+                  onError: (e) => reject(e),
                 },
-                onDone: (r) => resolve(r),
-                onError: (e) => reject(e),
-              });
+                { protocols },
+              );
             });
             setPortsProgress(null);
             break;
@@ -328,7 +346,7 @@ export default function App() {
         setPortsProgress(null);
       }
     },
-    [auditIncludeActive, insecure, mode, target],
+    [auditIncludeActive, insecure, mode, portsProto, target],
   );
 
   async function saveCurrent() {
@@ -492,6 +510,8 @@ export default function App() {
             error={error}
             report={report}
             portsProgress={portsProgress}
+            portsProto={portsProto}
+            onPortsProtoChange={setPortsProto}
           />
         ) : null}
 
@@ -984,6 +1004,8 @@ function CategoryDetail({
   error,
   report,
   portsProgress,
+  portsProto,
+  onPortsProtoChange,
 }: {
   categoryDef: CategoryDef;
   target: string;
@@ -997,6 +1019,11 @@ function CategoryDetail({
   error: string;
   report: AnyReport | null;
   portsProgress: { scanned: number; total: number; open: number } | null;
+  // R-13: port-scan protocol selector lives on the App and is threaded
+  // through here so the Ports modecard can surface a TCP/UDP/Both
+  // segmented control next to its Run button.
+  portsProto: "tcp" | "udp" | "both";
+  onPortsProtoChange: (next: "tcp" | "udp" | "both") => void;
 }) {
   const isScanning = categoryDef.key === "scanning";
   const isAggregate = categoryDef.key === "aggregate";
@@ -1104,6 +1131,11 @@ function CategoryDetail({
             running={runState === "loading" && runningMode === m}
             authReady={activeAcknowledged}
             onRun={(opts) => onRun(m, opts)}
+            extra={
+              m === "ports" ? (
+                <PortsProtoToggle value={portsProto} onChange={onPortsProtoChange} />
+              ) : undefined
+            }
           />
         ))}
       </div>
@@ -1130,6 +1162,7 @@ function ModeCard({
   running,
   authReady,
   onRun,
+  extra,
 }: {
   mode: CheckMode;
   isActive: boolean;
@@ -1138,6 +1171,10 @@ function ModeCard({
   running: boolean;
   authReady: boolean;
   onRun: (opts?: { auditActive?: boolean }) => void;
+  // R-13: optional per-mode controls injected by the parent. Currently
+  // used by the Ports modecard to surface the TCP/UDP/Both selector
+  // without bloating ModeCard with mode-specific props.
+  extra?: ReactNode;
 }) {
   // Lock the Run pill when the mode is active-tier and the user
   // hasn't acknowledged the auth banner yet. For audit, the Passive
@@ -1151,6 +1188,7 @@ function ModeCard({
           {isActive ? <span className="modecard-tier">Active</span> : null}
         </div>
         <p>{MODE_BLURB[mode]}</p>
+        {extra}
       </div>
       <div className="modecard-actions">
         {isAuditAggregate ? (
@@ -2236,12 +2274,93 @@ function TakeoverWorkbench({ loading, report }: { loading: boolean; report: Take
   );
 }
 
-// PortsTable renders the open-port list. When at least one port has a banner
-// we widen to a 3-column layout (port / service / banner); otherwise it stays
-// at the original 2 columns. This avoids burning real estate on an empty
-// banner column when banners are off or every open port is TLS-wrapped.
+// PortsProtoToggle is the TCP / UDP / Both segmented control rendered
+// inside the Ports modecard. Default is TCP everywhere — matches the
+// CLI default and keeps pre-R-13 behaviour byte-identical when the user
+// just hits Run. The UDP option falls back to the engine's curated top-
+// 50 UDP list; the user can still narrow via the (not-yet-surfaced)
+// `udp_ports` field for one-off probes via the CLI.
+function PortsProtoToggle({
+  value,
+  onChange,
+}: {
+  value: "tcp" | "udp" | "both";
+  onChange: (next: "tcp" | "udp" | "both") => void;
+}) {
+  const opts: Array<{ key: "tcp" | "udp" | "both"; label: string }> = [
+    { key: "tcp", label: "TCP" },
+    { key: "udp", label: "UDP" },
+    { key: "both", label: "Both" },
+  ];
+  return (
+    <div className="ports-proto-toggle" role="radiogroup" aria-label="Port scan protocol">
+      {opts.map((o) => (
+        <button
+          aria-checked={value === o.key}
+          className={`ports-proto-option ${value === o.key ? "ports-proto-option-active" : ""}`}
+          key={o.key}
+          onClick={(event) => {
+            // The toggle lives inside a modecard whose default action is
+            // Run — prevent the click from bubbling up and accidentally
+            // launching a scan when the user just wanted to switch
+            // protocols.
+            event.stopPropagation();
+            onChange(o.key);
+          }}
+          role="radio"
+          type="button"
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// PortsTable renders the open-port list. Column set is adaptive:
+//   - PROTO + STATE columns appear only when the result includes UDP
+//     entries (otherwise everything is TCP/"open" and the columns are
+//     pure noise)
+//   - BANNER column appears only when at least one port has one
+// Keeps the table compact for the common TCP-only-no-banner case while
+// staying expressive for mixed-protocol scans where state really matters.
 function PortsTable({ ports }: { ports: NonNullable<PortScanReport["ports"]> }) {
   const showBanner = ports.some((p) => p.banner && p.banner.length > 0);
+  const showProto = ports.some((p) => p.proto === "udp");
+  // Use a unique key so duplicate ports across protocols (53/tcp + 53/udp)
+  // don't collide.
+  const rowKey = (p: NonNullable<PortScanReport["ports"]>[number]) =>
+    `${p.proto || "tcp"}-${p.port}`;
+  if (showProto) {
+    // Use a ports-specific 4-col class — the existing `dns-row-4` is
+    // tuned for the Route panel (hop/address/rtt/asn) and would distort
+    // these columns.
+    const cols = showBanner ? "dns-row-5" : "dns-row-4-ports";
+    return (
+      <div className="dns-table">
+        <div className={`dns-header ${cols}`}>
+          <span>Proto</span>
+          <span>Port</span>
+          <span>State</span>
+          <span>Service</span>
+          {showBanner ? <span>Banner</span> : null}
+        </div>
+        {ports.map((p) => (
+          <div className={`dns-row ${cols}`} key={rowKey(p)}>
+            <code>{p.proto || "tcp"}</code>
+            <code>{p.port}</code>
+            <span>{p.state || "open"}</span>
+            <span>{p.service || "—"}</span>
+            {showBanner ? (
+              <code className="banner-cell" title={p.banner || ""}>
+                {p.banner || "—"}
+              </code>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    );
+  }
   if (!showBanner) {
     return (
       <div className="dns-table">
@@ -2250,7 +2369,7 @@ function PortsTable({ ports }: { ports: NonNullable<PortScanReport["ports"]> }) 
           <span>Service</span>
         </div>
         {ports.map((p) => (
-          <div className="dns-row" key={p.port}>
+          <div className="dns-row" key={rowKey(p)}>
             <code>{p.port}</code>
             <span>{p.service || "—"}</span>
           </div>
@@ -2266,7 +2385,7 @@ function PortsTable({ ports }: { ports: NonNullable<PortScanReport["ports"]> }) 
         <span>Banner</span>
       </div>
       {ports.map((p) => (
-        <div className="dns-row dns-row-3" key={p.port}>
+        <div className="dns-row dns-row-3" key={rowKey(p)}>
           <code>{p.port}</code>
           <span>{p.service || "—"}</span>
           <code className="banner-cell" title={p.banner || ""}>
@@ -2324,6 +2443,12 @@ function PortScanWorkbench({ loading, report }: { loading: boolean; report: Port
       {report.error ? <ErrorBanner message={report.error} /> : null}
       <div className="summary-strip">
         <SummaryCard label="Open" value={String(report.stats.open)} />
+        {report.stats.open_filtered ? (
+          <SummaryCard
+            label="Open|Filtered"
+            value={String(report.stats.open_filtered)}
+          />
+        ) : null}
         <SummaryCard label="Closed" value={String(report.stats.closed)} />
         <SummaryCard label="Filtered" value={String(report.stats.filtered)} />
         <SummaryCard label="Total" value={String(report.stats.total)} />

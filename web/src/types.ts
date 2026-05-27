@@ -305,6 +305,12 @@ export type PortScanReport = {
   ports?: Array<{
     port: number;
     service?: string;
+    // R-13: present on multi-protocol scans (TCP+UDP). Omitted for legacy
+    // TCP-only scans — render as "tcp" by default.
+    proto?: "tcp" | "udp";
+    // R-13: "open" for TCP, "open" | "open|filtered" for UDP. Omitted for
+    // legacy TCP-only scans — render as "open" by default.
+    state?: string;
     // Best-effort banner string from the connect-time banner grab. Empty for
     // TLS-wrapped ports (use a TLS audit instead), silent services, or when
     // banner grab was disabled at the CLI.
@@ -315,9 +321,17 @@ export type PortScanReport = {
     open: number;
     closed: number;
     filtered: number;
+    // R-13: UDP ports with no response — ambiguous without raw-socket
+    // access to read ICMP unreachables. Always 0 on TCP-only scans.
+    open_filtered?: number;
   };
   error?: string;
 };
+
+// R-13: 3-option selector in the UI. "tcp" is the default everywhere
+// (CLI + UI); the engine treats nil/empty Protocols as TCP-only for
+// backward-compat.
+export type PortScanProto = "tcp" | "udp" | "both";
 
 export type PathEnumReport = {
   netcheck_version: string;

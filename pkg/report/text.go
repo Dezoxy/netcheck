@@ -388,20 +388,29 @@ func RenderPortScan(w io.Writer, d PortScanJSON) {
 		fmt.Fprintln(w, "  (no open ports found)")
 	} else {
 		fmt.Fprintf(w, "Open ports (%d):\n", len(d.Ports))
-		// Show the BANNER column only when at least one port has one — keeps
-		// the table compact for scans with no banner hits (e.g. all TLS-wrapped
-		// or banner grab disabled).
+		// Show columns conditionally:
+		//   PROTO  → only when the scan spans more than one protocol
+		//   BANNER → only when at least one port has one
+		// keeps the table compact for the common TCP-only-no-banner case.
 		anyBanner := false
+		anyUDP := false
 		for _, p := range d.Ports {
 			if p.Banner != "" {
 				anyBanner = true
-				break
+			}
+			if p.Proto == "udp" {
+				anyUDP = true
 			}
 		}
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		if anyBanner {
+		switch {
+		case anyUDP && anyBanner:
+			fmt.Fprintln(tw, "  PROTO\tPORT\tSTATE\tSERVICE\tBANNER")
+		case anyUDP:
+			fmt.Fprintln(tw, "  PROTO\tPORT\tSTATE\tSERVICE")
+		case anyBanner:
 			fmt.Fprintln(tw, "  PORT\tSERVICE\tBANNER")
-		} else {
+		default:
 			fmt.Fprintln(tw, "  PORT\tSERVICE")
 		}
 		for _, p := range d.Ports {
@@ -409,17 +418,35 @@ func RenderPortScan(w io.Writer, d PortScanJSON) {
 			if svc == "" {
 				svc = "-"
 			}
-			if anyBanner {
+			proto := p.Proto
+			if proto == "" {
+				proto = "tcp"
+			}
+			state := p.State
+			if state == "" {
+				state = "open"
+			}
+			switch {
+			case anyUDP && anyBanner:
+				fmt.Fprintf(tw, "  %s\t%d\t%s\t%s\t%s\n", proto, p.Port, state, svc, p.Banner)
+			case anyUDP:
+				fmt.Fprintf(tw, "  %s\t%d\t%s\t%s\n", proto, p.Port, state, svc)
+			case anyBanner:
 				fmt.Fprintf(tw, "  %d\t%s\t%s\n", p.Port, svc, p.Banner)
-			} else {
+			default:
 				fmt.Fprintf(tw, "  %d\t%s\n", p.Port, svc)
 			}
 		}
 		tw.Flush()
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "Stats: %d scanned · %d open · %d closed · %d filtered\n",
-		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+	if d.Stats.OpenFiltered > 0 {
+		fmt.Fprintf(w, "Stats: %d scanned · %d open · %d open|filtered · %d closed · %d filtered\n",
+			d.Stats.Total, d.Stats.Open, d.Stats.OpenFiltered, d.Stats.Closed, d.Stats.Filtered)
+	} else {
+		fmt.Fprintf(w, "Stats: %d scanned · %d open · %d closed · %d filtered\n",
+			d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+	}
 }
 
 // RenderTakeover writes the takeover-check result as text.

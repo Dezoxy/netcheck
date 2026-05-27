@@ -477,24 +477,39 @@ func RenderPortScanMD(w io.Writer, d PortScanJSON) {
 		fmt.Fprintf(w, "> **Scan failed:** %s\n", d.Error)
 		return
 	}
-	fmt.Fprintf(w, "- **Scanned:** %d · **Open:** %d · **Closed:** %d · **Filtered:** %d\n\n",
-		d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+	if d.Stats.OpenFiltered > 0 {
+		fmt.Fprintf(w, "- **Scanned:** %d · **Open:** %d · **Open|Filtered:** %d · **Closed:** %d · **Filtered:** %d\n\n",
+			d.Stats.Total, d.Stats.Open, d.Stats.OpenFiltered, d.Stats.Closed, d.Stats.Filtered)
+	} else {
+		fmt.Fprintf(w, "- **Scanned:** %d · **Open:** %d · **Closed:** %d · **Filtered:** %d\n\n",
+			d.Stats.Total, d.Stats.Open, d.Stats.Closed, d.Stats.Filtered)
+	}
 
 	if len(d.Ports) == 0 {
 		fmt.Fprintln(w, "_(no open ports found)_")
 		return
 	}
 	anyBanner := false
+	anyUDP := false
 	for _, p := range d.Ports {
 		if p.Banner != "" {
 			anyBanner = true
-			break
+		}
+		if p.Proto == "udp" {
+			anyUDP = true
 		}
 	}
-	if anyBanner {
+	switch {
+	case anyUDP && anyBanner:
+		fmt.Fprintln(w, "| Proto | Port | State | Service | Banner |")
+		fmt.Fprintln(w, "|---|---|---|---|---|")
+	case anyUDP:
+		fmt.Fprintln(w, "| Proto | Port | State | Service |")
+		fmt.Fprintln(w, "|---|---|---|---|")
+	case anyBanner:
 		fmt.Fprintln(w, "| Port | Service | Banner |")
 		fmt.Fprintln(w, "|---|---|---|")
-	} else {
+	default:
 		fmt.Fprintln(w, "| Port | Service |")
 		fmt.Fprintln(w, "|---|---|")
 	}
@@ -503,14 +518,27 @@ func RenderPortScanMD(w io.Writer, d PortScanJSON) {
 		if svc == "" {
 			svc = "—"
 		}
-		if anyBanner {
-			// Escape pipes in the banner so they don't break the table.
-			b := strings.ReplaceAll(p.Banner, "|", `\|`)
-			if b == "" {
-				b = "—"
-			}
+		proto := p.Proto
+		if proto == "" {
+			proto = "tcp"
+		}
+		state := p.State
+		if state == "" {
+			state = "open"
+		}
+		// Escape pipes in the banner so they don't break the table.
+		b := strings.ReplaceAll(p.Banner, "|", `\|`)
+		if b == "" {
+			b = "—"
+		}
+		switch {
+		case anyUDP && anyBanner:
+			fmt.Fprintf(w, "| %s | %d | %s | %s | `%s` |\n", proto, p.Port, state, svc, b)
+		case anyUDP:
+			fmt.Fprintf(w, "| %s | %d | %s | %s |\n", proto, p.Port, state, svc)
+		case anyBanner:
 			fmt.Fprintf(w, "| %d | %s | `%s` |\n", p.Port, svc, b)
-		} else {
+		default:
 			fmt.Fprintf(w, "| %d | %s |\n", p.Port, svc)
 		}
 	}

@@ -98,24 +98,40 @@ export function runTakeoverCheck(domain: string): Promise<TakeoverReport> {
   });
 }
 
+// PortScanOpts is the shared option shape for runPortsCheck and
+// streamPortsCheck. R-13 added `protocols` (default ["tcp"] when omitted)
+// and `udp_ports` (optional UDP-specific port list when "udp" is selected).
+export type PortScanOpts = {
+  ports?: string;
+  top?: number;
+  concurrency?: number;
+  protocols?: Array<"tcp" | "udp">;
+  udp_ports?: string;
+};
+
 export function runPortsCheck(
   host: string,
-  opts?: { ports?: string; top?: number; concurrency?: number },
+  opts?: PortScanOpts,
 ): Promise<PortScanReport> {
   return postJSON<PortScanReport>("/api/check/ports", {
     host,
     ports: opts?.ports,
     top: opts?.top,
     concurrency: opts?.concurrency,
+    protocols: opts?.protocols,
+    udp_ports: opts?.udp_ports,
     i_have_authorization: true,
   });
 }
 
 // PortProgress is one progress event from /api/check/ports/stream.
 // Mirrors the Go-side `portscan.Progress` shape — keep them in sync.
+// R-13: `proto` is "tcp" | "udp"; state widens to include "open|filtered"
+// for UDP probes that didn't elicit a definitive reply.
 export type PortProgress = {
   port: number;
-  state: "open" | "closed" | "filtered";
+  proto?: "tcp" | "udp";
+  state: "open" | "closed" | "filtered" | "open|filtered";
   service?: string;
   index: number;
   total: number;
@@ -138,7 +154,7 @@ export type StreamPortsHandlers = {
 export function streamPortsCheck(
   host: string,
   handlers: StreamPortsHandlers,
-  opts?: { ports?: string; top?: number; concurrency?: number },
+  opts?: PortScanOpts,
 ): { abort: () => void } {
   const ctrl = new AbortController();
   (async () => {
@@ -152,6 +168,8 @@ export function streamPortsCheck(
           ports: opts?.ports,
           top: opts?.top,
           concurrency: opts?.concurrency,
+          protocols: opts?.protocols,
+          udp_ports: opts?.udp_ports,
           i_have_authorization: true,
         }),
         signal: ctrl.signal,
