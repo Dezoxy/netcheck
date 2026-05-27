@@ -11,7 +11,7 @@ permissions:
   contents: write
   pull-requests: write
 
-# Opt googleapis/release-please-action@v4 into Node 24 ahead of GitHub's
+# Opt googleapis/release-please-action@v5 into Node 24 ahead of GitHub's
 # Sept 2026 Node 20 removal. Drop this when the action ships a Node-24
 # native major (v5+) and we bump the pin.
 env:
@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Run release-please
         id: rp
-        uses: googleapis/release-please-action@v4
+        uses: googleapis/release-please-action@v5
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
@@ -45,19 +45,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # full history for changelog generation
           ref: ${{ needs.release-please.outputs.tag_name }}
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: 'stable'
           cache: true
 
       - name: Run goreleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: '~> v2'
           args: release --clean

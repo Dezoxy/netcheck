@@ -41,7 +41,7 @@ jobs:
       # step is green. golangci/golangci-lint-action handles its own
       # binary install + caching; pinned to v8 for stability.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           # Pinned to v2.12.2 — v2.5.0 was built with Go 1.25 and its
           # embedded go/types panics on transitively-imported Go 1.26
