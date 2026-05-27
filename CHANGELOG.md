@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.3.1](https://github.com/Dezoxy/netcheck/compare/v2.3.0...v2.3.1) (2026-05-27)
+
+
+### Bug fixes
+
+* **web-deps:** pin @eslint/js back to v9, ignore eslint majors ([#102](https://github.com/Dezoxy/netcheck/issues/102)) ([ba2a681](https://github.com/Dezoxy/netcheck/commit/ba2a6816db5642774686ae798b46a7e4f5fa7365))
+
 ## [2.3.0](https://github.com/Dezoxy/netcheck/compare/v2.2.0...v2.3.0) (2026-05-27)
 
 
