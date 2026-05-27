@@ -1,0 +1,91 @@
+name: Security scan
+
+# Weekly supply-chain CVE scan + secrets sweep over the whole tree.
+# Separate from CI on purpose — these checks don't need to gate PRs (a
+# CVE in a transitive dep isn't usually something the PR author can fix
+# in-line), but a steady weekly cadence makes drift visible before it
+# becomes a multi-CVE-deep dig.
+#
+# Findings go to the Security tab via SARIF upload. Critical/high
+# severities also fail the job so they surface as red checkmarks on
+# the Actions tab.
+#
+# Manual trigger: workflow_dispatch lets you fire a run mid-week after
+# an upstream advisory drops (`gh workflow run security.yml`).
+
+on:
+  schedule:
+    # Monday 05:00 UTC = 06:00 Europe/Budapest in winter, 07:00 in
+    # summer. Lines up with Dependabot's Monday run so the weekly
+    # security inbox is one batch.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+# Only one run at a time — cancel an in-flight run if a new one
+# is dispatched (saves Actions minutes when re-firing manually).
+concurrency:
+  group: security-scan
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write  # required for SARIF upload to the Security tab
+
+jobs:
+  trivy:
+    name: trivy fs (vuln + secrets + config)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Trivy scans the working tree for:
+      #   - vuln: known CVEs in Go modules + npm packages (go.sum,
+      #     web/package-lock.json)
+      #   - secret: leaked credentials in source. Overlaps with gitleaks
+      #     pre-commit but uses a different ruleset, so it sometimes
+      #     catches what gitleaks misses (and vice versa).
+      #   - config: Dockerfile / GitHub Actions / Terraform misconfigs.
+      #     Mostly future-proofing for netcheck — only Actions files
+      #     today, but cheap to keep enabled.
+      #
+      # severity=CRITICAL,HIGH — anything lower would generate enough
+      # noise that real findings get lost. Tune `MEDIUM` in if/when
+      # the inbox is comfortably small.
+      #
+      # `exit-code: 1` fails the workflow so the run shows red in the
+      # Actions list; SARIF upload still happens via the `if: always()`
+      # on the next step.
+      - name: Trivy filesystem scan
+        id: trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,config
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true   # CVEs without a fixed version are noise
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "1"
+
+      - name: Upload SARIF to Security tab
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-fs
+
+      # Surface findings in the job log too so they show up in the
+      # workflow notification email without clicking through to the
+      # Security tab.
+      - name: Trivy log summary
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,config
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          exit-code: "0"  # don't double-fail; the SARIF step already did
