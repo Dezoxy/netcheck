@@ -608,6 +608,12 @@ function LoadingOverlay({
   // Mount/unmount with a brief delay so the exit animation can play.
   useEffect(() => {
     if (visible) {
+      // TODO(react19-effects): rewrite these three effects to derive
+      // state instead of setState-in-effect. Flagged by react-hooks v7's
+      // new set-state-in-effect rule (introduced when #101 bumped the
+      // plugin from v5 → v7). Suppressed inline to land the CI safety
+      // net in #104 without expanding scope.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShown(true);
       return;
     }
@@ -619,6 +625,8 @@ function LoadingOverlay({
   // Reset progress + status whenever the overlay becomes visible.
   useEffect(() => {
     if (!visible) return;
+    // TODO(react19-effects): see App.tsx setShown comment above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProgress(0);
     setStatusIdx(0);
   }, [visible]);
@@ -628,6 +636,8 @@ function LoadingOverlay({
     if (!visible) {
       // When the check finishes, snap to 100% so the ring fills before
       // the overlay fades out.
+      // TODO(react19-effects): see App.tsx setShown comment above.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProgress(100);
       return;
     }
