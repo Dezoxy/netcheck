@@ -22,6 +22,8 @@ import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteSavedReport,
   diffReports,
+  DNS_DEFAULT_TYPES,
+  DNS_EXTENDED_TYPES,
   listSavedReports,
   loadSavedReport,
   runArchCheck,
@@ -1715,12 +1717,44 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
 // ─── DNS compare view ─────────────────────────────────────────────────────
 
 function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DNSCompareReport }) {
-  const allAgree = report.queries.every((q) => q.verdict.agree);
+  // Local override: when the user opens the "Show more" disclosure we re-query
+  // /api/check/dns with the extended type set and swap the result in. Falling
+  // back to the parent-supplied report keeps things working if the extended
+  // fetch errors or hasn't run yet.
+  const [extended, setExtended] = useState<DNSCompareReport | null>(null);
+  const [extendedLoading, setExtendedLoading] = useState(false);
+  const [extendedError, setExtendedError] = useState("");
+
+  // Parent re-running a check (e.g. user changed target) discards our local
+  // override — the new report's host won't match.
+  useEffect(() => {
+    setExtended(null);
+    setExtendedError("");
+  }, [report.host]);
+
+  const view = extended ?? report;
+  const allAgree = view.queries.every((q) => q.verdict.agree);
+
+  const onShowMore = useCallback(async () => {
+    setExtendedLoading(true);
+    setExtendedError("");
+    try {
+      const next = await runDNSCheck(report.host, {
+        types: [...DNS_DEFAULT_TYPES, ...DNS_EXTENDED_TYPES],
+      });
+      setExtended(next);
+    } catch (err) {
+      setExtendedError((err as Error).message || "request failed");
+    } finally {
+      setExtendedLoading(false);
+    }
+  }, [report.host]);
+
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
         <h1>
-          DNS Compare: <span>{report.host}</span>
+          DNS Compare: <span>{view.host}</span>
         </h1>
         <div className={`health-pill ${allAgree ? "health-pill-ok" : "health-pill-fail"}`}>
           <span />
@@ -1728,7 +1762,7 @@ function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DN
         </div>
       </div>
 
-      {report.queries.map((q) => (
+      {view.queries.map((q) => (
         <Panel key={q.qtype} className="dns-panel" icon={<FileText />} title={`${q.qtype} records`}>
           <div className="dns-table">
             <div className="dns-header dns-row-4">
@@ -1765,6 +1799,26 @@ function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DN
             : null}
         </Panel>
       ))}
+
+      {extended === null ? (
+        <div className="dns-show-more">
+          <button
+            type="button"
+            className="dns-show-more-btn"
+            onClick={onShowMore}
+            disabled={extendedLoading}
+          >
+            {extendedLoading
+              ? "Loading more record types…"
+              : `Show more record types (${DNS_EXTENDED_TYPES.join(", ")})`}
+          </button>
+          {extendedError ? <p className="detail-error">{extendedError}</p> : null}
+        </div>
+      ) : (
+        <p className="muted dns-show-more-note">
+          Showing default + extended record types. Re-run the check to reset.
+        </p>
+      )}
     </section>
   );
 }
@@ -2444,10 +2498,7 @@ function PortScanWorkbench({ loading, report }: { loading: boolean; report: Port
       <div className="summary-strip">
         <SummaryCard label="Open" value={String(report.stats.open)} />
         {report.stats.open_filtered ? (
-          <SummaryCard
-            label="Open|Filtered"
-            value={String(report.stats.open_filtered)}
-          />
+          <SummaryCard label="Open|Filtered" value={String(report.stats.open_filtered)} />
         ) : null}
         <SummaryCard label="Closed" value={String(report.stats.closed)} />
         <SummaryCard label="Filtered" value={String(report.stats.filtered)} />
