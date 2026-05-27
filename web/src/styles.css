@@ -1040,6 +1040,50 @@ input,
   color: var(--muted);
 }
 
+/* DNS compare query-options panel (Show more / DNSSEC toggles). Sits
+   between the result header and the per-qtype panels. */
+.dns-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.dns-settings-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.dns-settings-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.dns-settings-toggle input[type="checkbox"]:disabled {
+  cursor: wait;
+}
+
+.dns-section-heading {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+.dns-section-heading .muted {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
 .certificate-grid {
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);

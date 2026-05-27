@@ -29,11 +29,12 @@ type fullCheckRequest struct {
 
 type dnsCheckRequest struct {
 	Host              string   `json:"host"`
-	Types             []string `json:"types,omitempty"`     // default A,AAAA
+	Types             []string `json:"types,omitempty"`     // default dnscompare.DefaultScanTypes (Tier 1)
 	Resolvers         []string `json:"resolvers,omitempty"` // extra URL-style resolvers
 	NoSystem          bool     `json:"no_system,omitempty"`
 	NoDefaults        bool     `json:"no_defaults,omitempty"`
 	NoConfigResolvers bool     `json:"no_config_resolvers,omitempty"`
+	DNSSEC            bool     `json:"dnssec,omitempty"` // when true, sets the DO bit so resolvers return DNSSEC records
 }
 
 type routeCheckRequest struct {
@@ -233,7 +234,7 @@ func handleDNSCheck(w http.ResponseWriter, r *http.Request) {
 
 	types := req.Types
 	if len(types) == 0 {
-		types = []string{"A", "AAAA"}
+		types = dnscompare.DefaultScanTypes
 	}
 	parsedTypes, err := dnscompare.ParseTypes(strings.Join(types, ","))
 	if err != nil {
@@ -268,7 +269,7 @@ func handleDNSCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := BuildDNSCompare(r.Context(), host, resolvers, parsedTypes, 5*time.Second)
+	out := BuildDNSCompareWithOpts(r.Context(), host, resolvers, parsedTypes, 5*time.Second, dnscompare.CompareOpts{DNSSEC: req.DNSSEC})
 	writeJSON(w, http.StatusOK, out)
 }
 
