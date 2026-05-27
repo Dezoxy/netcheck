@@ -4,6 +4,18 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.5.0](https://github.com/Dezoxy/netcheck/compare/v2.4.1...v2.5.0) (2026-05-27)
+
+
+### Features
+
+* **dns:** restore stranded DNS Compare feature stack — Tier 1 default + show more + DNSSEC ([#112](https://github.com/Dezoxy/netcheck/issues/112)) ([9a2e1ca](https://github.com/Dezoxy/netcheck/commit/9a2e1caa021f15225bb174b8f3ca2b1a0d1696f8))
+
+
+### Bug fixes
+
+* **web:** drop setState-in-effect suppressions in LoadingOverlay ([#110](https://github.com/Dezoxy/netcheck/issues/110)) ([74d2197](https://github.com/Dezoxy/netcheck/commit/74d2197c253b9f2287084dd93aba86b8cadbd555))
+
 ## [2.4.1](https://github.com/Dezoxy/netcheck/compare/v2.4.0...v2.4.1) (2026-05-27)
 
 
