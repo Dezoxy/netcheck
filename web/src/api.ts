@@ -47,6 +47,21 @@ export const DNS_DEFAULT_TYPES = ["A", "AAAA", "CNAME", "NS", "MX", "TXT", "SOA"
 // queried only when the user opens the "show more" disclosure.
 export const DNS_EXTENDED_TYPES = ["SRV", "PTR", "NAPTR", "HINFO", "HTTPS", "SVCB", "SPF"] as const;
 
+// DNS_DNSSEC_TYPES mirrors dnscompare.DNSSECTypes (Go side). Tier 3: queried
+// only when the DNSSEC toggle is on, and only then with `dnssec: true` so the
+// DO bit is set on the wire-format query. The set is intentionally narrow —
+// RRSIG/DNSKEY blobs dominate the output, so we render them in a separate
+// panel group rather than mixed into the main table.
+export const DNS_DNSSEC_TYPES = [
+  "DNSKEY",
+  "DS",
+  "RRSIG",
+  "NSEC",
+  "NSEC3",
+  "CDS",
+  "CDNSKEY",
+] as const;
+
 export type DNSCheckOpts = {
   // Override the record-type list. Omit (or pass undefined) for the
   // server-side default (DNS_DEFAULT_TYPES).

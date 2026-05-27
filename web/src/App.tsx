@@ -18,11 +18,12 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteSavedReport,
   diffReports,
   DNS_DEFAULT_TYPES,
+  DNS_DNSSEC_TYPES,
   DNS_EXTENDED_TYPES,
   listSavedReports,
   loadSavedReport,
@@ -1716,55 +1717,70 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
 
 // ─── DNS compare view ─────────────────────────────────────────────────────
 
-function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DNSCompareReport }) {
-  // Local override: when the user opens the "Show more" disclosure we re-query
-  // /api/check/dns with the extended type set and swap the result in. Falling
-  // back to the parent-supplied report keeps things working if the extended
-  // fetch errors or hasn't run yet.
-  const [extended, setExtended] = useState<DNSCompareReport | null>(null);
-  const [extendedLoading, setExtendedLoading] = useState(false);
-  const [extendedError, setExtendedError] = useState("");
-  // requestSeq is bumped on every show-more click. The async handler captures
-  // its current value and only commits the response if that value still
-  // matches at completion — guards against a late response from an earlier
-  // host (target changed mid-flight) clobbering the new view.
-  const requestSeqRef = useRef(0);
+// DNS_DNSSEC_TYPE_SET is a Set lookup of Tier-3 qtypes — used to split the
+// rendered report into "core" vs "DNSSEC" panel groups.
+const DNS_DNSSEC_TYPE_SET = new Set<string>(DNS_DNSSEC_TYPES);
 
-  // Parent re-running a check (whether for a new host or the same one) is
-  // tracked via report.started_at — a fresh report always has a new
-  // timestamp, so this effect fires on every run and discards the local
-  // override even when the hostname is unchanged.
+function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DNSCompareReport }) {
+  // Two opt-in toggles drive a re-fetch:
+  //   - showMore: include Tier-2 extended types in the query
+  //   - dnssec:   include Tier-3 DNSSEC types AND set the DO bit
+  // When both are off, the parent-supplied `report` is rendered as-is
+  // (no re-fetch). When either is on, we re-query and use the override.
+  const [showMore, setShowMore] = useState(false);
+  const [dnssec, setDnssec] = useState(false);
+  const [override, setOverride] = useState<DNSCompareReport | null>(null);
+  const [refetchLoading, setRefetchLoading] = useState(false);
+  const [refetchError, setRefetchError] = useState("");
+
+  // Parent re-running a check (whether for a new host or the same one)
+  // discards both toggles and the local override. We key on
+  // report.started_at — a fresh report always has a new timestamp, so
+  // this also resets when the user reruns DNS Compare for the same
+  // hostname, which a host-only dep would miss.
   useEffect(() => {
-    requestSeqRef.current += 1;
-    setExtended(null);
-    setExtendedError("");
-    setExtendedLoading(false);
+    setShowMore(false);
+    setDnssec(false);
+    setOverride(null);
+    setRefetchError("");
   }, [report.started_at]);
 
-  const view = extended ?? report;
-  const allAgree = view.queries.every((q) => q.verdict.agree);
-
-  const onShowMore = useCallback(async () => {
-    const mySeq = ++requestSeqRef.current;
-    setExtendedLoading(true);
-    setExtendedError("");
-    try {
-      const next = await runDNSCheck(report.host, {
-        types: [...DNS_DEFAULT_TYPES, ...DNS_EXTENDED_TYPES],
-      });
-      // Bail if a newer request (or a parent re-run) has bumped the
-      // sequence — the response we just got is for a stale host.
-      if (mySeq !== requestSeqRef.current) return;
-      setExtended(next);
-    } catch (err) {
-      if (mySeq !== requestSeqRef.current) return;
-      setExtendedError((err as Error).message || "request failed");
-    } finally {
-      if (mySeq === requestSeqRef.current) {
-        setExtendedLoading(false);
-      }
+  // Compose the query whenever a toggle flips. With both toggles off we
+  // clear the override so the parent report shows through; otherwise we
+  // re-query with the combined type set.
+  useEffect(() => {
+    if (!showMore && !dnssec) {
+      setOverride(null);
+      setRefetchError("");
+      return;
     }
-  }, [report.host]);
+    let cancelled = false;
+    const types = [
+      ...DNS_DEFAULT_TYPES,
+      ...(showMore ? DNS_EXTENDED_TYPES : []),
+      ...(dnssec ? DNS_DNSSEC_TYPES : []),
+    ];
+    setRefetchLoading(true);
+    setRefetchError("");
+    runDNSCheck(report.host, { types, dnssec })
+      .then((next) => {
+        if (!cancelled) setOverride(next);
+      })
+      .catch((err) => {
+        if (!cancelled) setRefetchError((err as Error).message || "request failed");
+      })
+      .finally(() => {
+        if (!cancelled) setRefetchLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [report.host, showMore, dnssec]);
+
+  const view = override ?? report;
+  const coreQueries = view.queries.filter((q) => !DNS_DNSSEC_TYPE_SET.has(q.qtype));
+  const dnssecQueries = view.queries.filter((q) => DNS_DNSSEC_TYPE_SET.has(q.qtype));
+  const allAgree = coreQueries.every((q) => q.verdict.agree);
 
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
@@ -1778,64 +1794,89 @@ function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DN
         </div>
       </div>
 
-      {view.queries.map((q) => (
-        <Panel key={q.qtype} className="dns-panel" icon={<FileText />} title={`${q.qtype} records`}>
-          <div className="dns-table">
-            <div className="dns-header dns-row-4">
-              <span>Resolver</span>
-              <span>Address</span>
-              <span>Time</span>
-              <span>Answer</span>
-            </div>
-            {q.results.map((r) => (
-              <div className="dns-row dns-row-4" key={`${q.qtype}-${r.name}-${r.address}`}>
-                <span>{r.name}</span>
-                <code>{r.address}</code>
-                <code>{r.took_ms}ms</code>
-                {r.error ? (
-                  <span className="detail-error">{r.error}</span>
-                ) : (
-                  <code>{(r.records ?? []).join(", ") || "(none)"}</code>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="muted">
-            {q.verdict.agree
-              ? "All successful resolvers returned the same answer set."
-              : `${q.verdict.groups.length} distinct answer sets:`}
-          </p>
-          {!q.verdict.agree
-            ? q.verdict.groups.map((group, i) => (
-                <p className="muted" key={`group-${i}`}>
-                  <strong>Set {i + 1}</strong> ({group.resolvers.join(", ")}):{" "}
-                  <code>{group.records.join(", ") || "(empty)"}</code>
-                </p>
-              ))
-            : null}
-        </Panel>
+      <div className="dns-settings">
+        <label className="dns-settings-toggle">
+          <input
+            type="checkbox"
+            checked={showMore}
+            onChange={(e) => setShowMore(e.target.checked)}
+            disabled={refetchLoading}
+          />
+          <span>Show more record types</span>
+          <span className="muted">({DNS_EXTENDED_TYPES.join(", ")})</span>
+        </label>
+        <label className="dns-settings-toggle">
+          <input
+            type="checkbox"
+            checked={dnssec}
+            onChange={(e) => setDnssec(e.target.checked)}
+            disabled={refetchLoading}
+          />
+          <span>DNSSEC mode</span>
+          <span className="muted">(sets DO bit; queries {DNS_DNSSEC_TYPES.join(", ")})</span>
+        </label>
+        {refetchLoading ? <span className="muted">Re-querying…</span> : null}
+        {refetchError ? <span className="detail-error">{refetchError}</span> : null}
+      </div>
+
+      {coreQueries.map((q) => (
+        <DNSCompareQueryPanel key={q.qtype} query={q} />
       ))}
 
-      {extended === null ? (
-        <div className="dns-show-more">
-          <button
-            type="button"
-            className="dns-show-more-btn"
-            onClick={onShowMore}
-            disabled={extendedLoading}
-          >
-            {extendedLoading
-              ? "Loading more record types…"
-              : `Show more record types (${DNS_EXTENDED_TYPES.join(", ")})`}
-          </button>
-          {extendedError ? <p className="detail-error">{extendedError}</p> : null}
-        </div>
-      ) : (
-        <p className="muted dns-show-more-note">
-          Showing default + extended record types. Re-run the check to reset.
-        </p>
-      )}
+      {dnssecQueries.length > 0 ? (
+        <>
+          <h2 className="dns-section-heading">
+            DNSSEC records
+            <span className="muted"> — DO bit set on query; resolver may or may not validate</span>
+          </h2>
+          {dnssecQueries.map((q) => (
+            <DNSCompareQueryPanel key={q.qtype} query={q} />
+          ))}
+        </>
+      ) : null}
     </section>
+  );
+}
+
+// DNSCompareQueryPanel renders one per-qtype panel. Extracted so the core
+// and DNSSEC sections share the same renderer.
+function DNSCompareQueryPanel({ query: q }: { query: DNSCompareReport["queries"][number] }) {
+  return (
+    <Panel className="dns-panel" icon={<FileText />} title={`${q.qtype} records`}>
+      <div className="dns-table">
+        <div className="dns-header dns-row-4">
+          <span>Resolver</span>
+          <span>Address</span>
+          <span>Time</span>
+          <span>Answer</span>
+        </div>
+        {q.results.map((r) => (
+          <div className="dns-row dns-row-4" key={`${q.qtype}-${r.name}-${r.address}`}>
+            <span>{r.name}</span>
+            <code>{r.address}</code>
+            <code>{r.took_ms}ms</code>
+            {r.error ? (
+              <span className="detail-error">{r.error}</span>
+            ) : (
+              <code>{(r.records ?? []).join(", ") || "(none)"}</code>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="muted">
+        {q.verdict.agree
+          ? "All successful resolvers returned the same answer set."
+          : `${q.verdict.groups.length} distinct answer sets:`}
+      </p>
+      {!q.verdict.agree
+        ? q.verdict.groups.map((group, i) => (
+            <p className="muted" key={`group-${i}`}>
+              <strong>Set {i + 1}</strong> ({group.resolvers.join(", ")}):{" "}
+              <code>{group.records.join(", ") || "(empty)"}</code>
+            </p>
+          ))
+        : null}
+    </Panel>
   );
 }
 

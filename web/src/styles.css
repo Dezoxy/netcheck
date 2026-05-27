@@ -1040,44 +1040,48 @@ input,
   color: var(--muted);
 }
 
-/* "Show more record types" disclosure under the DNS compare panels. */
-.dns-show-more {
+/* DNS compare query-options panel (Show more / DNSSEC toggles). Sits
+   between the result header and the per-qtype panels. */
+.dns-settings {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3) 0 0;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
 }
 
-.dns-show-more-btn {
+.dns-settings-toggle {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--fg);
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 20px;
+  user-select: none;
 }
 
-.dns-show-more-btn:hover:not(:disabled),
-.dns-show-more-btn:focus-visible {
-  border-color: var(--accent);
-  color: var(--accent);
-  outline: 0;
+.dns-settings-toggle input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
 }
 
-.dns-show-more-btn:disabled {
+.dns-settings-toggle input[type="checkbox"]:disabled {
   cursor: wait;
-  opacity: 0.72;
 }
 
-.dns-show-more-note {
-  padding-top: var(--space-3);
-  font-style: italic;
+.dns-section-heading {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+.dns-section-heading .muted {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
 }
 
 .certificate-grid {
@@ -1393,10 +1397,9 @@ input,
 /* R-13 five-column variant: same as -4-ports but with the banner column
    appended. Banner still owns the long tail. */
 .dns-row-5 {
-  grid-template-columns: minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(
-      80px,
-      1fr
-    ) minmax(140px, 3.5fr);
+  grid-template-columns:
+    minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr)
+    minmax(140px, 3.5fr);
 }
 
 /* Banner cells are user-supplied free text — they can be long. We let them
