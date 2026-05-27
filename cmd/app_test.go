@@ -43,7 +43,7 @@ func TestAppHealth(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/healthz", nil)
 	res := httptest.NewRecorder()
 
-	newAppHandler().ServeHTTP(res, req)
+	newTestAppHandler().ServeHTTP(res, req)
 
 	if res.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
@@ -57,7 +57,7 @@ func TestAppServesEmbeddedIndex(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	res := httptest.NewRecorder()
 
-	newAppHandler().ServeHTTP(res, req)
+	newTestAppHandler().ServeHTTP(res, req)
 
 	if res.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
@@ -74,7 +74,7 @@ func TestFullCheckAPIRejectsUnsupportedMethod(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/check/full", nil)
 	res := httptest.NewRecorder()
 
-	newAppHandler().ServeHTTP(res, req)
+	newTestAppHandler().ServeHTTP(res, req)
 
 	if res.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusMethodNotAllowed)
@@ -92,7 +92,7 @@ func TestFullCheckAPIRejectsInvalidJSON(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/check/full", strings.NewReader(body))
 		res := httptest.NewRecorder()
 
-		newAppHandler().ServeHTTP(res, req)
+		newTestAppHandler().ServeHTTP(res, req)
 
 		if res.Code != http.StatusBadRequest {
 			t.Fatalf("body %q status = %d, want %d", body, res.Code, http.StatusBadRequest)
@@ -108,7 +108,7 @@ func TestFullCheckAPIRejectsInvalidTargetBeforeNetworkWork(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/check/full", body)
 	res := httptest.NewRecorder()
 
-	newAppHandler().ServeHTTP(res, req)
+	newTestAppHandler().ServeHTTP(res, req)
 
 	if res.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusBadRequest)
@@ -131,7 +131,7 @@ func TestFullCheckAPIReturnsFullReport(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/check/full", bytes.NewReader(body))
 	res := httptest.NewRecorder()
 
-	newAppHandler().ServeHTTP(res, req)
+	newTestAppHandler().ServeHTTP(res, req)
 
 	if res.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body = %q", res.Code, http.StatusOK, res.Body.String())
@@ -180,7 +180,7 @@ func TestFullCheckAPIAllowsInsecureTLSCheck(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/check/full", bytes.NewReader(body))
 	res := httptest.NewRecorder()
 
-	newAppHandler().ServeHTTP(res, req)
+	newTestAppHandler().ServeHTTP(res, req)
 
 	if res.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body = %q", res.Code, http.StatusOK, res.Body.String())

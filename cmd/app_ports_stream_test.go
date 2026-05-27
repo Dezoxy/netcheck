@@ -39,7 +39,7 @@ func TestPortsStreamRejectsEmptyHost(t *testing.T) {
 //   - At least one `event: progress` frame
 //   - Exactly one `event: done` frame at the end carrying the full report
 func TestPortsStreamEmitsProgressAndDone(t *testing.T) {
-	srv := httptest.NewServer(newAppHandler())
+	srv := httptest.NewServer(newTestAppHandler())
 	t.Cleanup(srv.Close)
 
 	// Scan a few low ports against localhost. Most will be filtered; that's
