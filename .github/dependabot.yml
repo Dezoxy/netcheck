@@ -56,6 +56,17 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
+      # ESLint 10 is blocked on eslint-plugin-jsx-a11y, whose latest
+      # release (6.10.2, 2024-10-26) still caps its peer dep at
+      # eslint ^9. Bumping @eslint/js or eslint to 10 in isolation
+      # breaks `npm ci` locally — see the revert of #91. Drop these
+      # three ignores together once the a11y plugin supports eslint 10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript-eslint"
+        update-types: ["version-update:semver-major"]
 
   # ─── GitHub Actions ──────────────────────────────────────────────────────
   # Action versions are pinned in workflow files — Dependabot keeps the
