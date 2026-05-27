@@ -560,6 +560,7 @@ func ToDNSCompareJSON(host string, startedAt time.Time, results []dnscompare.Res
 	for _, q := range results {
 		out.Queries = append(out.Queries, queryToJSON(q))
 	}
+	out.Queries = nonNil(out.Queries)
 	return out
 }
 
@@ -571,7 +572,7 @@ func ToRouteJSON(host, destIP, tool string, toolArgs []string, startedAt time.Ti
 		Host:            host,
 		DestIP:          destIP,
 		Tool:            tool,
-		ToolArgs:        toolArgs,
+		ToolArgs:        nonNil(toolArgs),
 		StartedAt:       startedAt,
 	}
 	for _, h := range hops {
@@ -587,6 +588,7 @@ func ToRouteJSON(host, destIP, tool string, toolArgs []string, startedAt time.Ti
 			}
 		}
 	}
+	out.Hops = nonNil(out.Hops)
 	return out
 }
 
@@ -605,6 +607,7 @@ func ToIPInfoJSON(target string, startedAt time.Time, fromHost bool, resolveTook
 	for _, d := range details {
 		out.Details = append(out.Details, ipDetailsToJSON(d))
 	}
+	out.Details = nonNil(out.Details)
 	return out
 }
 
@@ -680,7 +683,7 @@ func ToSubsJSON(r subenum.Result) SubsJSON {
 		out.Subdomains = append(out.Subdomains, SubdomainJSON{
 			Name:     s.Name,
 			Wildcard: s.Wildcard,
-			Sources:  s.Sources,
+			Sources:  nonNil(s.Sources),
 		})
 	}
 	if len(r.SourceErrors) > 0 {
@@ -705,7 +708,7 @@ func ToReverseJSON(r reverseip.Result) ReverseJSON {
 	for _, h := range r.Hostnames {
 		out.Hostnames = append(out.Hostnames, HostnameJSON{
 			Name:    h.Name,
-			Sources: h.Sources,
+			Sources: nonNil(h.Sources),
 		})
 	}
 	if len(r.SourceErrors) > 0 {
@@ -1040,6 +1043,7 @@ func httpToJSON(r check.HTTPResult) HTTPJSON {
 	for _, h := range r.Hops {
 		out.Hops = append(out.Hops, HTTPHop{URL: h.URL, Status: h.Status})
 	}
+	out.Hops = nonNil(out.Hops)
 	return out
 }
 
@@ -1061,10 +1065,12 @@ func queryToJSON(q dnscompare.Result) QueryJSON {
 	out.Verdict.Agree = v.Agree
 	for _, g := range v.Groups {
 		out.Verdict.Groups = append(out.Verdict.Groups, VerdictGroupJSON{
-			Records:   g.Records,
-			Resolvers: g.Resolvers,
+			Records:   nonNil(g.Records),
+			Resolvers: nonNil(g.Resolvers),
 		})
 	}
+	out.Results = nonNil(out.Results)
+	out.Verdict.Groups = nonNil(out.Verdict.Groups)
 	return out
 }
 
@@ -1107,4 +1113,18 @@ func ipsToStrings(ips []net.IP) []string {
 		out = append(out, ip.String())
 	}
 	return out
+}
+
+// nonNil returns s if non-nil, otherwise an empty slice. Apply to any
+// []T struct field declared without `omitempty` before returning, so
+// nil never reaches json.Marshal — nil []T marshals to JSON null,
+// which breaks the web UI's strict array typings (App.tsx calls
+// .map() unconditionally). Same crash pattern as #105 / ipsToStrings,
+// generalised to every populator that builds a non-omitempty slice
+// field from upstream data or via append-in-loop.
+func nonNil[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
 }
