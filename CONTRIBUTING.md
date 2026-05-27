@@ -79,8 +79,7 @@ Use sparingly — the hooks usually catch real things.
 
 ## CI relationship
 
-CI (`.github/workflows/ci.yml`) currently runs `gofmt + go vet +
-staticcheck + go test -race` on every PR. The local pre-commit pipeline
-is a strict superset — if the hooks pass locally, CI passes too. We
-haven't migrated CI to `golangci-lint run` yet; that's a follow-up once
-the rule set has stabilised.
+CI (`.github/workflows/ci.yml`) runs `golangci-lint` against the same
+`.golangci.yml` the pre-commit hook uses, followed by `go test -race`.
+The local hooks are a strict superset — if `lefthook run pre-commit`
+and `lefthook run pre-push` pass locally, CI passes too.

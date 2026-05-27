@@ -799,7 +799,7 @@ function NavItem({
 }) {
   return (
     <button
-      aria-selected={active}
+      aria-current={active ? "page" : undefined}
       className={`nav-item ${active ? "nav-item-active" : ""}`}
       onClick={onClick}
       type="button"
@@ -862,7 +862,7 @@ function BottomNavItem({
 }) {
   return (
     <button
-      aria-selected={active}
+      aria-current={active ? "page" : undefined}
       className={`bottom-nav-item ${active ? "bottom-nav-item-active" : ""}`}
       onClick={onClick}
       type="button"
@@ -1532,6 +1532,7 @@ function RouteSettings({
       <div className="settings-list">
         <label className="settings-row">
           <input
+            aria-label="Allow insecure TLS"
             checked={insecure}
             onChange={(event) => onInsecureChange(event.target.checked)}
             type="checkbox"

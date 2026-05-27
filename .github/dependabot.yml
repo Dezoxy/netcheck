@@ -1,0 +1,78 @@
+# Dependabot configuration for netcheck.
+#
+# Watches three ecosystems and opens PRs grouped by weekday. The
+# weekly cadence is intentional: a daily firehose generates more
+# noise than a solo dev can triage, and security advisories still
+# come through immediately regardless of the schedule.
+#
+# Spec: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # ─── Go modules ──────────────────────────────────────────────────────────
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Budapest"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Group minor/patch bumps into one PR per ecosystem — reduces churn
+    # for the ~20 deps we have. Major bumps stay as individual PRs so
+    # the breaking-change review surface stays obvious.
+    groups:
+      go-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ─── npm (web frontend) ──────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Budapest"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(web-deps)"
+      include: "scope"
+    groups:
+      # React/TS toolchain churns fast — group everything non-major to
+      # avoid 10 PRs every Monday.
+      web-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignore React 19 → 20 (or any major) until we explicitly opt in;
+    # major React bumps tend to require code changes.
+    ignore:
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  # ─── GitHub Actions ──────────────────────────────────────────────────────
+  # Action versions are pinned in workflow files — Dependabot keeps the
+  # action SHAs / version tags current. Weekly is more than enough since
+  # actions don't change often.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Budapest"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(ci-deps)"
+      include: "scope"
+    groups:
+      actions-all:
+        patterns:
+          - "*"
