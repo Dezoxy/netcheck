@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -138,7 +139,8 @@ func runOnce(ctx context.Context, binary string, args []string) ([]byte, error) 
 		// exec error vs non-zero exit — non-zero exit is fine for some
 		// subcommands (e.g. `ports` returns 1 when no ports open). Surface
 		// the error but still return what we captured.
-		if _, ok := err.(*exec.ExitError); ok && out.Len() > 0 {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && out.Len() > 0 {
 			return out.Bytes(), nil
 		}
 		return nil, err

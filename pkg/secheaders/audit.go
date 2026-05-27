@@ -99,7 +99,9 @@ func Audit(ctx context.Context, rawURL string, insecure bool, timeout time.Durat
 		return out
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	// Drain to enable keep-alive reuse; errors are not actionable
+	// since we're discarding the body anyway.
+	_, _ = io.Copy(io.Discard, resp.Body)
 
 	out.FinalURL = resp.Request.URL.String()
 	out.Status = resp.StatusCode

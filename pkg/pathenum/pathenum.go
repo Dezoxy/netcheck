@@ -148,7 +148,9 @@ func Enumerate(ctx context.Context, baseURL string, opts Options, overallTimeout
 			}
 			defer resp.Body.Close()
 			// Drain a small slice of body to free the connection.
-			io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
+			// Read errors here aren't actionable — the body is being
+			// thrown away regardless.
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
 
 			if resp.StatusCode == 404 || resp.StatusCode == 410 {
 				results[i] = pathRes{miss: true}

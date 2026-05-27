@@ -433,9 +433,9 @@ func TestNormalizeURL(t *testing.T) {
 	if _, err := normalizeURL(""); err == nil {
 		t.Error("empty URL should error")
 	}
-	if _, err := normalizeURL("::badurl"); err == nil {
-		// Some bad URLs Go's parser accepts as opaque — accept that.
-	}
+	// Some bad URLs Go's parser accepts as opaque — we don't assert
+	// either outcome, just that the call doesn't panic.
+	_, _ = normalizeURL("::badurl")
 	got, err := normalizeURL("example.com")
 	if err != nil {
 		t.Fatal(err)
