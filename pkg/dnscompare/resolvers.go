@@ -112,6 +112,7 @@ func ParseResolver(raw string) (Resolver, error) {
 }
 
 var qtypeByName = map[string]uint16{
+	// Core records — broadly useful, always included in default scans.
 	"A":     dns.TypeA,
 	"AAAA":  dns.TypeAAAA,
 	"CNAME": dns.TypeCNAME,
@@ -119,7 +120,39 @@ var qtypeByName = map[string]uint16{
 	"TXT":   dns.TypeTXT,
 	"NS":    dns.TypeNS,
 	"SOA":   dns.TypeSOA,
+	"CAA":   dns.TypeCAA,
+
+	// Extended records — situational, surfaced behind a "show more" toggle.
+	"SRV":   dns.TypeSRV,
+	"PTR":   dns.TypePTR,
+	"NAPTR": dns.TypeNAPTR,
+	"HINFO": dns.TypeHINFO,
+	"HTTPS": dns.TypeHTTPS,
+	"SVCB":  dns.TypeSVCB,
+	"SPF":   dns.TypeSPF, // legacy (RFC 7208 deprecates standalone SPF type)
+
+	// DNSSEC records — require the DO bit set on the query (see CompareOpts).
+	"DNSKEY":  dns.TypeDNSKEY,
+	"DS":      dns.TypeDS,
+	"RRSIG":   dns.TypeRRSIG,
+	"NSEC":    dns.TypeNSEC,
+	"NSEC3":   dns.TypeNSEC3,
+	"CDS":     dns.TypeCDS,
+	"CDNSKEY": dns.TypeCDNSKEY,
 }
+
+// DefaultScanTypes is the record-type set used when no explicit --type is
+// given. Tier 1: broadly useful, low noise, security-relevant. CAA is
+// included so cert-issuance policy is visible by default.
+var DefaultScanTypes = []string{"A", "AAAA", "CNAME", "NS", "MX", "TXT", "SOA", "CAA"}
+
+// ExtendedScanTypes is the additional record-type set surfaced behind a
+// "show more" toggle in the UI. Tier 2: situational or noisy records.
+var ExtendedScanTypes = []string{"SRV", "PTR", "NAPTR", "HINFO", "HTTPS", "SVCB", "SPF"}
+
+// DNSSECTypes is the record-type set used when DNSSEC inspection is
+// explicitly enabled (the DO bit must also be set on the query). Tier 3.
+var DNSSECTypes = []string{"DNSKEY", "DS", "RRSIG", "NSEC", "NSEC3", "CDS", "CDNSKEY"}
 
 // ParseTypes parses a comma-separated list of record-type names into the
 // internal canonical form, rejecting unknown types and deduping while
