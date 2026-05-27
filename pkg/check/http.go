@@ -98,7 +98,10 @@ func HTTP(ctx context.Context, t *target.Target, insecure bool) HTTPResult {
 		return HTTPResult{Err: err, Total: total, Hops: hops, DNSTime: dnsTime, ConnectTime: connectTime, TLSTime: tlsTime}
 	}
 	defer resp.Body.Close()
-	io.Copy(io.Discard, resp.Body)
+	// Drain so the keep-alive connection can be reused. We don't care
+	// about the bytes (or the error — a closed connection mid-drain is
+	// fine here).
+	_, _ = io.Copy(io.Discard, resp.Body)
 
 	return HTTPResult{
 		Status:      resp.StatusCode,

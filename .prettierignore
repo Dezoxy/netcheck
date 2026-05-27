@@ -1,0 +1,13 @@
+# Prettier should ignore the Vite build output (embedded into the Go
+# binary by the //go:embed directive in internal/webui — touching it
+# would change the bundle that gets shipped).
+internal/webui/dist/**
+web/dist/**
+web/node_modules/**
+
+# Lockfiles — npm owns the formatting.
+web/package-lock.json
+package-lock.json
+
+# Generated changelog (release-please owns the formatting).
+CHANGELOG.md

@@ -155,7 +155,7 @@ type RouteData struct {
 func collectRoute(host string, opts route.Options, timeout time.Duration, noASN bool) (*RouteData, error) {
 	bin, err := route.Find()
 	if err != nil {
-		return nil, fmt.Errorf("%v\n%s", err, route.InstallHint())
+		return nil, fmt.Errorf("%w\n%s", err, route.InstallHint())
 	}
 
 	cmdArgs := route.BuildArgs(opts, host)

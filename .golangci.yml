@@ -1,0 +1,112 @@
+# golangci-lint configuration for netcheck.
+#
+# Conservative defaults — every enabled linter has a real failure mode we
+# want to catch. Avoid bandwagon linters (gochecknoglobals, gomnd, godox,
+# etc.) that fire on legitimate patterns this codebase uses.
+#
+# Run locally:   golangci-lint run --fast    (pre-commit subset)
+#                golangci-lint run           (full run, matches CI intent)
+#
+# Schema: v2. https://golangci-lint.run/usage/configuration/
+
+version: "2"
+
+run:
+  # Tests take ~10s on this codebase; lint should match that ballpark.
+  timeout: 5m
+  # Stop early if .go files change while a run is in flight.
+  modules-download-mode: readonly
+
+linters:
+  # `default: none` makes the enabled list authoritative — we don't
+  # silently inherit whatever golangci-lint decides is "standard" this
+  # quarter.
+  default: none
+  enable:
+    # Default-enabled set (the lints CI's own "go vet + staticcheck"
+    # already runs — keep parity so lefthook output matches CI):
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Extra signal worth the noise:
+    - misspell      # catches typos in user-facing strings + comments
+    - unconvert     # flags redundant type conversions
+    - bodyclose     # required: every HTTP response body must be closed
+    - nilerr        # `return nil` when err is non-nil — easy regression
+    - errorlint     # forces errors.Is/As over `==`/type-assertions
+
+    # Considered and rejected:
+    # - prealloc: fires on cold init-path slices we don't want to fuss over
+
+  settings:
+    errcheck:
+      # Allow ignoring errors when explicitly assigned to `_`. Required
+      # for the SSE handler's flusher writes (best-effort, won't block
+      # the scan on response-write errors).
+      check-blank: false
+    misspell:
+      # netcheck's user-facing strings are en-US. The narrative voice in
+      # code comments is mixed BE/AE — explicitly allowlist every BE form
+      # the existing codebase uses so we still catch genuine typos.
+      locale: US
+      ignore-rules:
+        - behaviour
+        - cancelled
+        - catalogue
+        - centralised
+        - colour
+        - colours
+        - defence
+        - flavoured
+        - honour
+        - honoured
+        - summarises
+        - synthesise
+        - synthesised
+        - unrecognised
+
+  exclusions:
+    # Standard golangci-lint preset that silences common false positives
+    # (test helpers, generated code, etc.). Without `lax`, errcheck would
+    # fire on every `defer rows.Close()` in test code.
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      # node_modules can vendor Go reference impls (e.g. flatted's
+      # /golang/...). Not our code, don't lint it.
+      - "web/node_modules"
+      - "web/dist"
+      - "internal/webui/dist"
+    rules:
+      # Test files churn fast — keep errcheck quiet there.
+      - path: _test\.go
+        linters:
+          - errcheck
+      # cmd/app_*_test.go tests use the `appRequest` helper which calls
+      # t.Cleanup(resp.Body.Close). bodyclose can't see Cleanup as a
+      # close site → false positive on every test that uses the helper.
+      - path: cmd/app_.*_test\.go
+        linters:
+          - bodyclose
+      # The SSE response writer's Write returns errors we deliberately
+      # ignore (closed-connection mid-stream is expected, not a bug).
+      - path: cmd/app\.go
+        text: "Error return value of `.*\\.(Write|WriteString|Flush)` is not checked"
+        linters:
+          - errcheck
+
+formatters:
+  # gofmt is enforced via the pre-commit hook directly — but enabling it
+  # here too means `golangci-lint run --fix` can format on demand.
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Dezoxy/netcheck

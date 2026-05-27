@@ -470,7 +470,7 @@ export type DiffSection = {
 };
 
 export type DiffReport = {
-  kind: string;          // "ports", "subs", … or "mixed" if old/new differ
+  kind: string; // "ports", "subs", … or "mixed" if old/new differ
   target?: string;
   old_started?: string;
   new_started?: string;
