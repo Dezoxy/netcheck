@@ -150,11 +150,60 @@ func TestRecordValueAllTypes(t *testing.T) {
 
 func TestRecordValueUnknownFallsThrough(t *testing.T) {
 	// HINFO is in qtypeByName (queryable) but has no custom formatter —
-	// verify it falls through to rr.String() without crashing.
+	// verify it falls through to the rdata-only path without crashing.
 	hinfo := &dns.HINFO{Hdr: dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeHINFO}, Cpu: "x86", Os: "linux"}
 	got := recordValue(hinfo)
 	if !strings.Contains(got, "x86") {
 		t.Errorf("HINFO fallback = %q, expected to contain 'x86'", got)
+	}
+}
+
+// TestRecordValueFallbackIgnoresTTL guards the Codex P2 finding on PR #84:
+// two RRs with identical RDATA but different TTLs (typical when comparing
+// the same answer across resolvers with diverged cache state) must
+// compare equal via recordValue, otherwise Verdict() reports false
+// disagreement. Verified against unhandled types only — formatted ones
+// already never include TTL.
+func TestRecordValueFallbackIgnoresTTL(t *testing.T) {
+	cases := []struct {
+		name string
+		mk   func(ttl uint32) dns.RR
+	}{
+		{
+			name: "HINFO",
+			mk: func(ttl uint32) dns.RR {
+				return &dns.HINFO{
+					Hdr: dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeHINFO, Class: dns.ClassINET, Ttl: ttl},
+					Cpu: "x86", Os: "linux",
+				}
+			},
+		},
+		{
+			name: "NAPTR",
+			mk: func(ttl uint32) dns.RR {
+				return &dns.NAPTR{
+					Hdr:         dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeNAPTR, Class: dns.ClassINET, Ttl: ttl},
+					Order:       100,
+					Preference:  10,
+					Flags:       "S",
+					Service:     "SIP+D2T",
+					Regexp:      "",
+					Replacement: "_sip._tcp.example.com.",
+				}
+			},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			lo := recordValue(c.mk(60))
+			hi := recordValue(c.mk(3600))
+			if lo != hi {
+				t.Errorf("TTL drift leaked into recordValue: ttl=60 → %q, ttl=3600 → %q", lo, hi)
+			}
+			if lo == "" {
+				t.Errorf("recordValue is empty — header strip ate the RDATA too")
+			}
+		})
 	}
 }
 
