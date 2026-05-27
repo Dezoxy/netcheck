@@ -1097,9 +1097,11 @@ func ipDetailsToJSON(d ipinfo.IPDetails) IPDetailsJSON {
 }
 
 func ipsToStrings(ips []net.IP) []string {
-	if len(ips) == 0 {
-		return nil
-	}
+	// Always return a non-nil slice — DNSJSON.A and DNSJSON.AAAA are
+	// declared `[]string` (no omitempty) and the web UI types them as
+	// `string[]`, so nil here serializes to JSON null and crashes the
+	// .map() in App.tsx for any target without that record type
+	// (e.g. an IPv4-only host returns aaaa=null and breaks the report).
 	out := make([]string, 0, len(ips))
 	for _, ip := range ips {
 		out = append(out, ip.String())
