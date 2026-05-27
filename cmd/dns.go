@@ -139,7 +139,7 @@ func RunDNS(args []string) int {
 	collected := make([]dnscompare.Result, 0, len(types))
 	for _, qt := range types {
 		ctx, cancel := context.WithTimeout(context.Background(), *timeout*2)
-		result := dnscompare.Compare(ctx, resolvers, host, qt, *timeout, opts)
+		result := dnscompare.CompareWithOpts(ctx, resolvers, host, qt, *timeout, opts)
 		cancel()
 		collected = append(collected, result)
 		// Disagreement is expected for CDN-fronted hosts (GeoDNS), so only
@@ -191,8 +191,17 @@ func RunDNS(args []string) int {
 // are recorded inside the result (per-resolver Err); BuildDNSCompare itself
 // never returns an error.
 //
-// opts is forwarded to each Compare call (e.g. opts.DNSSEC sets the DO bit).
-func BuildDNSCompare(ctx context.Context, host string, resolvers []dnscompare.Resolver, types []string, timeout time.Duration, opts dnscompare.CompareOpts) report.DNSCompareJSON {
+// This is the v2.0 signature (no opts), preserved for backward compatibility.
+// New code should call BuildDNSCompareWithOpts to set DNSSEC and other
+// future query options.
+func BuildDNSCompare(ctx context.Context, host string, resolvers []dnscompare.Resolver, types []string, timeout time.Duration) report.DNSCompareJSON {
+	return BuildDNSCompareWithOpts(ctx, host, resolvers, types, timeout, dnscompare.CompareOpts{})
+}
+
+// BuildDNSCompareWithOpts is the v2.1+ entry point. Behaves like
+// BuildDNSCompare but forwards opts (e.g. opts.DNSSEC) to each underlying
+// Compare call.
+func BuildDNSCompareWithOpts(ctx context.Context, host string, resolvers []dnscompare.Resolver, types []string, timeout time.Duration, opts dnscompare.CompareOpts) report.DNSCompareJSON {
 	if len(types) == 0 {
 		types = dnscompare.DefaultScanTypes
 	}
@@ -200,7 +209,7 @@ func BuildDNSCompare(ctx context.Context, host string, resolvers []dnscompare.Re
 	collected := make([]dnscompare.Result, 0, len(types))
 	for _, qt := range types {
 		qctx, cancel := context.WithTimeout(ctx, timeout*2)
-		collected = append(collected, dnscompare.Compare(qctx, resolvers, host, qt, timeout, opts))
+		collected = append(collected, dnscompare.CompareWithOpts(qctx, resolvers, host, qt, timeout, opts))
 		cancel()
 	}
 	return report.ToDNSCompareJSON(host, startedAt, collected)
