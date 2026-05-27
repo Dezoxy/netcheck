@@ -6,7 +6,11 @@
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "dev": "vite",
-    "lint": "tsc --noEmit --pretty false",
+    "format": "prettier --write 'src/**/*.{ts,tsx,css,html,json}'",
+    "format:check": "prettier --check 'src/**/*.{ts,tsx,css,html,json}'",
+    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint:fix": "eslint --fix 'src/**/*.{ts,tsx}'",
+    "typecheck": "tsc --noEmit --pretty false",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,10 +19,19 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
+    "@eslint/js": "^9.15.0",
     "@types/react": "^19.1.4",
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.4.1",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.14",
+    "globals": "^15.12.0",
+    "prettier": "^3.3.3",
     "typescript": "~5.8.3",
+    "typescript-eslint": "^8.15.0",
     "vite": "^6.3.5"
   }
 }
