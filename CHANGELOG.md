@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.4.1](https://github.com/Dezoxy/netcheck/compare/v2.4.0...v2.4.1) (2026-05-27)
+
+
+### Bug fixes
+
+* **report:** non-omitempty []T fields never marshal to JSON null ([#108](https://github.com/Dezoxy/netcheck/issues/108)) ([4f6ec10](https://github.com/Dezoxy/netcheck/commit/4f6ec10d76e5c3dd3202de4d53ddc1bd7848767d))
+
 ## [2.4.0](https://github.com/Dezoxy/netcheck/compare/v2.3.1...v2.4.0) (2026-05-27)
 
 
