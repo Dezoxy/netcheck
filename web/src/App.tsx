@@ -18,7 +18,16 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
-import { Component, ErrorInfo, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Component,
+  ErrorInfo,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   deleteSavedReport,
   diffReports,
@@ -1760,7 +1769,55 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
 // ─── DNS compare view ─────────────────────────────────────────────────────
 
 function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DNSCompareReport }) {
-  const allAgree = report.queries.every((q) => q.verdict.agree);
+  // Local override: when the user opens the "Show more" disclosure we re-query
+  // /api/check/dns with the extended type set and swap the result in. Falling
+  // back to the parent-supplied report keeps things working if the extended
+  // fetch errors or hasn't run yet.
+  const [extended, setExtended] = useState<DNSCompareReport | null>(null);
+  const [extendedLoading, setExtendedLoading] = useState(false);
+  const [extendedError, setExtendedError] = useState("");
+  // requestSeq is bumped on every show-more click. The async handler captures
+  // its current value and only commits the response if that value still
+  // matches at completion — guards against a late response from an earlier
+  // host (target changed mid-flight) clobbering the new view.
+  const requestSeqRef = useRef(0);
+
+  // Parent re-running a check (whether for a new host or the same one) is
+  // tracked via report.started_at — a fresh report always has a new
+  // timestamp, so this effect fires on every run and discards the local
+  // override even when the hostname is unchanged.
+  useEffect(() => {
+    requestSeqRef.current += 1;
+    setExtended(null);
+    setExtendedError("");
+    setExtendedLoading(false);
+  }, [report.started_at]);
+
+  const view = extended ?? report;
+  const allAgree = view.queries.every((q) => q.verdict.agree);
+
+  const onShowMore = useCallback(async () => {
+    const mySeq = ++requestSeqRef.current;
+    setExtendedLoading(true);
+    setExtendedError("");
+    try {
+      const next = await runDNSCheck(report.host, {
+        types: [...DNS_DEFAULT_TYPES, ...DNS_EXTENDED_TYPES],
+      });
+      // Bail if a newer request (or a parent re-run) has bumped the
+      // sequence — the response we just got is for a stale host.
+      if (mySeq !== requestSeqRef.current) return;
+      setExtended(next);
+    } catch (err) {
+      if (mySeq !== requestSeqRef.current) return;
+      setExtendedError((err as Error).message || "request failed");
+    } finally {
+      if (mySeq === requestSeqRef.current) {
+        setExtendedLoading(false);
+      }
+    }
+  }, [report.host]);
+
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
