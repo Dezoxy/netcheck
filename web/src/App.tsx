@@ -5,13 +5,9 @@ import {
   GitCompare,
   Globe,
   History,
-  Layers,
   LockKeyhole,
   Play,
-  Search,
   Settings2,
-  ShieldAlert,
-  Telescope,
   Terminal,
   Trash2,
 } from "lucide-react";
@@ -25,6 +21,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { CategoryBento } from "./components/CategoryBento";
+import { LandingHero } from "./components/LandingHero";
 import { SideNav } from "./components/SideNav";
 import { TopAppBar } from "./components/TopAppBar";
 import { useCommandPalette } from "./hooks/useCommandPalette";
@@ -95,8 +93,12 @@ import type { Route } from "./routes";
 import { PLACEHOLDER_ROUTES } from "./routes";
 
 // Category groups the 14 check modes for the landing-screen card grid.
-// "aggregate" is the fourth category — covers audit + diff + watch.
-type Category = "network" | "recon" | "scanning" | "aggregate";
+// HUD redesign PR 3 dropped the original "aggregate" category and
+// folded its single mode (audit) into Recon. The new union is:
+//   - network:  full / dns / route / ip
+//   - recon:    audit / headers / tech / subs / reverse / arch
+//   - scanning: tls / takeover / ports / enum
+type Category = "network" | "recon" | "scanning";
 
 type CategoryDef = {
   key: Category;
@@ -105,9 +107,9 @@ type CategoryDef = {
   modes: CheckMode[];
 };
 
-// Single source of truth for the category → mode mapping. The landing
-// CategoryCard reads `label`/`blurb`; the category-detail screen (R-2)
-// will read `modes` to render per-mode ModeCards.
+// Single source of truth for the category → mode mapping. CategoryBento
+// reads `label`/`blurb` for the bento cards; the category-detail
+// screen reads `modes` to render per-mode ModeCards.
 const CATEGORIES: CategoryDef[] = [
   {
     key: "network",
@@ -118,20 +120,16 @@ const CATEGORIES: CategoryDef[] = [
   {
     key: "recon",
     label: "Recon",
-    blurb: "Passive intel — headers, tech stack, subdomains, history.",
-    modes: ["headers", "tech", "subs", "reverse", "arch"],
+    // Audit lives here now — it's the first card so the
+    // cross-category aggregate scan stays discoverable.
+    blurb: "Passive intel — audit, headers, tech, subdomains, reverse, history.",
+    modes: ["audit", "headers", "tech", "subs", "reverse", "arch"],
   },
   {
     key: "scanning",
     label: "Scanning",
     blurb: "Active probes — TLS audit, takeover, ports, paths. Requires authorization.",
     modes: ["tls", "takeover", "ports", "enum"],
-  },
-  {
-    key: "aggregate",
-    label: "Aggregate",
-    blurb: "Run an audit across categories, or diff two saved scans.",
-    modes: ["audit"],
   },
 ];
 
@@ -519,25 +517,16 @@ export default function App() {
 
       <main className="workbench md:ml-64">
         {route === "workbench" && category === null ? (
-          <Landing
-            target={target}
-            onTargetChange={setTarget}
-            onPickCategory={pickCategory}
-            onRunDefault={() => {
-              // Codex P1 on #73: the landing screen doesn't render the
-              // report or the error banner. If we only called runCheck
-              // here, a successful run would silently update `report`
-              // state but the user would still see the landing — no
-              // visible feedback. Navigate into the Network category
-              // (which owns the Full check) and set mode=full BEFORE
-              // kicking off the run, so CategoryDetail mounts with the
-              // result area visible.
-              setMode("full");
-              setCategory("network");
-              void runCheck("full");
-            }}
-            runDisabled={runState === "loading"}
-          />
+          // HUD redesign PR 3 — Landing is now split into a hero
+          // strip + a 3-card bento. The target input lives in
+          // TopAppBar; pressing Enter there fires the default Full
+          // check (see onCommandSubmit above), so the old
+          // onRunDefault flow stays available without a per-screen
+          // input.
+          <section className="flex flex-col gap-margin px-margin py-margin">
+            <LandingHero lastScanAt={recents[0]?.ranAt} />
+            <CategoryBento onPick={pickCategory} />
+          </section>
         ) : null}
 
         {route === "workbench" && category !== null ? (
@@ -922,90 +911,12 @@ function StatusFooter({ lastScanAt }: { lastScanAt: string | undefined }) {
   );
 }
 
-// Landing is the workbench-route default view. Big target input + a 2x2
-// grid of category cards. Picking a card → setCategory → enters the
-// category-detail view (R-1 reuses the existing form + mode tabs; R-2
-// replaces them with ModeCards).
-//
-// R-10: added the central "Run Check" CTA below the grid (matches the
-// Modern v1 mockup). Clicking it runs a Full Check on the target without
-// requiring a category pick — the default-action shortcut for users who
-// just typed a URL and want the headline check.
-function Landing({
-  target,
-  onTargetChange,
-  onPickCategory,
-  onRunDefault,
-  runDisabled,
-}: {
-  target: string;
-  onTargetChange: (next: string) => void;
-  onPickCategory: (cat: Category) => void;
-  onRunDefault: () => void;
-  runDisabled: boolean;
-}) {
-  return (
-    <section className="landing" aria-label="Workbench landing">
-      <label className="landing-input">
-        <Search />
-        <span className="sr-only">Target</span>
-        <input
-          autoCapitalize="none"
-          autoCorrect="off"
-          onChange={(event) => onTargetChange(event.target.value)}
-          onKeyDown={(event) => {
-            // Enter on the landing input fires the default Run Check action,
-            // matching the v1 form-submit keyboard behavior.
-            if (event.key === "Enter" && !runDisabled) {
-              event.preventDefault();
-              onRunDefault();
-            }
-          }}
-          placeholder="Enter target URL (e.g. https://example.com) or IP address…"
-          spellCheck="false"
-          value={target}
-        />
-      </label>
-
-      <div className="category-grid">
-        {CATEGORIES.map((cat) => (
-          <CategoryCard key={cat.key} def={cat} onClick={() => onPickCategory(cat.key)} />
-        ))}
-      </div>
-
-      <button className="run-check-cta" disabled={runDisabled} onClick={onRunDefault} type="button">
-        <Play />
-        <span>Run Check</span>
-      </button>
-    </section>
-  );
-}
-
-// CategoryCard is one of the four cards on the landing — icon, name,
-// blurb, Select CTA. Whole card is clickable; the Select pill is
-// visual + accessible label.
-function CategoryCard({ def, onClick }: { def: CategoryDef; onClick: () => void }) {
-  const icon =
-    def.key === "network" ? (
-      <Globe />
-    ) : def.key === "recon" ? (
-      <Telescope />
-    ) : def.key === "scanning" ? (
-      <ShieldAlert />
-    ) : (
-      <Layers />
-    );
-  return (
-    <button className={`category-card category-card-${def.key}`} onClick={onClick} type="button">
-      <div className="category-card-icon">{icon}</div>
-      <div className="category-card-body">
-        <strong>{def.label}</strong>
-        <p>{def.blurb}</p>
-      </div>
-      <span className="category-card-cta">Select</span>
-    </button>
-  );
-}
+// Landing + CategoryCard were removed in the HUD redesign PR 3.
+// The replacement renders directly in App's <main>:
+//   <LandingHero /> + <CategoryBento onPick={pickCategory} />
+// The target input is gone from the landing — it lives in the
+// TopAppBar's global command line now (PR 2). Pressing Enter there
+// fires the same Full check that the old "Run Check" button did.
 
 // CategoryDetail is the screen shown after the user picks a category
 // card. Layout: back link → target input bar → optional auth banner
@@ -1053,15 +964,20 @@ function CategoryDetail({
   onPortsProtoChange: (next: "tcp" | "udp" | "both") => void;
 }) {
   const isScanning = categoryDef.key === "scanning";
-  const isAggregate = categoryDef.key === "aggregate";
-  // Predicate used by the onKeyDown Enter handler — only Audit lives in
-  // Aggregate today, so this is just `m === "audit"` for now, but keep
-  // the categoryDef.key check explicit for when R-7 adds diff/watch.
-  const isAuditAggregateMode = (m: CheckMode) => isAggregate && m === "audit";
-  // Within the Aggregate category, the audit mode card surfaces both
-  // Passive and Active run buttons. Active reuses the same auth scope
-  // as the Scanning category (one checkbox unlocks all active probes).
-  const showAuthBanner = isScanning || isAggregate;
+  // HUD redesign PR 3: Audit moved out of the dropped Aggregate
+  // category and into Recon. The audit mode card still wants its
+  // dual-pill (Passive + Active) and the auth banner, so the
+  // predicates key on "does this category contain audit" rather
+  // than "is this the aggregate category".
+  const hasAudit = categoryDef.modes.includes("audit");
+  // Predicate used by the onKeyDown Enter handler — only audit
+  // shows the dual-pill Passive/Active behaviour.
+  const isAuditAggregateMode = (m: CheckMode) => hasAudit && m === "audit";
+  // Active modes (tls/takeover/ports/enum) and Audit-Active both
+  // require the auth banner. Audit lives in Recon now, so Recon
+  // also needs the banner when audit is in scope. One checkbox
+  // unlocks all active probes across the category.
+  const showAuthBanner = isScanning || hasAudit;
   const runDisabled = runState === "loading";
 
   return (
@@ -1153,7 +1069,7 @@ function CategoryDetail({
             key={m}
             mode={m}
             isActive={isActiveMode(m)}
-            isAuditAggregate={isAggregate && m === "audit"}
+            isAuditAggregate={hasAudit && m === "audit"}
             runDisabled={runDisabled}
             running={runState === "loading" && runningMode === m}
             authReady={activeAcknowledged}
