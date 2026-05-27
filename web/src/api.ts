@@ -37,6 +37,85 @@ export function runFullCheck(target: string, insecure: boolean): Promise<FullChe
   return postJSON<FullCheckReport>("/api/check/full", { target, insecure });
 }
 
+// ─── HUD redesign: live telemetry ─────────────────────────────────────────
+//
+// PR 4 added /api/events/stream (SSE), /api/telemetry (polled JSON),
+// and /api/topology (polled JSON). These are consumed by the HUD's
+// Live Event Stream, Telemetry Strip, and Target Topography panels.
+
+export type BusEventLevel = "INFO" | "WARN" | "CRIT";
+
+export type BusEvent = {
+  ts: string;
+  level: BusEventLevel;
+  source: string;
+  message: string;
+  fields?: Record<string, unknown>;
+  latency_ms?: number;
+};
+
+export type TelemetrySnapshot = {
+  packets_per_sec: number;
+  avg_latency_ms: number;
+  sparkline: number[];
+  subscribers: number;
+};
+
+export type TopologyNode = {
+  id: string;
+  label?: string;
+  x: number;
+  y: number;
+  status: "self" | "hop" | "timeout" | "target";
+  ips?: string[];
+};
+
+export type TopologyEdge = {
+  from: string;
+  to: string;
+};
+
+export type TopologyGraph = {
+  nodes: TopologyNode[];
+  edges: TopologyEdge[];
+  updated_at?: string;
+};
+
+// streamEvents subscribes to /api/events/stream via EventSource and
+// invokes onEvent for every bus message. Returns a `close` function
+// that the caller (typically a useEffect cleanup) MUST call to drop
+// the connection — otherwise the browser holds it open indefinitely
+// across React Strict Mode double-mounts.
+//
+// The "hello" handshake is filtered out — consumers only see real
+// bus events.
+export function streamEvents(onEvent: (ev: BusEvent) => void): () => void {
+  const es = new EventSource("/api/events/stream");
+  es.onmessage = (e: MessageEvent) => {
+    if (!e.data) return;
+    try {
+      const parsed = JSON.parse(e.data) as BusEvent;
+      if (parsed && typeof parsed.level === "string") {
+        onEvent(parsed);
+      }
+    } catch {
+      // Skip malformed lines silently — the connection itself is fine.
+    }
+  };
+  // Errors auto-reconnect by default. We don't surface them to the
+  // caller; the UI's "connected" indicator can derive from the most
+  // recent event timestamp instead.
+  return () => es.close();
+}
+
+export function getTelemetry(): Promise<TelemetrySnapshot> {
+  return fetch("/api/telemetry").then((r) => r.json());
+}
+
+export function getTopology(): Promise<TopologyGraph> {
+  return fetch("/api/topology").then((r) => r.json());
+}
+
 // DNS_DEFAULT_TYPES mirrors dnscompare.DefaultScanTypes (Go side). Tier 1:
 // always queried on a default scan. Kept here so the UI can pre-compute the
 // extended set without a round-trip; the Go-side TestScanTypeSetsDisjoint

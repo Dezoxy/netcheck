@@ -23,7 +23,10 @@ import {
 } from "react";
 import { CategoryBento } from "./components/CategoryBento";
 import { LandingHero } from "./components/LandingHero";
+import { LiveEventStream } from "./components/LiveEventStream";
 import { SideNav } from "./components/SideNav";
+import { TargetTopography } from "./components/TargetTopography";
+import { TelemetryStrip } from "./components/TelemetryStrip";
 import { TopAppBar } from "./components/TopAppBar";
 import { useCommandPalette } from "./hooks/useCommandPalette";
 import {
@@ -520,12 +523,24 @@ export default function App() {
           // HUD redesign PR 3 — Landing is now split into a hero
           // strip + a 3-card bento. The target input lives in
           // TopAppBar; pressing Enter there fires the default Full
-          // check (see onCommandSubmit above), so the old
-          // onRunDefault flow stays available without a per-screen
-          // input.
+          // check (see onCommandSubmit above).
+          //
+          // PR 5 added the live-data trio below the bento:
+          // LiveEventStream + TargetTopography + TelemetryStrip.
+          // These subscribe to the SSE bus / poll the /api/telemetry
+          // and /api/topology endpoints PR 4 added.
           <section className="flex flex-col gap-margin px-margin py-margin">
             <LandingHero lastScanAt={recents[0]?.ranAt} />
             <CategoryBento onPick={pickCategory} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <LiveEventStream />
+              </div>
+              <TargetTopography />
+              <div className="lg:col-span-3">
+                <TelemetryStrip />
+              </div>
+            </div>
           </section>
         ) : null}
 
