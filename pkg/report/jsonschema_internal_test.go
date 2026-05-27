@@ -7,7 +7,7 @@ import (
 )
 
 // ipsToStrings must always return a non-nil slice. Returning nil
-// serialises to JSON null, which breaks the web UI's `string[]` typed
+// serializes to JSON null, which breaks the web UI's `string[]` typed
 // DNSJSON.A / .AAAA fields (App.tsx calls .map() unconditionally).
 // Regression guard for the empty-page crash on IPv4-only targets.
 func TestIpsToStringsNeverReturnsNil(t *testing.T) {
