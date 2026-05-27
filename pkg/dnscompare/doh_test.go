@@ -58,7 +58,7 @@ func TestDoHRoundTrip(t *testing.T) {
 	resolvers := []Resolver{
 		{Name: "test-doh", Address: srv.URL, Type: TypeDoH},
 	}
-	result := Compare(context.Background(), resolvers, "example.com", "A", 5*time.Second)
+	result := Compare(context.Background(), resolvers, "example.com", "A", 5*time.Second, CompareOpts{})
 	if len(result.Results) != 1 {
 		t.Fatalf("got %d results, want 1", len(result.Results))
 	}
@@ -85,8 +85,50 @@ func TestDoHServerError(t *testing.T) {
 	defer srv.Close()
 
 	resolvers := []Resolver{{Name: "broken", Address: srv.URL, Type: TypeDoH}}
-	result := Compare(context.Background(), resolvers, "example.com", "A", 2*time.Second)
+	result := Compare(context.Background(), resolvers, "example.com", "A", 2*time.Second, CompareOpts{})
 	if result.Results[0].Err == nil {
 		t.Error("expected error on HTTP 503, got nil")
+	}
+}
+
+// TestDNSSECOptSetsDOBit verifies CompareOpts.DNSSEC controls the DO
+// (DNSSEC OK) flag on EDNS0. The DoH test server inspects the inbound
+// Msg and reports back whether DO was set; we assert it tracks the opt.
+func TestDNSSECOptSetsDOBit(t *testing.T) {
+	cases := []struct {
+		name   string
+		opts   CompareOpts
+		wantDO bool
+	}{
+		{"DNSSEC off", CompareOpts{}, false},
+		{"DNSSEC on", CompareOpts{DNSSEC: true}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var observedDO bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				body, _ := io.ReadAll(r.Body)
+				req := new(dns.Msg)
+				if err := req.Unpack(body); err != nil {
+					http.Error(w, err.Error(), 400)
+					return
+				}
+				if opt := req.IsEdns0(); opt != nil {
+					observedDO = opt.Do()
+				}
+				resp := new(dns.Msg)
+				resp.SetReply(req)
+				out, _ := resp.Pack()
+				w.Header().Set("Content-Type", "application/dns-message")
+				_, _ = w.Write(out)
+			}))
+			defer srv.Close()
+
+			resolvers := []Resolver{{Name: "do-bit", Address: srv.URL, Type: TypeDoH}}
+			_ = Compare(context.Background(), resolvers, "example.com", "A", 2*time.Second, c.opts)
+			if observedDO != c.wantDO {
+				t.Errorf("DO bit observed=%v, want %v", observedDO, c.wantDO)
+			}
+		})
 	}
 }
