@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.4.0](https://github.com/Dezoxy/netcheck/compare/v2.3.1...v2.4.0) (2026-05-27)
+
+
+### Features
+
+* **web:** wrap report panel in ReportErrorBoundary ([#106](https://github.com/Dezoxy/netcheck/issues/106)) ([c8aec53](https://github.com/Dezoxy/netcheck/commit/c8aec53c8ee763005e0709d7596895e3ca52a1a6))
+
 ## [2.3.1](https://github.com/Dezoxy/netcheck/compare/v2.3.0...v2.3.1) (2026-05-27)
 
 
