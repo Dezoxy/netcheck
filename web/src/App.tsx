@@ -18,7 +18,7 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import {
   deleteSavedReport,
   diffReports,
@@ -31,7 +31,6 @@ import {
   runFullCheck,
   runHeadersCheck,
   runIPCheck,
-  runPortsCheck,
   streamPortsCheck,
   type PortProgress,
   runReverseCheck,
@@ -64,7 +63,7 @@ import type {
   TechReport,
   TLSAuditReport,
 } from "./types";
-import { isActiveMode, MODE_GROUPS } from "./types";
+import { isActiveMode } from "./types";
 
 const ACTIVE_ACK_KEY = "netcheck.active-ack.v1";
 
@@ -156,7 +155,8 @@ const MODE_BLURB: Record<CheckMode, string> = {
   dns: "Compare A/AAAA/MX/TXT answers across Cloudflare, Google, Quad9, system, and any custom resolvers.",
   route: "Traceroute to the target with per-hop ASN annotation.",
   ip: "RDAP, reverse DNS, CDN affiliation, ASN ownership.",
-  headers: "Grade HSTS, CSP, X-Frame-Options, and the rest of the security-relevant response headers.",
+  headers:
+    "Grade HSTS, CSP, X-Frame-Options, and the rest of the security-relevant response headers.",
   tech: "Fingerprint the CMS, framework, server, CDN, and language from one passive GET.",
   subs: "Enumerate subdomains from Certificate Transparency logs (crt.sh + CertSpotter).",
   reverse: "Other hostnames pointing at this IP — reverse DNS, Hackertarget, optional Shodan.",
@@ -222,13 +222,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(ACTIVE_ACK_KEY, activeAcknowledged ? "1" : "");
   }, [activeAcknowledged]);
-
-  // The current mode triggers the auth-gate UI if either (a) it's an
-  // always-active mode (tls/takeover/ports/enum), OR (b) it's audit AND
-  // the user has ticked "include active scans".
-  const modeIsActive = isActiveMode(mode);
-  const requiresAuth = modeIsActive || (mode === "audit" && auditIncludeActive);
-  const runBlocked = requiresAuth && !activeAcknowledged;
 
   const refreshSaved = useCallback(async () => {
     setSavedError("");
@@ -338,11 +331,6 @@ export default function App() {
     [auditIncludeActive, insecure, mode, target],
   );
 
-  async function submitCheck(event?: FormEvent<HTMLFormElement>) {
-    event?.preventDefault();
-    await runCheck();
-  }
-
   async function saveCurrent() {
     if (!report) {
       return;
@@ -434,11 +422,7 @@ export default function App() {
 
   return (
     <div className={`app-shell ${isLoading ? "app-shell-loading" : ""}`}>
-      <LoadingOverlay
-        visible={isLoading}
-        mode={mode}
-        portsProgress={portsProgress}
-      />
+      <LoadingOverlay visible={isLoading} mode={mode} portsProgress={portsProgress} />
       <header className="topbar">
         <div className="topbar-leading">
           <div className="brand">
@@ -447,7 +431,11 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-actions">
-          <IconButton disabled={!report || savingNow} label={savedJustNow ? "Saved" : "Save report"} onClick={saveCurrent}>
+          <IconButton
+            disabled={!report || savingNow}
+            label={savedJustNow ? "Saved" : "Save report"}
+            onClick={saveCurrent}
+          >
             {savedJustNow ? <Check /> : <Bookmark />}
           </IconButton>
           <IconButton disabled={!report} label="Export JSON" onClick={exportReport}>
@@ -507,9 +495,7 @@ export default function App() {
           />
         ) : null}
 
-        {route === "history" ? (
-          <RouteHistoryList recents={recents} onRerun={rerunRecent} />
-        ) : null}
+        {route === "history" ? <RouteHistoryList recents={recents} onRerun={rerunRecent} /> : null}
 
         {route === "reports" ? (
           <RouteReportsList
@@ -654,9 +640,7 @@ function LoadingOverlay({
   if (!shown) return null;
 
   const messages = LOADING_MESSAGES[mode as CheckMode] ?? LOADING_MESSAGES.default;
-  const status = visible
-    ? messages[statusIdx % messages.length]
-    : "Done";
+  const status = visible ? messages[statusIdx % messages.length] : "Done";
 
   // Progress ring math: r=54, circumference = 2πr ≈ 339.292.
   const RADIUS = 54;
@@ -664,13 +648,24 @@ function LoadingOverlay({
   const offset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
 
   return (
-    <div className={`loading-overlay ${visible ? "loading-overlay-visible" : "loading-overlay-leaving"}`} role="status" aria-live="polite">
+    <div
+      className={`loading-overlay ${visible ? "loading-overlay-visible" : "loading-overlay-leaving"}`}
+      role="status"
+      aria-live="polite"
+    >
       <div className="loading-card">
         <div className="loading-card-glow" aria-hidden="true" />
 
         <div className="progress-ring">
           <svg viewBox="0 0 120 120" width="176" height="176">
-            <circle cx="60" cy="60" r={RADIUS} fill="transparent" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />
+            <circle
+              cx="60"
+              cy="60"
+              r={RADIUS}
+              fill="transparent"
+              stroke="rgba(255,255,255,0.05)"
+              strokeWidth="4"
+            />
             <circle
               className="progress-ring-arc"
               cx="60"
@@ -690,7 +685,9 @@ function LoadingOverlay({
         <div className="loading-status">
           <span className="loading-status-text">{status}</span>
           <span className="loading-dots" aria-hidden="true">
-            <span /><span /><span />
+            <span />
+            <span />
+            <span />
           </span>
         </div>
       </div>
@@ -717,16 +714,8 @@ const LOADING_MESSAGES: { default: string[] } & Partial<Record<CheckMode, string
     "Reading service banners…",
     "Classifying responses…",
   ],
-  route: [
-    "Tracing network path…",
-    "Resolving hop ASNs…",
-    "Probing intermediate routers…",
-  ],
-  dns: [
-    "Querying resolvers in parallel…",
-    "Comparing answers…",
-    "Detecting CDN edge variance…",
-  ],
+  route: ["Tracing network path…", "Resolving hop ASNs…", "Probing intermediate routers…"],
+  dns: ["Querying resolvers in parallel…", "Comparing answers…", "Detecting CDN edge variance…"],
 };
 
 function SideNavV2({
@@ -754,9 +743,24 @@ function SideNavV2({
           active={route === "workbench"}
           onClick={() => onRouteChange("workbench")}
         />
-        <NavItem icon={<History />} label="Recent Checks" active={route === "history"} onClick={() => onRouteChange("history")} />
-        <NavItem icon={<FileText />} label="Saved Reports" active={route === "reports"} onClick={() => onRouteChange("reports")} />
-        <NavItem icon={<Settings2 />} label="Settings" active={route === "settings"} onClick={() => onRouteChange("settings")} />
+        <NavItem
+          icon={<History />}
+          label="Recent Checks"
+          active={route === "history"}
+          onClick={() => onRouteChange("history")}
+        />
+        <NavItem
+          icon={<FileText />}
+          label="Saved Reports"
+          active={route === "reports"}
+          onClick={() => onRouteChange("reports")}
+        />
+        <NavItem
+          icon={<Settings2 />}
+          label="Settings"
+          active={route === "settings"}
+          onClick={() => onRouteChange("settings")}
+        />
       </nav>
     </aside>
   );
@@ -797,10 +801,30 @@ function BottomNav({
 }) {
   return (
     <nav className="bottom-nav" aria-label="Primary (mobile)">
-      <BottomNavItem icon={<Terminal />} label="Workbench" active={route === "workbench"} onClick={() => onRouteChange("workbench")} />
-      <BottomNavItem icon={<History />} label="History" active={route === "history"} onClick={() => onRouteChange("history")} />
-      <BottomNavItem icon={<FileText />} label="Reports" active={route === "reports"} onClick={() => onRouteChange("reports")} />
-      <BottomNavItem icon={<Settings2 />} label="Settings" active={route === "settings"} onClick={() => onRouteChange("settings")} />
+      <BottomNavItem
+        icon={<Terminal />}
+        label="Workbench"
+        active={route === "workbench"}
+        onClick={() => onRouteChange("workbench")}
+      />
+      <BottomNavItem
+        icon={<History />}
+        label="History"
+        active={route === "history"}
+        onClick={() => onRouteChange("history")}
+      />
+      <BottomNavItem
+        icon={<FileText />}
+        label="Reports"
+        active={route === "reports"}
+        onClick={() => onRouteChange("reports")}
+      />
+      <BottomNavItem
+        icon={<Settings2 />}
+        label="Settings"
+        active={route === "settings"}
+        onClick={() => onRouteChange("settings")}
+      />
     </nav>
   );
 }
@@ -840,14 +864,12 @@ function StatusFooter({ lastScanAt }: { lastScanAt: string | undefined }) {
   return (
     <footer className="status-footer" aria-label="Status">
       <span className="status-footer-left">
-        <span className="muted">Config:</span>{" "}
-        <code>~/.config/netcheck/config.yaml</code>
+        <span className="muted">Config:</span> <code>~/.config/netcheck/config.yaml</code>
       </span>
       <span className="status-footer-right">
         {lastScanAt ? (
           <>
-            <span className="muted">Last scan:</span>{" "}
-            <time>{formatRecentTime(lastScanAt)}</time>
+            <span className="muted">Last scan:</span> <time>{formatRecentTime(lastScanAt)}</time>
             <span className="muted"> · </span>
           </>
         ) : null}
@@ -908,12 +930,7 @@ function Landing({
         ))}
       </div>
 
-      <button
-        className="run-check-cta"
-        disabled={runDisabled}
-        onClick={onRunDefault}
-        type="button"
-      >
+      <button className="run-check-cta" disabled={runDisabled} onClick={onRunDefault} type="button">
         <Play />
         <span>Run Check</span>
       </button>
@@ -926,10 +943,15 @@ function Landing({
 // visual + accessible label.
 function CategoryCard({ def, onClick }: { def: CategoryDef; onClick: () => void }) {
   const icon =
-    def.key === "network" ? <Globe /> :
-    def.key === "recon" ? <Telescope /> :
-    def.key === "scanning" ? <ShieldAlert /> :
-    <Layers />;
+    def.key === "network" ? (
+      <Globe />
+    ) : def.key === "recon" ? (
+      <Telescope />
+    ) : def.key === "scanning" ? (
+      <ShieldAlert />
+    ) : (
+      <Layers />
+    );
   return (
     <button className={`category-card category-card-${def.key}`} onClick={onClick} type="button">
       <div className="category-card-icon">{icon}</div>
@@ -985,7 +1007,7 @@ function CategoryDetail({
   // Within the Aggregate category, the audit mode card surfaces both
   // Passive and Active run buttons. Active reuses the same auth scope
   // as the Scanning category (one checkbox unlocks all active probes).
-  const showAuthBanner = (isScanning || isAggregate);
+  const showAuthBanner = isScanning || isAggregate;
   const runDisabled = runState === "loading";
 
   return (
@@ -1236,7 +1258,10 @@ function RouteReportsList({
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffError, setDiffError] = useState("");
   const [diffResult, setDiffResult] = useState<DiffReport | null>(null);
-  const [diffMeta, setDiffMeta] = useState<{ oldMeta?: SavedReportMeta; newMeta?: SavedReportMeta }>({});
+  const [diffMeta, setDiffMeta] = useState<{
+    oldMeta?: SavedReportMeta;
+    newMeta?: SavedReportMeta;
+  }>({});
 
   function toggleCompare(meta: SavedReportMeta) {
     setDiffResult(null);
@@ -1299,8 +1324,8 @@ function RouteReportsList({
       <header className="route-page-head">
         <h1>Reports</h1>
         <p>
-          Reports saved server-side via the Save button. Click a row to open it in the
-          workbench, or pick two of the same kind to compare.
+          Reports saved server-side via the Save button. Click a row to open it in the workbench, or
+          pick two of the same kind to compare.
         </p>
       </header>
 
@@ -1311,10 +1336,20 @@ function RouteReportsList({
             {compareIds.length === 1 ? " — pick one more of the same kind" : ""}
           </span>
           <div className="compare-bar-actions">
-            <button className="modecard-run-secondary modecard-run" disabled={diffLoading} onClick={clearCompare} type="button">
+            <button
+              className="modecard-run-secondary modecard-run"
+              disabled={diffLoading}
+              onClick={clearCompare}
+              type="button"
+            >
               <span>Clear</span>
             </button>
-            <button className="modecard-run" disabled={!compareReady || diffLoading} onClick={runCompare} type="button">
+            <button
+              className="modecard-run"
+              disabled={!compareReady || diffLoading}
+              onClick={runCompare}
+              type="button"
+            >
               <GitCompare />
               <span>{diffLoading ? "Diffing…" : "Compare"}</span>
             </button>
@@ -1324,11 +1359,7 @@ function RouteReportsList({
 
       {diffError ? <ErrorBanner message={diffError} /> : null}
       {diffResult ? (
-        <DiffViewer
-          report={diffResult}
-          oldMeta={diffMeta.oldMeta}
-          newMeta={diffMeta.newMeta}
-        />
+        <DiffViewer report={diffResult} oldMeta={diffMeta.oldMeta} newMeta={diffMeta.newMeta} />
       ) : null}
 
       <div className="recent-list recent-list-page">
@@ -1455,7 +1486,10 @@ function RouteSettings({
     <section className="route-page" aria-label="Settings">
       <header className="route-page-head">
         <h1>Settings</h1>
-        <p>Browser-scoped preferences. CLI config lives in <code>~/.config/netcheck/config.yaml</code>.</p>
+        <p>
+          Browser-scoped preferences. CLI config lives in{" "}
+          <code>~/.config/netcheck/config.yaml</code>.
+        </p>
       </header>
       <div className="settings-list">
         <label className="settings-row">
@@ -1466,7 +1500,10 @@ function RouteSettings({
           />
           <div>
             <strong>Allow insecure TLS</strong>
-            <p>Skip certificate verification on Full Check. Same as <code>--insecure</code> on the CLI.</p>
+            <p>
+              Skip certificate verification on Full Check. Same as <code>--insecure</code> on the
+              CLI.
+            </p>
           </div>
         </label>
       </div>
@@ -1530,21 +1567,43 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
       </div>
 
       <div className="summary-strip">
-        <SummaryCard error={report.dns.error} label="DNS Resolution" ms={report.dns.took_ms} value="Success" />
-        <SummaryCard error={tcp?.error} label="TCP Connection" ms={tcp?.took_ms} value={tcp ? "Success" : "Unavailable"} />
-        <SummaryCard error={report.tls?.error} label="TLS Handshake" ms={report.tls?.took_ms} value={report.tls ? "Success" : "Skipped"} />
+        <SummaryCard
+          error={report.dns.error}
+          label="DNS Resolution"
+          ms={report.dns.took_ms}
+          value="Success"
+        />
+        <SummaryCard
+          error={tcp?.error}
+          label="TCP Connection"
+          ms={tcp?.took_ms}
+          value={tcp ? "Success" : "Unavailable"}
+        />
+        <SummaryCard
+          error={report.tls?.error}
+          label="TLS Handshake"
+          ms={report.tls?.took_ms}
+          value={report.tls ? "Success" : "Skipped"}
+        />
         <SummaryCard
           error={report.http.error}
           label="HTTP Response"
           ms={report.http.timing.total_ms}
-          value={report.http.status ? `${report.http.status} ${report.http.status < 400 ? "OK" : ""}`.trim() : "Failed"}
+          value={
+            report.http.status
+              ? `${report.http.status} ${report.http.status < 400 ? "OK" : ""}`.trim()
+              : "Failed"
+          }
         />
       </div>
 
       <Panel className="timing-panel" title="Timing Waterfall">
         <div className="waterfall" aria-label="HTTP timing waterfall">
           {timing.map((segment) => (
-            <span key={segment.label} style={{ background: segment.color, width: `${segment.width}%` }} />
+            <span
+              key={segment.label}
+              style={{ background: segment.color, width: `${segment.width}%` }}
+            />
           ))}
         </div>
         <div className="timing-legend">
@@ -1586,7 +1645,10 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
               <Detail label="Protocol" value={report.tls.version} />
               <Detail label="Cipher" value={report.tls.cipher_suite} />
               <Detail label="Issuer" value={report.tls.issuer} />
-              <Detail label="Expiry" value={`${formatDate(report.tls.not_after)} (${report.tls.days_remaining}d)`} />
+              <Detail
+                label="Expiry"
+                value={`${formatDate(report.tls.not_after)} (${report.tls.days_remaining}d)`}
+              />
               {report.tls.error ? <Detail error label="Error" value={report.tls.error} /> : null}
             </dl>
           ) : (
@@ -1596,7 +1658,11 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
 
         <Panel className="http-panel" title="HTTP Response">
           <div className="http-grid">
-            <Metric label="Status" ok={report.http.status > 0 && report.http.status < 400} value={httpStatusLabel(report.http.status)} />
+            <Metric
+              label="Status"
+              ok={report.http.status > 0 && report.http.status < 400}
+              value={httpStatusLabel(report.http.status)}
+            />
             <Metric label="Redirects" value={report.http.hops.length} />
             <Metric label="Server" value={report.http.server || "-"} />
             <Metric label="Final URL" value={report.http.final_url || "-"} wide />
@@ -1647,12 +1713,15 @@ function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DN
             ))}
           </div>
           <p className="muted">
-            {q.verdict.agree ? "All successful resolvers returned the same answer set." : `${q.verdict.groups.length} distinct answer sets:`}
+            {q.verdict.agree
+              ? "All successful resolvers returned the same answer set."
+              : `${q.verdict.groups.length} distinct answer sets:`}
           </p>
           {!q.verdict.agree
             ? q.verdict.groups.map((group, i) => (
                 <p className="muted" key={`group-${i}`}>
-                  <strong>Set {i + 1}</strong> ({group.resolvers.join(", ")}): <code>{group.records.join(", ") || "(empty)"}</code>
+                  <strong>Set {i + 1}</strong> ({group.resolvers.join(", ")}):{" "}
+                  <code>{group.records.join(", ") || "(empty)"}</code>
                 </p>
               ))
             : null}
@@ -1674,7 +1743,9 @@ function RouteWorkbench({ loading, report }: { loading: boolean; report: RouteRe
         </h1>
         <div className={`health-pill ${report.reached ? "health-pill-ok" : "health-pill-fail"}`}>
           <span />
-          {report.reached ? `Reached in ${report.hops.length} hops` : `Stopped after ${report.hops.length} hops`}
+          {report.reached
+            ? `Reached in ${report.hops.length} hops`
+            : `Stopped after ${report.hops.length} hops`}
         </div>
       </div>
 
@@ -1689,23 +1760,22 @@ function RouteWorkbench({ loading, report }: { loading: boolean; report: RouteRe
           {report.hops.map((hop) => (
             <div className="dns-row dns-row-4" key={`hop-${hop.n}`}>
               <span>{hop.n}</span>
-              {hop.timeout ? (
-                <span className="muted">* * *</span>
+              {hop.timeout ? <span className="muted">* * *</span> : <code>{hopAddress(hop)}</code>}
+              {hop.timeout ? <span className="muted">*</span> : <code>{hopRTT(hop)}</code>}
+              {hop.asn ? (
+                <span>
+                  AS{hop.asn.asn} {hop.asn.org ?? ""}
+                </span>
               ) : (
-                <code>{hopAddress(hop)}</code>
+                <span className="muted">—</span>
               )}
-              {hop.timeout ? (
-                <span className="muted">*</span>
-              ) : (
-                <code>{hopRTT(hop)}</code>
-              )}
-              {hop.asn ? <span>AS{hop.asn.asn} {hop.asn.org ?? ""}</span> : <span className="muted">—</span>}
             </div>
           ))}
         </div>
         {report.timeouts > 0 ? (
           <p className="muted">
-            {report.timeouts} hop(s) timed out — routers commonly drop or rate-limit probes; missing hops don't always mean a broken route.
+            {report.timeouts} hop(s) timed out — routers commonly drop or rate-limit probes; missing
+            hops don't always mean a broken route.
           </p>
         ) : null}
       </Panel>
@@ -1751,11 +1821,22 @@ function IPInfoWorkbench({ loading, report }: { loading: boolean; report: IPInfo
           <dl className="certificate-grid">
             <Detail label="Reverse" value={(d.reverse ?? []).join(", ") || "—"} />
             {d.asn ? <Detail label="ASN" value={`AS${d.asn.asn} ${d.asn.org ?? ""}`} /> : null}
-            {d.asn?.country || d.rdap?.country ? <Detail label="Country" value={d.asn?.country ?? d.rdap?.country ?? "—"} /> : null}
+            {d.asn?.country || d.rdap?.country ? (
+              <Detail label="Country" value={d.asn?.country ?? d.rdap?.country ?? "—"} />
+            ) : null}
             {d.asn?.prefix ? <Detail label="Prefix" value={d.asn.prefix} /> : null}
-            {d.rdap?.registry || d.asn?.registry ? <Detail label="Registry" value={d.rdap?.registry ?? d.asn?.registry ?? "—"} /> : null}
+            {d.rdap?.registry || d.asn?.registry ? (
+              <Detail label="Registry" value={d.rdap?.registry ?? d.asn?.registry ?? "—"} />
+            ) : null}
             {d.cdn?.provider ? (
-              <Detail label="CDN" value={d.cdn.confidence && d.cdn.reason ? `${d.cdn.provider} (${d.cdn.confidence} — ${d.cdn.reason})` : d.cdn.provider} />
+              <Detail
+                label="CDN"
+                value={
+                  d.cdn.confidence && d.cdn.reason
+                    ? `${d.cdn.provider} (${d.cdn.confidence} — ${d.cdn.reason})`
+                    : d.cdn.provider
+                }
+              />
             ) : null}
             {d.rdap?.abuse_email ? <Detail label="Abuse" value={d.rdap.abuse_email} /> : null}
           </dl>
@@ -1771,8 +1852,12 @@ function HeadersWorkbench({ loading, report }: { loading: boolean; report: Heade
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>Headers: <span>{report.url}</span></h1>
-        <div className={`health-pill ${report.summary.missing === 0 && report.summary.weak === 0 ? "health-pill-ok" : "health-pill-fail"}`}>
+        <h1>
+          Headers: <span>{report.url}</span>
+        </h1>
+        <div
+          className={`health-pill ${report.summary.missing === 0 && report.summary.weak === 0 ? "health-pill-ok" : "health-pill-fail"}`}
+        >
           <span />
           {report.summary.pass} pass · {report.summary.weak} weak · {report.summary.missing} missing
         </div>
@@ -1819,7 +1904,9 @@ function TechWorkbench({ loading, report }: { loading: boolean; report: TechRepo
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>Tech: <span>{report.url}</span></h1>
+        <h1>
+          Tech: <span>{report.url}</span>
+        </h1>
         <div className="health-pill health-pill-ok">
           <span />
           {matches.length} match{matches.length === 1 ? "" : "es"}
@@ -1839,7 +1926,9 @@ function TechWorkbench({ loading, report }: { loading: boolean; report: TechRepo
             </div>
             {matches.map((m, i) => (
               <div className="dns-row dns-row-4" key={`${m.name}-${i}`}>
-                <span><strong>{m.name}</strong></span>
+                <span>
+                  <strong>{m.name}</strong>
+                </span>
                 <code>{m.category}</code>
                 <code>{m.version ?? "—"}</code>
                 <span>{m.confidence}</span>
@@ -1858,7 +1947,9 @@ function SubsWorkbench({ loading, report }: { loading: boolean; report: SubsRepo
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>Subdomains: <span>{report.domain}</span></h1>
+        <h1>
+          Subdomains: <span>{report.domain}</span>
+        </h1>
         <div className="health-pill health-pill-ok">
           <span />
           {subs.length} found
@@ -1887,7 +1978,9 @@ function SubsWorkbench({ loading, report }: { loading: boolean; report: SubsRepo
         <Panel className="dns-panel" icon={<AlertTriangle />} title="Source errors">
           <ul>
             {Object.entries(errors).map(([name, msg]) => (
-              <li key={name}><strong>{name}:</strong> <span className="muted">{msg}</span></li>
+              <li key={name}>
+                <strong>{name}:</strong> <span className="muted">{msg}</span>
+              </li>
             ))}
           </ul>
         </Panel>
@@ -1901,7 +1994,9 @@ function ReverseWorkbench({ loading, report }: { loading: boolean; report: Rever
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>Reverse IP: <span>{report.ip}</span></h1>
+        <h1>
+          Reverse IP: <span>{report.ip}</span>
+        </h1>
         <div className="health-pill health-pill-ok">
           <span />
           {hostnames.length} hostname{hostnames.length === 1 ? "" : "s"}
@@ -1937,7 +2032,9 @@ function ArchWorkbench({ loading, report }: { loading: boolean; report: ArchRepo
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>Wayback: <span>{report.domain}</span></h1>
+        <h1>
+          Wayback: <span>{report.domain}</span>
+        </h1>
         <div className="health-pill health-pill-ok">
           <span />
           {report.total} snapshot{report.total === 1 ? "" : "s"}
@@ -1953,7 +2050,11 @@ function ArchWorkbench({ loading, report }: { loading: boolean; report: ArchRepo
         </dl>
       </Panel>
       {report.recent_samples && report.recent_samples.length > 0 ? (
-        <Panel className="dns-panel" icon={<FileText />} title={`Recent snapshots (${report.recent_samples.length})`}>
+        <Panel
+          className="dns-panel"
+          icon={<FileText />}
+          title={`Recent snapshots (${report.recent_samples.length})`}
+        >
           <div className="dns-table">
             <div className="dns-header dns-row-3">
               <span>Date</span>
@@ -1981,10 +2082,17 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>TLS Audit: <span>{report.host}:{report.port}</span></h1>
+        <h1>
+          TLS Audit:{" "}
+          <span>
+            {report.host}:{report.port}
+          </span>
+        </h1>
         <div className={`health-pill ${highCount === 0 ? "health-pill-ok" : "health-pill-fail"}`}>
           <span />
-          {highCount === 0 ? "No high-severity findings" : `${highCount} high-severity finding${highCount === 1 ? "" : "s"}`}
+          {highCount === 0
+            ? "No high-severity findings"
+            : `${highCount} high-severity finding${highCount === 1 ? "" : "s"}`}
         </div>
       </div>
       {report.error ? <ErrorBanner message={report.error} /> : null}
@@ -1999,9 +2107,15 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
           </div>
           {(report.protocols ?? []).map((p) => (
             <div className="dns-row dns-row-4" key={p.name}>
-              <span><strong>{p.name}</strong></span>
-              <span className={p.supported ? "value-ok" : "muted"}>{p.supported ? "yes" : "no"}</span>
-              <span className={p.deprecated ? "value-fail" : "muted"}>{p.deprecated ? "deprecated" : "—"}</span>
+              <span>
+                <strong>{p.name}</strong>
+              </span>
+              <span className={p.supported ? "value-ok" : "muted"}>
+                {p.supported ? "yes" : "no"}
+              </span>
+              <span className={p.deprecated ? "value-fail" : "muted"}>
+                {p.deprecated ? "deprecated" : "—"}
+              </span>
               <code>{p.cipher ?? "—"}</code>
             </div>
           ))}
@@ -2009,7 +2123,11 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
       </Panel>
 
       {report.ciphers && report.ciphers.length > 0 ? (
-        <Panel className="dns-panel" icon={<LockKeyhole />} title={`Supported cipher suites (${report.ciphers.length})`}>
+        <Panel
+          className="dns-panel"
+          icon={<LockKeyhole />}
+          title={`Supported cipher suites (${report.ciphers.length})`}
+        >
           <div className="dns-table">
             <div className="dns-header dns-row-3">
               <span>Version</span>
@@ -2020,7 +2138,9 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
               <div className="dns-row dns-row-3" key={c.name}>
                 <span>{c.version ?? "—"}</span>
                 <code>{c.name}</code>
-                <span className={c.insecure ? "value-fail" : "muted"}>{c.insecure ? "WEAK" : ""}</span>
+                <span className={c.insecure ? "value-fail" : "muted"}>
+                  {c.insecure ? "WEAK" : ""}
+                </span>
               </div>
             ))}
           </div>
@@ -2032,7 +2152,10 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
           <dl className="certificate-grid">
             <Detail label="Subject" value={report.cert.subject} />
             <Detail label="Issuer" value={report.cert.issuer} />
-            <Detail label="Validity" value={`${formatDate(report.cert.not_before)} → ${formatDate(report.cert.not_after)} (${report.cert.days_remaining}d)`} />
+            <Detail
+              label="Validity"
+              value={`${formatDate(report.cert.not_before)} → ${formatDate(report.cert.not_after)} (${report.cert.days_remaining}d)`}
+            />
             <Detail label="Chain length" value={String(report.cert.chain_count)} />
             {report.cert.self_signed ? <Detail label="Self-signed" value="yes" /> : null}
             {report.cert.expired ? <Detail error label="Expired" value="yes" /> : null}
@@ -2045,7 +2168,8 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
           <ul>
             {report.findings.map((f, i) => (
               <li key={i}>
-                <strong className={severityClass(f.severity)}>[{f.severity.toUpperCase()}]</strong> {f.title}
+                <strong className={severityClass(f.severity)}>[{f.severity.toUpperCase()}]</strong>{" "}
+                {f.title}
                 {f.detail ? <div className="muted">{f.detail}</div> : null}
               </li>
             ))}
@@ -2073,7 +2197,9 @@ function TakeoverWorkbench({ loading, report }: { loading: boolean; report: Take
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>Takeover: <span>{report.domain}</span></h1>
+        <h1>
+          Takeover: <span>{report.domain}</span>
+        </h1>
         <div className={`health-pill ${vuln ? "health-pill-fail" : "health-pill-ok"}`}>
           <span />
           {vuln ? "VULNERABLE" : report.has_cname ? "No takeover detected" : "No CNAME"}
@@ -2084,14 +2210,21 @@ function TakeoverWorkbench({ loading, report }: { loading: boolean; report: Take
         <p className="muted">No CNAME record on this domain. Nothing to check.</p>
       ) : null}
       {findings.map((f, i) => (
-        <Panel className="dns-panel" icon={<AlertTriangle />} key={i} title={f.provider || "Unknown provider"}>
+        <Panel
+          className="dns-panel"
+          icon={<AlertTriangle />}
+          key={i}
+          title={f.provider || "Unknown provider"}
+        >
           <dl className="certificate-grid">
             <Detail label="CNAME" value={f.cname} />
             {f.provider ? <Detail label="Provider" value={f.provider} /> : null}
             <Detail
               error={f.verdict === "vulnerable"}
               label="Verdict"
-              value={f.verdict === "vulnerable" ? "VULNERABLE — this CNAME can be taken over" : f.verdict}
+              value={
+                f.verdict === "vulnerable" ? "VULNERABLE — this CNAME can be taken over" : f.verdict
+              }
             />
             {f.status ? <Detail label="Status" value={String(f.status)} /> : null}
             {f.detail ? <Detail label="Detail" value={f.detail} /> : null}
@@ -2179,7 +2312,9 @@ function PortScanWorkbench({ loading, report }: { loading: boolean; report: Port
       <div className="result-header">
         <h1>
           Ports: <span>{report.host}</span>
-          {report.ip && report.ip !== report.host ? <span className="muted"> ({report.ip})</span> : null}
+          {report.ip && report.ip !== report.host ? (
+            <span className="muted"> ({report.ip})</span>
+          ) : null}
         </h1>
         <div className="health-pill health-pill-ok">
           <span />
@@ -2209,7 +2344,9 @@ function PathEnumWorkbench({ loading, report }: { loading: boolean; report: Path
   return (
     <section className={loading ? "result-area result-area-loading" : "result-area"}>
       <div className="result-header">
-        <h1>Path Enum: <span>{report.base_url}</span></h1>
+        <h1>
+          Path Enum: <span>{report.base_url}</span>
+        </h1>
         <div className="health-pill health-pill-ok">
           <span />
           {report.stats.interesting} interesting / {report.stats.total} scanned
@@ -2283,7 +2420,9 @@ function AuditWorkbench({ loading, report }: { loading: boolean; report: AuditRe
           {pillText}
         </div>
       </div>
-      <p className="muted">Mode: {mode} · {report.took_ms}ms</p>
+      <p className="muted">
+        Mode: {mode} · {report.took_ms}ms
+      </p>
       {report.error ? <ErrorBanner message={report.error} /> : null}
 
       <Panel className="dns-panel" icon={<FileText />} title="Sections">
@@ -2296,7 +2435,9 @@ function AuditWorkbench({ loading, report }: { loading: boolean; report: AuditRe
           {rows.map((row) => (
             <div className="dns-row dns-row-3" key={row.label}>
               <span className={auditGradeClass(row.grade)}>{auditGradeTag(row.grade)}</span>
-              <span><strong>{row.label}</strong></span>
+              <span>
+                <strong>{row.label}</strong>
+              </span>
               <span className="muted">{row.summary}</span>
             </div>
           ))}
@@ -2323,7 +2464,11 @@ type AuditRow = { label: string; grade: AuditGrade; summary: string };
 function auditRows(r: AuditReport): AuditRow[] {
   const rows: AuditRow[] = [];
   if (r.ip) {
-    rows.push({ label: "IP", grade: r.ip.details.length === 0 ? "err" : "ok", summary: ipSummary(r.ip) });
+    rows.push({
+      label: "IP",
+      grade: r.ip.details.length === 0 ? "err" : "ok",
+      summary: ipSummary(r.ip),
+    });
   }
   if (r.reverse) {
     rows.push({
@@ -2464,39 +2609,17 @@ function auditGradeClass(g: AuditGrade): string {
 
 // ─── Shared building blocks ───────────────────────────────────────────────
 
-function EmptyWorkbench({ mode, onRun }: { mode: CheckMode; onRun: () => void }) {
-  const blurb: Record<CheckMode, string> = {
-    full: "DNS, TCP, TLS, HTTP, redirects, and timing land in one report.",
-    dns: "Query Cloudflare, Google, Quad9, and your system resolver in parallel — see if they agree.",
-    route: "Trace the network path with per-hop ASN ownership.",
-    ip: "Get reverse DNS, ASN, RDAP, country, and CDN classification for an IP or hostname.",
-    headers: "Grade HSTS, CSP, X-Frame-Options, and the other security headers from one HTTP GET.",
-    tech: "Fingerprint CMS, JS framework, server, CDN, and language from one passive GET.",
-    subs: "Enumerate subdomains from public Certificate Transparency logs.",
-    reverse: "List other hostnames pointing at the IP via PTR records, Hackertarget, and Shodan if configured.",
-    arch: "Show what the Wayback Machine remembers about this domain — first/last snapshots and recent URLs.",
-    tls: "Probe every TLS protocol and cipher suite; grade deprecated protocols, weak ciphers, expiring certs.",
-    takeover: "Check the CNAME against a catalog of takeover-able services (GitHub Pages, S3, Heroku, …).",
-    ports: "Parallel TCP connect scan against the top-100 nmap ports (or a custom list).",
-    enum: "Send one GET per wordlist entry; report 200 / 301 / 401 / 403 / 5xx responses.",
-    audit: "Run the passive recon suite (ip + headers + tech + subs + arch) in parallel. Tick the box above for the active add-ons.",
-  };
-  return (
-    <section className="empty-workbench">
-      <div>
-        <span>Ready</span>
-        <h1>Run a {MODE_LABEL[mode]}.</h1>
-        <p>{blurb[mode]}</p>
-      </div>
-      <button className="run-button" onClick={onRun} type="button">
-        <Play />
-        <span>Run Check</span>
-      </button>
-    </section>
-  );
-}
-
-function SummaryCard({ error, label, ms, value }: { error?: string; label: string; ms?: number; value: string }) {
+function SummaryCard({
+  error,
+  label,
+  ms,
+  value,
+}: {
+  error?: string;
+  label: string;
+  ms?: number;
+  value: string;
+}) {
   return (
     <article className="summary-card">
       <span>{label}</span>
@@ -2508,7 +2631,17 @@ function SummaryCard({ error, label, ms, value }: { error?: string; label: strin
   );
 }
 
-function Panel({ children, className = "", icon, title }: { children: ReactNode; className?: string; icon?: ReactNode; title: string }) {
+function Panel({
+  children,
+  className = "",
+  icon,
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  icon?: ReactNode;
+  title: string;
+}) {
   return (
     <section className={`panel ${className}`}>
       <header>
@@ -2520,7 +2653,15 @@ function Panel({ children, className = "", icon, title }: { children: ReactNode;
   );
 }
 
-function Detail({ error = false, label, value }: { error?: boolean; label: string; value: string }) {
+function Detail({
+  error = false,
+  label,
+  value,
+}: {
+  error?: boolean;
+  label: string;
+  value: string;
+}) {
   return (
     <>
       <dt>{label}:</dt>
@@ -2529,7 +2670,17 @@ function Detail({ error = false, label, value }: { error?: boolean; label: strin
   );
 }
 
-function Metric({ label, ok = false, value, wide = false }: { label: string; ok?: boolean; value: number | string; wide?: boolean }) {
+function Metric({
+  label,
+  ok = false,
+  value,
+  wide = false,
+}: {
+  label: string;
+  ok?: boolean;
+  value: number | string;
+  wide?: boolean;
+}) {
   return (
     <div className={wide ? "metric metric-wide" : "metric"}>
       <span>{label}</span>
@@ -2587,7 +2738,10 @@ function readRecents(): RecentCheck[] {
     const parsed = JSON.parse(saved) as Array<Partial<RecentCheck>>;
     // Migrate any pre-v1.2 entries that didn't have a mode field.
     return parsed
-      .filter((item): item is RecentCheck & { mode?: CheckMode } => !!item && typeof item.target === "string")
+      .filter(
+        (item): item is RecentCheck & { mode?: CheckMode } =>
+          !!item && typeof item.target === "string",
+      )
       .map((item) => ({
         ok: !!item.ok,
         ranAt: item.ranAt ?? new Date().toISOString(),
@@ -2606,7 +2760,10 @@ function upsertRecent(current: RecentCheck[], report: AnyReport, mode: CheckMode
     target: reportTarget(report),
     mode,
   };
-  return [next, ...current.filter((item) => !(item.target === next.target && item.mode === next.mode))].slice(0, MAX_RECENTS);
+  return [
+    next,
+    ...current.filter((item) => !(item.target === next.target && item.mode === next.mode)),
+  ].slice(0, MAX_RECENTS);
 }
 
 function reportTarget(report: AnyReport): string {
@@ -2706,7 +2863,8 @@ function auditRowGrades(report: AuditReport): AuditGrade[] {
   }
   if (report.takeover) {
     if (report.takeover.error) grades.push("err");
-    else if ((report.takeover.findings ?? []).some((f) => f.verdict === "vulnerable")) grades.push("high");
+    else if ((report.takeover.findings ?? []).some((f) => f.verdict === "vulnerable"))
+      grades.push("high");
     else grades.push("ok");
   }
   if (report.ports) {
@@ -2728,7 +2886,11 @@ function timingSegments(report: FullCheckReport) {
     { color: "#8b5cf6", label: "SSL", value: timing.tls_ms ?? 0 },
     { color: "#00a572", label: "TTFB", value: timing.ttfb_ms },
   ];
-  const total = Math.max(timing.total_ms, segments.reduce((sum, segment) => sum + segment.value, 0), 1);
+  const total = Math.max(
+    timing.total_ms,
+    segments.reduce((sum, segment) => sum + segment.value, 0),
+    1,
+  );
   return segments.map((segment) => ({
     ...segment,
     width: Math.max((segment.value / total) * 100, segment.value > 0 ? 3 : 0),
