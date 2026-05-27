@@ -1353,7 +1353,9 @@ input,
 /* R-13 five-column variant: same as -4-ports but with the banner column
    appended. Banner still owns the long tail. */
 .dns-row-5 {
-  grid-template-columns: minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr) minmax(140px, 3.5fr);
+  grid-template-columns:
+    minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr)
+    minmax(140px, 3.5fr);
 }
 
 /* Banner cells are user-supplied free text — they can be long. We let them
@@ -1401,7 +1403,9 @@ input,
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .ports-proto-option:hover {

@@ -109,10 +109,7 @@ export type PortScanOpts = {
   udp_ports?: string;
 };
 
-export function runPortsCheck(
-  host: string,
-  opts?: PortScanOpts,
-): Promise<PortScanReport> {
+export function runPortsCheck(host: string, opts?: PortScanOpts): Promise<PortScanReport> {
   return postJSON<PortScanReport>("/api/check/ports", {
     host,
     ports: opts?.ports,

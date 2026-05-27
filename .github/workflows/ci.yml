@@ -56,13 +56,50 @@ jobs:
       - name: coverage summary
         run: go tool cover -func=coverage.out | tail -20
 
+  web:
+    name: web (lint + build)
+    runs-on: ubuntu-latest
+    # The web/ tree was previously validated only by the lefthook pre-commit
+    # hook, which Dependabot doesn't run. That's how #91 (@eslint/js 9→10)
+    # merged green: CI never installed npm deps, so the peer-dep conflict
+    # against eslint@9 / typescript-eslint@8 only surfaced on local `npm ci`.
+    # This job closes that gap — npm ci catches lockfile/peer issues, lint
+    # + format check catch what the pre-commit hook would have caught, and
+    # `npm run build` exercises both `tsc --noEmit` and `vite build`.
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: install
+        run: npm ci
+
+      - name: lint
+        run: npm run lint
+
+      - name: format check
+        run: npm run format:check
+
+      - name: build (tsc + vite)
+        run: npm run build
+
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     # Gate cross-compile on tests passing. Avoids burning 6× CI minutes when
     # the code already fails locally, and makes the failure flow read
-    # sequentially: tests first, then platform-specific build problems.
-    needs: test
+    # sequentially: tests first, then platform-specific build problems. Also
+    # depends on `web` so a frontend breakage isn't masked by the build
+    # matrix re-using the committed internal/webui/dist/.
+    needs: [test, web]
     strategy:
       fail-fast: false
       matrix:
