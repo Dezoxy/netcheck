@@ -1,9 +1,6 @@
 import {
   AlertTriangle,
-  Bookmark,
-  Check,
   ChevronLeft,
-  Download,
   FileText,
   GitCompare,
   Globe,
@@ -18,7 +15,19 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react";
-import { Component, ErrorInfo, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Component,
+  ErrorInfo,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { SideNav } from "./components/SideNav";
+import { TopAppBar } from "./components/TopAppBar";
+import { useCommandPalette } from "./hooks/useCommandPalette";
 import {
   deleteSavedReport,
   diffReports,
@@ -75,11 +84,15 @@ const MAX_RECENTS = 8;
 
 type RunState = "idle" | "loading" | "ready" | "error";
 
-// R-1 redesign: top-level navigation routes (sidenav on desktop,
-// bottom-nav on mobile). Workbench is the default; history / reports /
-// settings are placeholder routes whose visual content R-8 redesigns.
-// For R-1 they reuse the existing inline content via shared state.
-type Route = "workbench" | "history" | "reports" | "settings";
+// Route type and the PLACEHOLDER_ROUTES set live in ./routes — the
+// HUD redesign (PR 2) added analytics/nodes/support which several
+// components share. See `web/src/routes.ts` for the union.
+//
+// Originally a local type in this file from the R-1 redesign;
+// promoted to a shared module so SideNav + TopAppBar import it
+// without a circular App ↔ component dependency.
+import type { Route } from "./routes";
+import { PLACEHOLDER_ROUTES } from "./routes";
 
 // Category groups the 14 check modes for the landing-screen card grid.
 // "aggregate" is the fourth category — covers audit + diff + watch.
@@ -447,33 +460,64 @@ export default function App() {
   // own dismissal animation when runState flips away from "loading".
   const isLoading = runState === "loading";
 
+  // HUD redesign (PR 2): the global Cmd/Ctrl-K hotkey focuses the
+  // top-bar command line. Same input is used for the target field —
+  // pressing Enter inside it fires the Full check (legacy behavior).
+  const commandInputRef = useRef<HTMLInputElement | null>(null);
+  useCommandPalette(commandInputRef);
+
+  function onCommandSubmit() {
+    // Mirror the original Landing.onRunDefault behaviour: navigate
+    // into the Network category, set mode=full, then kick the run.
+    setMode("full");
+    setCategory("network");
+    setRoute("workbench");
+    void runCheck("full");
+  }
+
   return (
     <div className={`app-shell ${isLoading ? "app-shell-loading" : ""}`}>
       <LoadingOverlay visible={isLoading} mode={mode} portsProgress={portsProgress} />
-      <header className="topbar">
-        <div className="topbar-leading">
-          <div className="brand">
-            <BrandMark />
-            <span>netcheck</span>
-          </div>
-        </div>
-        <div className="topbar-actions">
-          <IconButton
-            disabled={!report || savingNow}
-            label={savedJustNow ? "Saved" : "Save report"}
-            onClick={saveCurrent}
-          >
-            {savedJustNow ? <Check /> : <Bookmark />}
-          </IconButton>
-          <IconButton disabled={!report} label="Export JSON" onClick={exportReport}>
-            <Download />
-          </IconButton>
-        </div>
-      </header>
 
-      <SideNavV2 route={route} onRouteChange={setRoute} />
+      {/* HUD ambient background — two soft cyan radial glows. Fixed
+          and pointer-events:none so they never intercept clicks.
+          z-0 keeps them behind everything in the shell. */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div
+          className="absolute left-[-10%] top-[-20%] h-[50%] w-[50%] rounded-full bg-primary-fixed-dim/10"
+          style={{ filter: "blur(120px)" }}
+        />
+        <div
+          className="absolute bottom-[-20%] right-[-10%] h-[40%] w-[40%] rounded-full bg-primary-fixed-dim/5"
+          style={{ filter: "blur(100px)" }}
+        />
+      </div>
 
-      <main className="workbench">
+      <SideNav route={route} onRouteChange={setRoute} />
+
+      <TopAppBar
+        target={target}
+        onTargetChange={setTarget}
+        onTargetSubmit={onCommandSubmit}
+        inputRef={commandInputRef}
+        actions={[
+          {
+            icon: "bookmark_add",
+            activeIcon: savedJustNow ? "check" : undefined,
+            label: savedJustNow ? "Saved" : "Save report",
+            onClick: saveCurrent,
+            disabled: !report || savingNow,
+          },
+          {
+            icon: "download",
+            label: "Export JSON",
+            onClick: exportReport,
+            disabled: !report,
+          },
+        ]}
+      />
+
+      <main className="workbench md:ml-64">
         {route === "workbench" && category === null ? (
           <Landing
             target={target}
@@ -540,6 +584,10 @@ export default function App() {
         {route === "settings" ? (
           <RouteSettings insecure={insecure} onInsecureChange={setInsecure} />
         ) : null}
+
+        {PLACEHOLDER_ROUTES.has(route) ? (
+          <RoutePlaceholder route={route} onBackHome={() => setRoute("workbench")} />
+        ) : null}
       </main>
 
       <BottomNav route={route} onRouteChange={setRoute} />
@@ -550,42 +598,12 @@ export default function App() {
 
 // ─── R-1 redesign: shell components ───────────────────────────────────────
 
-// SideNavV2 renders the desktop sidenav with four top-level routes.
-// Mobile users get a fixed BottomNav instead — see CSS media queries.
-// BrandMark is the inline SVG icon next to the "netcheck" wordmark. R-11
-// redrew this from the R-10 X+bars shape to the atom-style mark from the
-// Stitch Modern v1 mockup: two crossing diagonal connectors with four dot
-// endpoints (and a tiny center marker), evoking a network-of-nodes feel.
-// Strokes pick up `currentColor`; dot fills pick up the same. Sized to
-// match the wordmark cap height; pass `size` to override.
-function BrandMark({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      aria-hidden="true"
-      className="brand-mark"
-      fill="none"
-      height={size}
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="1.6"
-      viewBox="0 0 24 24"
-      width={size}
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      {/* Crossing diagonals between the four corner nodes. */}
-      <path d="M6 6 L18 18 M18 6 L6 18" />
-      {/* Four endpoint nodes — filled so they read as solid dots. */}
-      <circle cx="6" cy="6" fill="currentColor" r="2" stroke="none" />
-      <circle cx="18" cy="6" fill="currentColor" r="2" stroke="none" />
-      <circle cx="6" cy="18" fill="currentColor" r="2" stroke="none" />
-      <circle cx="18" cy="18" fill="currentColor" r="2" stroke="none" />
-      {/* Center node — a touch smaller so the X dominates. */}
-      <circle cx="12" cy="12" fill="currentColor" r="1.2" stroke="none" />
-    </svg>
-  );
-}
-
+// BrandMark (inline atom-style SVG used by the old SideNavV2 brand
+// row and topbar leading) was removed in the HUD redesign PR 2. The
+// new SideNav uses Material Symbols' "hub" glyph (a similar
+// network-of-nodes shape) directly via <Icon name="hub" filled />,
+// so the bespoke SVG no longer earns its bytes.
+//
 // LoadingOverlay — fixed-position glass card with animated progress ring,
 // percentage readout, and cycling status messages. Mounted whenever a
 // check is running; the underlying app-shell is blurred + scaled down
@@ -777,77 +795,43 @@ const LOADING_MESSAGES: { default: string[] } & Partial<Record<CheckMode, string
   dns: ["Querying resolvers in parallel…", "Comparing answers…", "Detecting CDN edge variance…"],
 };
 
-function SideNavV2({
-  route,
-  onRouteChange,
-}: {
-  route: Route;
-  onRouteChange: (next: Route) => void;
-}) {
-  // R-11: brand moves INTO the sidebar at the top (matching the Modern v1
-  // mockup), and the active item uses the BrandMark icon to reinforce the
-  // workbench-as-default-route metaphor. Documentation/Support footer
-  // links are gone — they weren't in the mockup and the bottom of the
-  // sidebar is intentionally empty / gradient-faded.
+// SideNavV2 was replaced by SideNav (web/src/components/SideNav.tsx)
+// in the HUD redesign PR 2. The inline NavItem helper that supported
+// it is gone with it — the new SideNav embeds its own button styling
+// since the visual contract (glass + left-accent border + glow) only
+// applies in that one context.
+//
+// RoutePlaceholder renders a "Coming soon" stub for the new nav
+// entries (Analytics, Nodes, Support) added by the HUD redesign.
+// Each route is a real top-level Route value so the SideNav can
+// highlight it; real content is a separate PR.
+
+function RoutePlaceholder({ route, onBackHome }: { route: Route; onBackHome: () => void }) {
+  const titleMap: Partial<Record<Route, string>> = {
+    analytics: "Analytics",
+    nodes: "Nodes",
+    support: "Support",
+  };
+  const title = titleMap[route] ?? "Coming soon";
   return (
-    <aside className="sidenav sidenav-v2" aria-label="Primary">
-      <div className="sidenav-brand">
-        <BrandMark size={28} />
-        <span>netcheck</span>
+    <section className="result-area" aria-label={`${title} (under construction)`}>
+      <div className="result-header">
+        <h1>{title}</h1>
       </div>
-      <nav className="sidenav-nav" aria-label="Top-level routes">
-        <NavItem
-          icon={route === "workbench" ? <BrandMark size={18} /> : <Terminal />}
-          label="Network Workbench"
-          active={route === "workbench"}
-          onClick={() => onRouteChange("workbench")}
-        />
-        <NavItem
-          icon={<History />}
-          label="Recent Checks"
-          active={route === "history"}
-          onClick={() => onRouteChange("history")}
-        />
-        <NavItem
-          icon={<FileText />}
-          label="Saved Reports"
-          active={route === "reports"}
-          onClick={() => onRouteChange("reports")}
-        />
-        <NavItem
-          icon={<Settings2 />}
-          label="Settings"
-          active={route === "settings"}
-          onClick={() => onRouteChange("settings")}
-        />
-      </nav>
-    </aside>
+      <p className="muted" style={{ padding: "var(--space-4)" }}>
+        This area is reserved for future work and currently has no content. The nav entry exists so
+        the layout stays stable; real implementation lands in a follow-up.
+      </p>
+      <button type="button" className="back-pill" onClick={onBackHome}>
+        ← Back to dashboard
+      </button>
+    </section>
   );
 }
 
-function NavItem({
-  icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-current={active ? "page" : undefined}
-      className={`nav-item ${active ? "nav-item-active" : ""}`}
-      onClick={onClick}
-      type="button"
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
-}
+// NavItem (the inline desktop-sidenav button helper) was removed
+// with SideNavV2 in the HUD redesign PR 2. BottomNav still uses its
+// own `BottomNavItem` for the mobile bar.
 
 // BottomNav is the mobile counterpart to SideNavV2 — fixed to the
 // viewport bottom with safe-area padding. Hidden by CSS on ≥720px.
