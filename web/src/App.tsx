@@ -1,14 +1,9 @@
-import {
-  AlertTriangle,
-  FileText,
-  GitCompare,
-  Globe,
-  History,
-  LockKeyhole,
-  Settings2,
-  Terminal,
-  Trash2,
-} from "lucide-react";
+// PR 10: lucide-react sweep complete. All 9 remaining icons
+// (AlertTriangle / FileText / GitCompare / Globe / History /
+// LockKeyhole / Settings2 / Terminal / Trash2) replaced with
+// Material Symbols Outlined glyphs via the Icon wrapper.
+// lucide-react is uninstalled from package.json.
+import { Icon } from "./components/Icon";
 import {
   Component,
   ErrorInfo,
@@ -845,25 +840,25 @@ function BottomNav({
   return (
     <nav className="bottom-nav" aria-label="Primary (mobile)">
       <BottomNavItem
-        icon={<Terminal />}
+        icon={<Icon name="terminal" size="sm" />}
         label="Workbench"
         active={route === "workbench"}
         onClick={() => onRouteChange("workbench")}
       />
       <BottomNavItem
-        icon={<History />}
+        icon={<Icon name="history" size="sm" />}
         label="History"
         active={route === "history"}
         onClick={() => onRouteChange("history")}
       />
       <BottomNavItem
-        icon={<FileText />}
+        icon={<Icon name="description" size="sm" />}
         label="Reports"
         active={route === "reports"}
         onClick={() => onRouteChange("reports")}
       />
       <BottomNavItem
-        icon={<Settings2 />}
+        icon={<Icon name="settings" size="sm" />}
         label="Settings"
         active={route === "settings"}
         onClick={() => onRouteChange("settings")}
@@ -1095,7 +1090,7 @@ function RouteReportsList({
               onClick={runCompare}
               type="button"
             >
-              <GitCompare />
+              <Icon name="compare_arrows" size="sm" />
               <span>{diffLoading ? "Diffing…" : "Compare"}</span>
             </button>
           </div>
@@ -1135,10 +1130,10 @@ function RouteReportsList({
                 label={picked ? "Remove from compare" : "Add to compare"}
                 onClick={() => toggleCompare(item)}
               >
-                <GitCompare />
+                <Icon name="compare_arrows" size="sm" />
               </IconButton>
               <IconButton label="Delete saved report" onClick={() => onRemove(item)}>
-                <Trash2 />
+                <Icon name="delete" size="sm" />
               </IconButton>
             </div>
           );
@@ -1376,7 +1371,7 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
       </Panel>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Panel title="DNS Records" icon={<FileText />}>
+        <Panel title="DNS Records" icon={<Icon name="description" size="sm" />}>
           <div className="flex flex-col gap-1">
             {report.dns.a.map((ip) => (
               <DataRow key={`a-${ip}`} label="A" value={ip} />
@@ -1392,7 +1387,7 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
           </div>
         </Panel>
 
-        <Panel title="TLS Certificate" icon={<LockKeyhole />}>
+        <Panel title="TLS Certificate" icon={<Icon name="lock" size="sm" />}>
           {report.tls ? (
             <div className="flex flex-col gap-1">
               <DataRow label="Protocol" value={report.tls.version} />
@@ -1655,7 +1650,11 @@ function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DN
 // and DNSSEC sections share the same renderer.
 function DNSCompareQueryPanel({ query: q }: { query: DNSCompareReport["queries"][number] }) {
   return (
-    <Panel className="dns-panel" icon={<FileText />} title={`${q.qtype} records`}>
+    <Panel
+      className="dns-panel"
+      icon={<Icon name="description" size="sm" />}
+      title={`${q.qtype} records`}
+    >
       <div className="dns-table">
         <div className="dns-header dns-row-4">
           <span>Resolver</span>
@@ -1711,7 +1710,7 @@ function RouteWorkbench({ loading, report }: { loading: boolean; report: RouteRe
         </div>
       </div>
 
-      <Panel className="dns-panel" icon={<FileText />} title="Hops">
+      <Panel className="dns-panel" icon={<Icon name="description" size="sm" />} title="Hops">
         <div className="dns-table">
           <div className="dns-header dns-row-4">
             <span>#</span>
@@ -1779,7 +1778,12 @@ function IPInfoWorkbench({ loading, report }: { loading: boolean; report: IPInfo
       </div>
 
       {report.details.map((d) => (
-        <Panel key={d.ip} className="dns-panel" icon={<Globe />} title={d.ip}>
+        <Panel
+          key={d.ip}
+          className="dns-panel"
+          icon={<Icon name="language" size="sm" />}
+          title={d.ip}
+        >
           <dl className="certificate-grid">
             <Detail label="Reverse" value={(d.reverse ?? []).join(", ") || "—"} />
             {d.asn ? <Detail label="ASN" value={`AS${d.asn.asn} ${d.asn.org ?? ""}`} /> : null}
@@ -1825,7 +1829,7 @@ function HeadersWorkbench({ loading, report }: { loading: boolean; report: Heade
         </div>
       </div>
       {report.error ? <ErrorBanner message={report.error} /> : null}
-      <Panel className="dns-panel" icon={<LockKeyhole />} title="Security headers">
+      <Panel className="dns-panel" icon={<Icon name="lock" size="sm" />} title="Security headers">
         <div className="dns-table">
           <div className="dns-header dns-row-3">
             <span>Grade</span>
@@ -1878,7 +1882,11 @@ function TechWorkbench({ loading, report }: { loading: boolean; report: TechRepo
       {matches.length === 0 ? (
         <p className="muted">No known technologies fingerprinted.</p>
       ) : (
-        <Panel className="dns-panel" icon={<FileText />} title="Detected stack">
+        <Panel
+          className="dns-panel"
+          icon={<Icon name="description" size="sm" />}
+          title="Detected stack"
+        >
           <div className="dns-table">
             <div className="dns-header dns-row-4">
               <span>Technology</span>
@@ -1918,7 +1926,7 @@ function SubsWorkbench({ loading, report }: { loading: boolean; report: SubsRepo
         </div>
       </div>
       {report.error ? <ErrorBanner message={report.error} /> : null}
-      <Panel className="dns-panel" icon={<Globe />} title="From CT logs">
+      <Panel className="dns-panel" icon={<Icon name="language" size="sm" />} title="From CT logs">
         {subs.length === 0 ? (
           <p className="muted">No subdomains found in CT logs.</p>
         ) : (
@@ -1937,7 +1945,7 @@ function SubsWorkbench({ loading, report }: { loading: boolean; report: SubsRepo
         )}
       </Panel>
       {Object.keys(errors).length > 0 ? (
-        <Panel className="dns-panel" icon={<AlertTriangle />} title="Source errors">
+        <Panel className="dns-panel" icon={<Icon name="warning" size="sm" />} title="Source errors">
           <ul>
             {Object.entries(errors).map(([name, msg]) => (
               <li key={name}>
@@ -1965,7 +1973,11 @@ function ReverseWorkbench({ loading, report }: { loading: boolean; report: Rever
         </div>
       </div>
       {report.error ? <ErrorBanner message={report.error} /> : null}
-      <Panel className="dns-panel" icon={<Globe />} title="Hostnames on this IP">
+      <Panel
+        className="dns-panel"
+        icon={<Icon name="language" size="sm" />}
+        title="Hostnames on this IP"
+      >
         {hostnames.length === 0 ? (
           <p className="muted">No hostnames found.</p>
         ) : (
@@ -2003,7 +2015,7 @@ function ArchWorkbench({ loading, report }: { loading: boolean; report: ArchRepo
         </div>
       </div>
       {report.error ? <ErrorBanner message={report.error} /> : null}
-      <Panel className="dns-panel" icon={<History />} title="Coverage">
+      <Panel className="dns-panel" icon={<Icon name="history" size="sm" />} title="Coverage">
         <dl className="certificate-grid">
           <Detail label="Total snapshots" value={String(report.total)} />
           <Detail label="Unique URLs" value={String(report.unique_urls)} />
@@ -2014,7 +2026,7 @@ function ArchWorkbench({ loading, report }: { loading: boolean; report: ArchRepo
       {report.recent_samples && report.recent_samples.length > 0 ? (
         <Panel
           className="dns-panel"
-          icon={<FileText />}
+          icon={<Icon name="description" size="sm" />}
           title={`Recent snapshots (${report.recent_samples.length})`}
         >
           <div className="dns-table">
@@ -2059,7 +2071,7 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
       </div>
       {report.error ? <ErrorBanner message={report.error} /> : null}
 
-      <Panel className="dns-panel" icon={<LockKeyhole />} title="Protocols">
+      <Panel className="dns-panel" icon={<Icon name="lock" size="sm" />} title="Protocols">
         <div className="dns-table">
           <div className="dns-header dns-row-4">
             <span>Protocol</span>
@@ -2087,7 +2099,7 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
       {report.ciphers && report.ciphers.length > 0 ? (
         <Panel
           className="dns-panel"
-          icon={<LockKeyhole />}
+          icon={<Icon name="lock" size="sm" />}
           title={`Supported cipher suites (${report.ciphers.length})`}
         >
           <div className="dns-table">
@@ -2110,7 +2122,7 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
       ) : null}
 
       {report.cert ? (
-        <Panel className="dns-panel" icon={<LockKeyhole />} title="Certificate">
+        <Panel className="dns-panel" icon={<Icon name="lock" size="sm" />} title="Certificate">
           <dl className="certificate-grid">
             <Detail label="Subject" value={report.cert.subject} />
             <Detail label="Issuer" value={report.cert.issuer} />
@@ -2126,7 +2138,7 @@ function TLSAuditWorkbench({ loading, report }: { loading: boolean; report: TLSA
       ) : null}
 
       {report.findings && report.findings.length > 0 ? (
-        <Panel className="dns-panel" icon={<AlertTriangle />} title="Findings">
+        <Panel className="dns-panel" icon={<Icon name="warning" size="sm" />} title="Findings">
           <ul>
             {report.findings.map((f, i) => (
               <li key={i}>
@@ -2174,7 +2186,7 @@ function TakeoverWorkbench({ loading, report }: { loading: boolean; report: Take
       {findings.map((f, i) => (
         <Panel
           className="dns-panel"
-          icon={<AlertTriangle />}
+          icon={<Icon name="warning" size="sm" />}
           key={i}
           title={f.provider || "Unknown provider"}
         >
@@ -2374,7 +2386,11 @@ function PortScanWorkbench({ loading, report }: { loading: boolean; report: Port
         <SummaryCard label="Filtered" value={String(report.stats.filtered)} />
         <SummaryCard label="Total" value={String(report.stats.total)} />
       </div>
-      <Panel className="dns-panel" icon={<Globe />} title={`Open ports (${ports.length})`}>
+      <Panel
+        className="dns-panel"
+        icon={<Icon name="language" size="sm" />}
+        title={`Open ports (${ports.length})`}
+      >
         {ports.length === 0 ? (
           <p className="muted">No open ports found.</p>
         ) : (
@@ -2405,7 +2421,11 @@ function PathEnumWorkbench({ loading, report }: { loading: boolean; report: Path
         <SummaryCard label="Errors" value={String(report.stats.errors)} />
         <SummaryCard label="Total" value={String(report.stats.total)} />
       </div>
-      <Panel className="dns-panel" icon={<FileText />} title={`Findings (${findings.length})`}>
+      <Panel
+        className="dns-panel"
+        icon={<Icon name="description" size="sm" />}
+        title={`Findings (${findings.length})`}
+      >
         {findings.length === 0 ? (
           <p className="muted">No interesting paths found.</p>
         ) : (
@@ -2471,7 +2491,7 @@ function AuditWorkbench({ loading, report }: { loading: boolean; report: AuditRe
       </p>
       {report.error ? <ErrorBanner message={report.error} /> : null}
 
-      <Panel className="dns-panel" icon={<FileText />} title="Sections">
+      <Panel className="dns-panel" icon={<Icon name="description" size="sm" />} title="Sections">
         <div className="dns-table">
           <div className="dns-header dns-row-3">
             <span>Grade</span>
@@ -2491,7 +2511,11 @@ function AuditWorkbench({ loading, report }: { loading: boolean; report: AuditRe
       </Panel>
 
       {report.errors && Object.keys(report.errors).length > 0 ? (
-        <Panel className="dns-panel" icon={<AlertTriangle />} title="Sub-command errors">
+        <Panel
+          className="dns-panel"
+          icon={<Icon name="warning" size="sm" />}
+          title="Sub-command errors"
+        >
           <ul>
             {Object.entries(report.errors).map(([name, msg]) => (
               <li key={name}>

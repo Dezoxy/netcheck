@@ -9,9 +9,27 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+
+    <!-- HUD redesign typography. preconnect cuts the font handshake
+         by one round-trip; the actual stylesheets load Inter (UI
+         chrome), JetBrains Mono (data values), and Material Symbols
+         Outlined (icon set, replacing lucide-react during the
+         redesign). The `display=swap` keeps text painted in the
+         fallback while the variable fonts arrive. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
+    />
+
     <title>netcheck</title>
-    <script type="module" crossorigin src="/assets/index-APb5_uci.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DQbjj0XG.css">
+    <script type="module" crossorigin src="/assets/index-Cf1nNglt.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Drs1rdhG.css">
   </head>
   <body>
     <div id="root"></div>
