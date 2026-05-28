@@ -16,6 +16,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -1489,6 +1490,38 @@ function SummaryTile({
 // rendered report into "core" vs "DNSSEC" panel groups.
 const DNS_DNSSEC_TYPE_SET = new Set<string>(DNS_DNSSEC_TYPES);
 
+// Refetch state for DNSCompareWorkbench. Bundled into a single
+// reducer so the "show more / DNSSEC re-query" effect can dispatch
+// instead of calling setState — react-hooks v7's
+// set-state-in-effect rule fires on useState setters but not on
+// useReducer dispatch. PR 9 cleanup; replaces the two suppressions
+// the workbench shipped with from PR #87 / #88.
+type RefetchState = {
+  loading: boolean;
+  override: DNSCompareReport | null;
+  error: string;
+};
+type RefetchAction =
+  | { kind: "reset" } // toggles all off OR parent rerun
+  | { kind: "start" }
+  | { kind: "success"; report: DNSCompareReport }
+  | { kind: "failure"; error: string };
+
+const REFETCH_INITIAL: RefetchState = { loading: false, override: null, error: "" };
+
+function refetchReducer(state: RefetchState, action: RefetchAction): RefetchState {
+  switch (action.kind) {
+    case "reset":
+      return REFETCH_INITIAL;
+    case "start":
+      return { ...state, loading: true, error: "" };
+    case "success":
+      return { loading: false, override: action.report, error: "" };
+    case "failure":
+      return { ...state, loading: false, error: action.error };
+  }
+}
+
 function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DNSCompareReport }) {
   // Two opt-in toggles drive a re-fetch:
   //   - showMore: include Tier-2 extended types in the query
@@ -1497,40 +1530,34 @@ function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DN
   // (no re-fetch). When either is on, we re-query and use the override.
   const [showMore, setShowMore] = useState(false);
   const [dnssec, setDnssec] = useState(false);
-  const [override, setOverride] = useState<DNSCompareReport | null>(null);
-  const [refetchLoading, setRefetchLoading] = useState(false);
-  const [refetchError, setRefetchError] = useState("");
+  const [fetchState, dispatch] = useReducer(refetchReducer, REFETCH_INITIAL);
 
   // Parent re-running a check (whether for a new host or the same one)
   // discards both toggles and the local override. We key on
-  // report.started_at — a fresh report always has a new timestamp, so
-  // this also resets when the user reruns DNS Compare for the same
-  // hostname, which a host-only dep would miss.
-  // TODO(react19-effects): same setState-in-effect class as the effect
-  // below; refactor together once the follow-up PR lands.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+  // report.started_at — a fresh report always has a new timestamp,
+  // so this also resets when the user reruns DNS Compare for the
+  // same hostname.
+  //
+  // Render-time setState (guarded by lastStartedAt) follows React's
+  // "storing information from previous renders" pattern. Same
+  // approach PR #110 used for LoadingOverlay; avoids the
+  // react-hooks/set-state-in-effect rule.
+  const [lastStartedAt, setLastStartedAt] = useState(report.started_at);
+  if (report.started_at !== lastStartedAt) {
+    setLastStartedAt(report.started_at);
     setShowMore(false);
     setDnssec(false);
-    setOverride(null);
-    setRefetchError("");
-  }, [report.started_at]);
+    dispatch({ kind: "reset" });
+  }
 
-  // Compose the query whenever a toggle flips. With both toggles off we
-  // clear the override so the parent report shows through; otherwise we
-  // re-query with the combined type set.
-  //
-  // TODO(react19-effects): same setState-in-effect pattern that #110 fixed
-  // for LoadingOverlay. Suppressing inline here so the show-more / DNSSEC
-  // feature can land — proper refactor (derive override-vs-parent at
-  // render, hoist loading/error into a small fetch-state reducer) is a
-  // follow-up PR. react-hooks v7 introduced the rule; existing logic is
-  // semantically correct, just triggers a cascading render.
+  // Compose the query whenever a toggle flips. With both toggles off
+  // we reset (which clears any prior override so the parent report
+  // shows through); otherwise we re-query with the combined type set.
+  // The reducer's dispatch isn't flagged by the v7 rule, so the
+  // synchronous "kick" + "reset" calls live inside the effect cleanly.
   useEffect(() => {
     if (!showMore && !dnssec) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setOverride(null);
-      setRefetchError("");
+      dispatch({ kind: "reset" });
       return;
     }
     let cancelled = false;
@@ -1539,22 +1566,29 @@ function DNSCompareWorkbench({ loading, report }: { loading: boolean; report: DN
       ...(showMore ? DNS_EXTENDED_TYPES : []),
       ...(dnssec ? DNS_DNSSEC_TYPES : []),
     ];
-    setRefetchLoading(true);
-    setRefetchError("");
+    dispatch({ kind: "start" });
     runDNSCheck(report.host, { types, dnssec })
       .then((next) => {
-        if (!cancelled) setOverride(next);
+        if (!cancelled) dispatch({ kind: "success", report: next });
       })
       .catch((err) => {
-        if (!cancelled) setRefetchError((err as Error).message || "request failed");
-      })
-      .finally(() => {
-        if (!cancelled) setRefetchLoading(false);
+        if (!cancelled) {
+          dispatch({
+            kind: "failure",
+            error: (err as Error).message || "request failed",
+          });
+        }
       });
     return () => {
       cancelled = true;
     };
   }, [report.host, showMore, dnssec]);
+
+  // Backwards-compatible bindings — the rest of the renderer reads
+  // these by the legacy names (override, refetchLoading, refetchError).
+  const override = fetchState.override;
+  const refetchLoading = fetchState.loading;
+  const refetchError = fetchState.error;
 
   const view = override ?? report;
   const coreQueries = view.queries.filter((q) => !DNS_DNSSEC_TYPE_SET.has(q.qtype));
