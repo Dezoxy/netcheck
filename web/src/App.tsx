@@ -23,6 +23,7 @@ import {
 // SelectedModePanel, target input → TargetInput. The old CategoryDetail
 // "page" dissolved; everything renders on the single Dashboard route.
 import { CategoryDropdown } from "./components/CategoryDropdown";
+import { CommandPalette } from "./components/CommandPalette";
 import { DataRow } from "./components/DataRow";
 import { LandingHero } from "./components/LandingHero";
 import { LiveEventStream } from "./components/LiveEventStream";
@@ -409,13 +410,13 @@ export default function App() {
   // own dismissal animation when runState flips away from "loading".
   const isLoading = runState === "loading";
 
-  // PR 6 dashboard restructure: Cmd/Ctrl-K now focuses the dashboard
-  // TargetInput (the only target field after PR 6 dropped TopAppBar's
-  // input). The TopAppBar input ref is still wired but points to a
-  // dead handle since the input was removed; PR 8 (palette modal)
-  // replaces this hook entirely.
+  // PR 8 — Cmd/Ctrl-K now opens a CommandPalette modal instead of
+  // focusing the dashboard input. The TargetInput's `inputRef` is
+  // kept for accessibility / programmatic focus but is no longer
+  // the K-binding target. Palette open state lives in the hook so
+  // the TopAppBar's K-button can also flip it via the same setter.
   const dashboardTargetRef = useRef<HTMLInputElement | null>(null);
-  useCommandPalette(dashboardTargetRef);
+  const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
 
   // Run the selected mode against the current target. Used by the
   // TargetInput's Run pill, the SelectedModePanel's Run pill, and
@@ -458,6 +459,7 @@ export default function App() {
       <SideNav route={route} onRouteChange={setRoute} />
 
       <TopAppBar
+        onOpenPalette={() => setPaletteOpen(true)}
         actions={[
           {
             icon: "bookmark_add",
@@ -473,6 +475,23 @@ export default function App() {
             disabled: !report,
           },
         ]}
+      />
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        recents={recents}
+        saved={saved}
+        onRoute={(r) => setRoute(r)}
+        onMode={(mode, opts) => {
+          setSelectedMode(mode);
+          setSelectedAuditActive(opts?.auditActive ?? false);
+          setRoute("workbench");
+        }}
+        onRecent={(recent) => rerunRecent(recent)}
+        onSaved={(meta) => {
+          void openSaved(meta);
+        }}
       />
 
       <main className="workbench md:ml-64">

@@ -27,18 +27,45 @@ interface TopAppBarProps {
         for a brief affirmative state (e.g. "check" after save). */
     activeIcon?: string;
   }>;
+  /** PR 8 — clicking the left-side "Quick actions / ⌘K" trigger
+   *  invokes this. App owns the palette open state; this just
+   *  flips it. */
+  onOpenPalette?: () => void;
 }
 
-export function TopAppBar({ actions = [] }: TopAppBarProps) {
+export function TopAppBar({ actions = [], onOpenPalette }: TopAppBarProps) {
   return (
     <header
       className="z-30 flex h-20 w-full items-center justify-between bg-[#080a0f]/80 px-margin shadow-md backdrop-blur-xl"
       style={{ borderBottom: "1px solid rgb(255 255 255 / 0.1)" }}
     >
-      {/* Placeholder slot — left flex region for a future "⌘K"
-          palette trigger button (PR 8). Empty for now so the bar
-          stays compact and the right cluster sits flush. */}
-      <div className="flex flex-1 items-center gap-3" />
+      {/* Quick-actions trigger — opens the CommandPalette modal.
+          Visible on md+ so the compact mobile bar isn't cluttered;
+          the keyboard shortcut works everywhere either way. */}
+      <div className="flex flex-1 items-center gap-3">
+        {onOpenPalette ? (
+          <button
+            type="button"
+            onClick={onOpenPalette}
+            aria-label="Open command palette"
+            className="hidden items-center gap-3 rounded-lg border border-white/10 bg-[#0a0c12] px-4 py-2 text-on-surface-variant transition-colors hover:border-primary-fixed-dim/40 hover:text-primary-fixed-dim md:flex"
+          >
+            <Icon name="search" size="sm" />
+            <span
+              className="font-sans uppercase tracking-wider"
+              style={{ fontSize: "11px", letterSpacing: "0.05em" }}
+            >
+              Quick actions
+            </span>
+            <kbd
+              className="rounded border border-white/10 bg-surface-container-highest/80 px-1.5 py-0.5 font-sans text-on-surface-variant"
+              style={{ fontSize: "10px" }}
+            >
+              ⌘K
+            </kbd>
+          </button>
+        ) : null}
+      </div>
 
       {/* Right cluster: actions + system health + notifications. */}
       <div className="ml-6 flex items-center gap-3">
