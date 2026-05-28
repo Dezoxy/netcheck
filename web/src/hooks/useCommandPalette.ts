@@ -1,41 +1,36 @@
-// useCommandPalette — global Cmd/Ctrl-K binding for the top app bar.
+// useCommandPalette — global Cmd/Ctrl-K binding for the palette modal
+// (PR 8 of the HUD redesign).
 //
-// PR 2 wires this to "focus the global command input". PR 5 will
-// upgrade the same shortcut to open a command-palette modal
-// (jump-to-category, recent target, recent report). The hook itself
-// is a one-event listener so the binding stays cheap even with the
-// future modal layered on top.
+// Previous incarnation (PR 2 → PR 6) focused a top-bar input. PR 8
+// replaces that behaviour with a modal palette (CommandPalette.tsx).
+// The hook now owns the open/closed state and exposes it; the
+// parent renders the modal and reacts to the open prop.
+//
+// Binding:
+//   - Cmd/Ctrl + K  → toggle palette
+//   - ESC inside the palette is handled by the modal itself
 //
 // Usage:
-//   const inputRef = useRef<HTMLInputElement | null>(null);
-//   useCommandPalette(inputRef);
-//   <TopAppBar inputRef={inputRef} ... />
+//   const { open, setOpen } = useCommandPalette();
+//   <CommandPalette open={open} onClose={() => setOpen(false)} ... />
 
-import { MutableRefObject, useEffect } from "react";
+import { useEffect, useState } from "react";
 
-export function useCommandPalette(inputRef: MutableRefObject<HTMLInputElement | null>) {
+export function useCommandPalette() {
+  const [open, setOpen] = useState(false);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      // Cmd-K on macOS, Ctrl-K elsewhere. Skip when the user is
-      // already typing in a contenteditable or another input — that
-      // would steal focus from a form they're filling in.
+      // Cmd-K on macOS, Ctrl-K elsewhere. Toggle even when typing
+      // inside an input — the palette is a global navigation
+      // affordance, not a "focus the closest field" gesture.
       if (e.key !== "k" || (!e.metaKey && !e.ctrlKey)) return;
-      const active = document.activeElement;
-      if (
-        active instanceof HTMLInputElement ||
-        active instanceof HTMLTextAreaElement ||
-        (active instanceof HTMLElement && active.isContentEditable)
-      ) {
-        // Only steal focus if the active input isn't already our
-        // own — otherwise pressing ⌘K while in the target field
-        // would re-focus the same field (harmless but pointless).
-        if (active === inputRef.current) return;
-      }
       e.preventDefault();
-      inputRef.current?.focus();
-      inputRef.current?.select();
+      setOpen((cur) => !cur);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [inputRef]);
+  }, []);
+
+  return { open, setOpen };
 }
