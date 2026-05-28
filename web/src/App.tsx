@@ -1,12 +1,10 @@
 import {
   AlertTriangle,
-  ChevronLeft,
   FileText,
   GitCompare,
   Globe,
   History,
   LockKeyhole,
-  Play,
   Settings2,
   Terminal,
   Trash2,
@@ -21,10 +19,15 @@ import {
   useRef,
   useState,
 } from "react";
-import { CategoryBento } from "./components/CategoryBento";
+// PR 6 dashboard restructure: CategoryBento → CategoryDropdown +
+// SelectedModePanel, target input → TargetInput. The old CategoryDetail
+// "page" dissolved; everything renders on the single Dashboard route.
+import { CategoryDropdown } from "./components/CategoryDropdown";
 import { LandingHero } from "./components/LandingHero";
 import { LiveEventStream } from "./components/LiveEventStream";
+import { SelectedModePanel } from "./components/SelectedModePanel";
 import { SideNav } from "./components/SideNav";
+import { TargetInput } from "./components/TargetInput";
 import { TargetTopography } from "./components/TargetTopography";
 import { TelemetryStrip } from "./components/TelemetryStrip";
 import { TopAppBar } from "./components/TopAppBar";
@@ -76,7 +79,8 @@ import type {
   TechReport,
   TLSAuditReport,
 } from "./types";
-import { isActiveMode } from "./types";
+// isActiveMode moved into CategoryDropdown + SelectedModePanel after
+// PR 6 — App.tsx no longer needs the predicate at this layer.
 
 const ACTIVE_ACK_KEY = "netcheck.active-ack.v1";
 
@@ -95,58 +99,18 @@ type RunState = "idle" | "loading" | "ready" | "error";
 import type { Route } from "./routes";
 import { PLACEHOLDER_ROUTES } from "./routes";
 
-// Category groups the 14 check modes for the landing-screen card grid.
-// HUD redesign PR 3 dropped the original "aggregate" category and
-// folded its single mode (audit) into Recon. The new union is:
-//   - network:  full / dns / route / ip
-//   - recon:    audit / headers / tech / subs / reverse / arch
-//   - scanning: tls / takeover / ports / enum
-type Category = "network" | "recon" | "scanning";
+// Category / CategoryDef / CATEGORIES were App-level types tracking
+// the category → modes mapping. PR 6 (dashboard restructure) removed
+// the category state entirely; CategoryDropdown
+// (`web/src/components/CategoryDropdown.tsx`) ships its own annotated
+// copy of the mapping. The "Category" label strings that remain
+// elsewhere in this file are static text inside DNS panels — not
+// type references.
 
-type CategoryDef = {
-  key: Category;
-  label: string;
-  blurb: string;
-  modes: CheckMode[];
-};
-
-// Single source of truth for the category → mode mapping. CategoryBento
-// reads `label`/`blurb` for the bento cards; the category-detail
-// screen reads `modes` to render per-mode ModeCards.
-const CATEGORIES: CategoryDef[] = [
-  {
-    key: "network",
-    label: "Network",
-    blurb: "Connectivity, DNS, routing, IP ownership.",
-    modes: ["full", "dns", "route", "ip"],
-  },
-  {
-    key: "recon",
-    label: "Recon",
-    // Audit lives here now — it's the first card so the
-    // cross-category aggregate scan stays discoverable.
-    blurb: "Passive intel — audit, headers, tech, subdomains, reverse, history.",
-    modes: ["audit", "headers", "tech", "subs", "reverse", "arch"],
-  },
-  {
-    key: "scanning",
-    label: "Scanning",
-    blurb: "Active probes — TLS audit, takeover, ports, paths. Requires authorization.",
-    modes: ["tls", "takeover", "ports", "enum"],
-  },
-];
-
-// modeCategory returns the category that owns a given check mode. Used
-// to set the category state when the user reruns from history or opens
-// a saved report (so the workbench shows the right category context).
-function modeCategory(mode: CheckMode): Category {
-  for (const cat of CATEGORIES) {
-    if (cat.modes.includes(mode)) {
-      return cat.key;
-    }
-  }
-  return "network";
-}
+// modeCategory was removed in PR 6 (dashboard restructure). The
+// Dashboard renders SelectedModePanel based on `selectedMode`
+// directly — no "category" indirection is needed any more for
+// rerun-from-history or open-saved-report flows.
 
 const MODE_LABEL: Record<CheckMode, string> = {
   full: "Full Check",
@@ -165,25 +129,9 @@ const MODE_LABEL: Record<CheckMode, string> = {
   audit: "Audit",
 };
 
-// MODE_BLURB is the one-liner description shown on each ModeCard inside
-// a category-detail screen. R-2 surface.
-const MODE_BLURB: Record<CheckMode, string> = {
-  full: "DNS + TCP + TLS + HTTP probe with redirect chain and timing.",
-  dns: "Compare A/AAAA/MX/TXT answers across Cloudflare, Google, Quad9, system, and any custom resolvers.",
-  route: "Traceroute to the target with per-hop ASN annotation.",
-  ip: "RDAP, reverse DNS, CDN affiliation, ASN ownership.",
-  headers:
-    "Grade HSTS, CSP, X-Frame-Options, and the rest of the security-relevant response headers.",
-  tech: "Fingerprint the CMS, framework, server, CDN, and language from one passive GET.",
-  subs: "Enumerate subdomains from Certificate Transparency logs (crt.sh + CertSpotter).",
-  reverse: "Other hostnames pointing at this IP — reverse DNS, Hackertarget, optional Shodan.",
-  arch: "Wayback Machine snapshot history — first/last seen, total snapshots, recent URLs.",
-  tls: "Protocol matrix + cipher suites + certificate chain + expiry. Active.",
-  takeover: "Is this CNAME pointing at an unclaimed third-party service? Active.",
-  ports: "Parallel TCP connect scan with banner grab. Active.",
-  enum: "HTTP path enumeration against a curated wordlist. Active.",
-  audit: "Aggregate report across Network + Recon (passive) — optionally also Scanning (active).",
-};
+// MODE_BLURB moved into SelectedModePanel (PR 6) — it's the only
+// consumer now that ModeCard is gone. Keeping a local copy here
+// would just create drift risk.
 
 // kindToMode maps the JSON `kind` field on a report back to the UI's
 // CheckMode. Most match 1:1; tls-audit is the only asymmetry.
@@ -212,7 +160,13 @@ export default function App() {
   // is loaded (run or replayed from saved), category is auto-set to
   // the mode's owning category so the workbench shows the right context.
   const [route, setRoute] = useState<Route>("workbench");
-  const [category, setCategory] = useState<Category | null>(null);
+  // PR 6 dashboard restructure: `category` state is gone — the
+  // CategoryDropdown is stateless (each button manages its own open
+  // state), and the user's mode pick is tracked directly as
+  // `selectedMode` + `selectedAuditActive`. SelectedModePanel renders
+  // inline below the dropdown row when selectedMode is non-null.
+  const [selectedMode, setSelectedMode] = useState<CheckMode | null>(null);
+  const [selectedAuditActive, setSelectedAuditActive] = useState(false);
   // portsProgress is the live counter shown during a streaming ports scan.
   // null when no scan is in flight (or when running a non-streaming mode).
   const [portsProgress, setPortsProgress] = useState<{
@@ -407,7 +361,9 @@ export default function App() {
   function rerunRecent(recent: RecentCheck) {
     setTarget(recent.target);
     setMode(recent.mode);
-    setCategory(modeCategory(recent.mode));
+    // PR 6: the Dashboard auto-shows the SelectedModePanel when the
+    // mode is set. modeCategory() is no longer needed for routing.
+    setSelectedMode(recent.mode);
     setRoute("workbench");
     void runCheck(recent.mode, recent.target);
   }
@@ -418,7 +374,7 @@ export default function App() {
       const m = kindToMode(loaded.kind);
       setReport(loaded);
       setMode(m);
-      setCategory(modeCategory(m));
+      setSelectedMode(m);
       setRoute("workbench");
       setTarget(reportTarget(loaded));
       setRunState("ready");
@@ -436,24 +392,11 @@ export default function App() {
     }
   }
 
-  // R-1 redesign: when the user picks a category card on the landing,
-  // also default the mode to the first one in that category so the
-  // existing per-category form has something selected. R-2 will replace
-  // the inline form with ModeCards.
-  function pickCategory(cat: Category) {
-    setCategory(cat);
-    const def = CATEGORIES.find((c) => c.key === cat);
-    if (def && !def.modes.includes(mode)) {
-      setMode(def.modes[0]);
-    }
-  }
-
-  // backToLanding clears the category picker, leaving the report in
-  // place so the user can come back to it; the workbench just shows
-  // the landing again at the top.
-  function backToLanding() {
-    setCategory(null);
-  }
+  // PR 6 dashboard restructure: pickCategory + backToLanding are
+  // gone with the Category state. CategoryDropdown picks a mode
+  // directly via onSelectMode below; SelectedModePanel hosts the Run
+  // button. The "select a category to drill down" interaction is
+  // replaced by "pick a mode from a dropdown and the panel appears."
 
   // R-12: when a check is running, blur the underlying shell + show a
   // fixed-position progress overlay above it. `app-shell-loading` adds
@@ -461,19 +404,32 @@ export default function App() {
   // own dismissal animation when runState flips away from "loading".
   const isLoading = runState === "loading";
 
-  // HUD redesign (PR 2): the global Cmd/Ctrl-K hotkey focuses the
-  // top-bar command line. Same input is used for the target field —
-  // pressing Enter inside it fires the Full check (legacy behavior).
-  const commandInputRef = useRef<HTMLInputElement | null>(null);
-  useCommandPalette(commandInputRef);
+  // PR 6 dashboard restructure: Cmd/Ctrl-K now focuses the dashboard
+  // TargetInput (the only target field after PR 6 dropped TopAppBar's
+  // input). The TopAppBar input ref is still wired but points to a
+  // dead handle since the input was removed; PR 8 (palette modal)
+  // replaces this hook entirely.
+  const dashboardTargetRef = useRef<HTMLInputElement | null>(null);
+  useCommandPalette(dashboardTargetRef);
 
-  function onCommandSubmit() {
-    // Mirror the original Landing.onRunDefault behaviour: navigate
-    // into the Network category, set mode=full, then kick the run.
-    setMode("full");
-    setCategory("network");
-    setRoute("workbench");
-    void runCheck("full");
+  // Run the selected mode against the current target. Used by the
+  // TargetInput's Run pill, the SelectedModePanel's Run pill, and
+  // Enter inside the TargetInput. Falls back to a Full check on
+  // Network if no mode is picked yet (legacy onRunDefault behaviour).
+  function runSelected() {
+    if (selectedMode === null) {
+      setMode("full");
+      setSelectedMode("full");
+      void runCheck("full");
+      return;
+    }
+    setMode(selectedMode);
+    if (selectedMode === "audit") {
+      setAuditIncludeActive(selectedAuditActive);
+      void runCheck("audit", undefined, selectedAuditActive);
+      return;
+    }
+    void runCheck(selectedMode);
   }
 
   return (
@@ -497,10 +453,6 @@ export default function App() {
       <SideNav route={route} onRouteChange={setRoute} />
 
       <TopAppBar
-        target={target}
-        onTargetChange={setTarget}
-        onTargetSubmit={onCommandSubmit}
-        inputRef={commandInputRef}
         actions={[
           {
             icon: "bookmark_add",
@@ -519,19 +471,67 @@ export default function App() {
       />
 
       <main className="workbench md:ml-64">
-        {route === "workbench" && category === null ? (
-          // HUD redesign PR 3 — Landing is now split into a hero
-          // strip + a 3-card bento. The target input lives in
-          // TopAppBar; pressing Enter there fires the default Full
-          // check (see onCommandSubmit above).
+        {route === "workbench" ? (
+          // PR 6 dashboard restructure — one continuous page:
+          //   hero → target input → 3 category dropdowns → optional
+          //   selected-mode panel (auth banner + extras + Run + report)
+          //   → live data trio (event stream / topography / telemetry).
           //
-          // PR 5 added the live-data trio below the bento:
-          // LiveEventStream + TargetTopography + TelemetryStrip.
-          // These subscribe to the SSE bus / poll the /api/telemetry
-          // and /api/topology endpoints PR 4 added.
+          // Picking a mode from a dropdown reveals SelectedModePanel
+          // inline. Click Run there or hit Enter in the TargetInput
+          // to run. No navigation away from the page.
           <section className="flex flex-col gap-margin px-margin py-margin">
             <LandingHero lastScanAt={recents[0]?.ranAt} />
-            <CategoryBento onPick={pickCategory} />
+
+            <TargetInput
+              target={target}
+              onTargetChange={setTarget}
+              onSubmit={runSelected}
+              runDisabled={isLoading}
+              inputRef={dashboardTargetRef}
+            />
+
+            <CategoryDropdown
+              selectedMode={selectedMode}
+              selectedAuditActive={selectedAuditActive}
+              onSelectMode={(mode, opts) => {
+                setSelectedMode(mode);
+                setSelectedAuditActive(opts?.auditActive ?? false);
+              }}
+            />
+
+            {selectedMode !== null ? (
+              <SelectedModePanel
+                mode={selectedMode}
+                auditActive={selectedAuditActive}
+                activeAcknowledged={activeAcknowledged}
+                onAcknowledge={setActiveAcknowledged}
+                loading={isLoading}
+                runningMode={isLoading ? mode : null}
+                extras={
+                  selectedMode === "ports" ? (
+                    <PortsProtoToggle value={portsProto} onChange={setPortsProto} />
+                  ) : undefined
+                }
+                onRun={runSelected}
+                error={runState === "error" ? error : ""}
+                report={report}
+                runSeq={runSeq}
+                reportSlot={
+                  report ? (
+                    <ReportErrorBoundary key={runSeq}>
+                      <ReportView loading={isLoading} report={report} />
+                    </ReportErrorBoundary>
+                  ) : null
+                }
+              />
+            ) : null}
+
+            {/* Ports SSE progress lives at the page level so the
+                banner is visible whether or not SelectedModePanel
+                has a report in flight yet. */}
+            {isLoading && portsProgress ? <PortsProgressBanner progress={portsProgress} /> : null}
+
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="lg:col-span-2">
                 <LiveEventStream />
@@ -542,35 +542,6 @@ export default function App() {
               </div>
             </div>
           </section>
-        ) : null}
-
-        {route === "workbench" && category !== null ? (
-          <CategoryDetail
-            categoryDef={CATEGORIES.find((c) => c.key === category)!}
-            target={target}
-            onTargetChange={setTarget}
-            onBack={backToLanding}
-            onRun={(m, opts) => {
-              setMode(m);
-              if (opts?.auditActive !== undefined) {
-                setAuditIncludeActive(opts.auditActive);
-              }
-              // Pass auditActive as a third arg to dodge the stale
-              // closure on auditIncludeActive — the setState above
-              // won't be visible inside this same render's runCheck.
-              void runCheck(m, undefined, opts?.auditActive);
-            }}
-            runState={runState}
-            runningMode={mode}
-            activeAcknowledged={activeAcknowledged}
-            onAcknowledge={setActiveAcknowledged}
-            error={error}
-            report={report}
-            runSeq={runSeq}
-            portsProgress={portsProgress}
-            portsProto={portsProto}
-            onPortsProtoChange={setPortsProto}
-          />
         ) : null}
 
         {route === "history" ? <RouteHistoryList recents={recents} onRerun={rerunRecent} /> : null}
@@ -933,264 +904,13 @@ function StatusFooter({ lastScanAt }: { lastScanAt: string | undefined }) {
 // TopAppBar's global command line now (PR 2). Pressing Enter there
 // fires the same Full check that the old "Run Check" button did.
 
-// CategoryDetail is the screen shown after the user picks a category
-// card. Layout: back link → target input bar → optional auth banner
-// (for Scanning) → list of ModeCards → result area.
-//
-// R-2 collapses the previous per-mode "form + tabs + auth + audit-
-// options" flow into one card per mode. Clicking a card's Run pill
-// sets the mode and kicks off the check in a single action.
-function CategoryDetail({
-  categoryDef,
-  target,
-  onTargetChange,
-  onBack,
-  onRun,
-  runState,
-  runningMode,
-  activeAcknowledged,
-  onAcknowledge,
-  error,
-  report,
-  runSeq,
-  portsProgress,
-  portsProto,
-  onPortsProtoChange,
-}: {
-  categoryDef: CategoryDef;
-  target: string;
-  onTargetChange: (next: string) => void;
-  onBack: () => void;
-  onRun: (mode: CheckMode, opts?: { auditActive?: boolean }) => void;
-  runState: RunState;
-  runningMode: CheckMode;
-  activeAcknowledged: boolean;
-  onAcknowledge: (next: boolean) => void;
-  error: string;
-  report: AnyReport | null;
-  // Bumped on every run; used as the ReportErrorBoundary key so a
-  // crash on one report doesn't get latched across retries.
-  runSeq: number;
-  portsProgress: { scanned: number; total: number; open: number } | null;
-  // R-13: port-scan protocol selector lives on the App and is threaded
-  // through here so the Ports modecard can surface a TCP/UDP/Both
-  // segmented control next to its Run button.
-  portsProto: "tcp" | "udp" | "both";
-  onPortsProtoChange: (next: "tcp" | "udp" | "both") => void;
-}) {
-  const isScanning = categoryDef.key === "scanning";
-  // HUD redesign PR 3: Audit moved out of the dropped Aggregate
-  // category and into Recon. The audit mode card still wants its
-  // dual-pill (Passive + Active) and the auth banner, so the
-  // predicates key on "does this category contain audit" rather
-  // than "is this the aggregate category".
-  const hasAudit = categoryDef.modes.includes("audit");
-  // Predicate used by the onKeyDown Enter handler — only audit
-  // shows the dual-pill Passive/Active behaviour.
-  const isAuditAggregateMode = (m: CheckMode) => hasAudit && m === "audit";
-  // Active modes (tls/takeover/ports/enum) and Audit-Active both
-  // require the auth banner. Audit lives in Recon now, so Recon
-  // also needs the banner when audit is in scope. One checkbox
-  // unlocks all active probes across the category.
-  const showAuthBanner = isScanning || hasAudit;
-  const runDisabled = runState === "loading";
+// CategoryDetail was deleted in PR 6 (dashboard restructure). Its
+// content moved onto the Dashboard as CategoryDropdown + SelectedModePanel,
+// so the per-category drill-down page is no longer reachable.
 
-  return (
-    <section className="category-detail" aria-label={categoryDef.label}>
-      <button className="back-link" onClick={onBack} type="button">
-        <ChevronLeft />
-        <span>Categories</span>
-      </button>
-
-      <div className="category-detail-header">
-        <h1>{categoryDef.label}</h1>
-        <p>{categoryDef.blurb}</p>
-      </div>
-
-      <label className="landing-input category-detail-input">
-        <Globe />
-        <span className="sr-only">Target</span>
-        <input
-          autoCapitalize="none"
-          autoCorrect="off"
-          onChange={(event) => onTargetChange(event.target.value)}
-          onKeyDown={(event) => {
-            // Codex P2 on #64: Enter used to submit the v1 form.
-            // R-2 replaced the form with ModeCards, so Enter became a
-            // no-op. Restore the keyboard-flow expectation by running
-            // the first mode in the category that isn't auth-blocked.
-            // Aggregate's audit defaults to Passive; Scanning needs the
-            // category-level checkbox first or Enter is suppressed.
-            if (event.key !== "Enter" || runDisabled) {
-              return;
-            }
-            const firstMode = categoryDef.modes.find((m) => {
-              if (isAuditAggregateMode(m)) return true; // Passive always OK
-              return !isActiveMode(m) || activeAcknowledged;
-            });
-            if (firstMode) {
-              event.preventDefault();
-              const opts = isAuditAggregateMode(firstMode) ? { auditActive: false } : undefined;
-              onRun(firstMode, opts);
-            }
-          }}
-          placeholder="Enter target URL (e.g. https://example.com) or IP address…"
-          spellCheck="false"
-          value={target}
-        />
-      </label>
-
-      {showAuthBanner ? (
-        <section
-          className={`auth-banner ${activeAcknowledged ? "auth-banner-ack" : "auth-banner-pending"}`}
-          aria-label="Active scan authorization"
-        >
-          <div className="auth-banner-icon">
-            <AlertTriangle />
-          </div>
-          <div className="auth-banner-body">
-            <strong>
-              {isScanning
-                ? "These probes actively touch the target."
-                : "Audit can include active probes."}
-            </strong>
-            <p>
-              Running active probes against a system you do not own — or do not have written
-              permission to test — is illegal in most jurisdictions. Read{" "}
-              <a
-                href="https://github.com/Dezoxy/netcheck/blob/main/docs/ETHICS.md"
-                rel="noreferrer"
-                target="_blank"
-              >
-                docs/ETHICS.md
-              </a>
-              .
-            </p>
-            <label className="auth-banner-check">
-              <input
-                checked={activeAcknowledged}
-                onChange={(event) => onAcknowledge(event.target.checked)}
-                type="checkbox"
-              />
-              <span>I am authorized to actively probe this target.</span>
-            </label>
-          </div>
-        </section>
-      ) : null}
-
-      <div className="modecard-list">
-        {categoryDef.modes.map((m) => (
-          <ModeCard
-            key={m}
-            mode={m}
-            isActive={isActiveMode(m)}
-            isAuditAggregate={hasAudit && m === "audit"}
-            runDisabled={runDisabled}
-            running={runState === "loading" && runningMode === m}
-            authReady={activeAcknowledged}
-            onRun={(opts) => onRun(m, opts)}
-            extra={
-              m === "ports" ? (
-                <PortsProtoToggle value={portsProto} onChange={onPortsProtoChange} />
-              ) : undefined
-            }
-          />
-        ))}
-      </div>
-
-      {runState === "error" ? <ErrorBanner message={error} /> : null}
-      {runState === "loading" && portsProgress ? (
-        <PortsProgressBanner progress={portsProgress} />
-      ) : null}
-      {report ? (
-        <ReportErrorBoundary key={runSeq}>
-          <ReportView loading={runState === "loading"} report={report} />
-        </ReportErrorBoundary>
-      ) : null}
-    </section>
-  );
-}
-
-// ModeCard is one row inside a category-detail screen. Title +
-// description + Run pill. For audit (Aggregate category) the card
-// shows two pills: Passive and Active. Active-tier modes (tls /
-// takeover / ports / enum) are gated on the category-level auth
-// banner; Run is disabled until the user ticks the checkbox.
-function ModeCard({
-  mode,
-  isActive,
-  isAuditAggregate,
-  runDisabled,
-  running,
-  authReady,
-  onRun,
-  extra,
-}: {
-  mode: CheckMode;
-  isActive: boolean;
-  isAuditAggregate: boolean;
-  runDisabled: boolean;
-  running: boolean;
-  authReady: boolean;
-  onRun: (opts?: { auditActive?: boolean }) => void;
-  // R-13: optional per-mode controls injected by the parent. Currently
-  // used by the Ports modecard to surface the TCP/UDP/Both selector
-  // without bloating ModeCard with mode-specific props.
-  extra?: ReactNode;
-}) {
-  // Lock the Run pill when the mode is active-tier and the user
-  // hasn't acknowledged the auth banner yet. For audit, the Passive
-  // button is always available; the Active button is gated.
-  const activeBlocked = isActive && !authReady;
-  return (
-    <article className={`modecard ${isActive ? "modecard-active-tier" : ""}`}>
-      <div className="modecard-body">
-        <div className="modecard-head">
-          <strong>{MODE_LABEL[mode]}</strong>
-          {isActive ? <span className="modecard-tier">Active</span> : null}
-        </div>
-        <p>{MODE_BLURB[mode]}</p>
-        {extra}
-      </div>
-      <div className="modecard-actions">
-        {isAuditAggregate ? (
-          <>
-            <button
-              className="modecard-run modecard-run-secondary"
-              disabled={runDisabled}
-              onClick={() => onRun({ auditActive: false })}
-              type="button"
-            >
-              <Play />
-              <span>{running ? "Running…" : "Passive"}</span>
-            </button>
-            <button
-              className="modecard-run"
-              disabled={runDisabled || !authReady}
-              onClick={() => onRun({ auditActive: true })}
-              title={authReady ? undefined : "Confirm authorization above to enable active runs"}
-              type="button"
-            >
-              <Play />
-              <span>{running ? "Running…" : "Active"}</span>
-            </button>
-          </>
-        ) : (
-          <button
-            className="modecard-run"
-            disabled={runDisabled || activeBlocked}
-            onClick={() => onRun()}
-            title={activeBlocked ? "Confirm authorization above to enable active runs" : undefined}
-            type="button"
-          >
-            <Play />
-            <span>{running ? "Running…" : "Run"}</span>
-          </button>
-        )}
-      </div>
-    </article>
-  );
-}
+// ModeCard was deleted in PR 6 (dashboard restructure). The
+// SelectedModePanel component (web/src/components/SelectedModePanel.tsx)
+// hosts the inline mode controls + Run pill that ModeCard provided.
 
 // RouteHistoryList renders the existing recents in the main workbench
 // area instead of the side drawer. R-8 will redesign the row treatment;
