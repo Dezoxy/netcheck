@@ -4,6 +4,31 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.6.0](https://github.com/Dezoxy/netcheck/compare/v2.5.0...v2.6.0) (2026-05-28)
+
+
+### Features
+
+* HUD redesign PR 4 — event bus + telemetry + topology endpoints ([#117](https://github.com/Dezoxy/netcheck/issues/117)) ([21d975d](https://github.com/Dezoxy/netcheck/commit/21d975dc7873ffe017a2a3ddd5ac4e480c356e27))
+* **web:** HUD PR 6 — dashboard restructure (target + dropdowns + inline report) ([#120](https://github.com/Dezoxy/netcheck/issues/120)) ([a902798](https://github.com/Dezoxy/netcheck/commit/a9027982b9bc276446289a073be55ae2bf2475a8))
+* **web:** HUD PR 7 — Panel/DataRow/StatusPill + FullCheck restyle ([#121](https://github.com/Dezoxy/netcheck/issues/121)) ([567e5db](https://github.com/Dezoxy/netcheck/commit/567e5db337c9a2f25959fd085c6949b3a18a8cce))
+* **web:** HUD PR 8 — Cmd/Ctrl-K command palette modal ([#122](https://github.com/Dezoxy/netcheck/issues/122)) ([160ed7c](https://github.com/Dezoxy/netcheck/commit/160ed7ce11d4939cfada0ebccd797858db2dba37))
+* **web:** HUD redesign PR 1 — Tailwind v4 foundation + design tokens ([#113](https://github.com/Dezoxy/netcheck/issues/113)) ([bb91f12](https://github.com/Dezoxy/netcheck/commit/bb91f1216183b39ee78bbbd2125e898dcb3ee5de))
+* **web:** HUD redesign PR 2 — SideNav + TopAppBar + Cmd/Ctrl-K ([#115](https://github.com/Dezoxy/netcheck/issues/115)) ([1c30187](https://github.com/Dezoxy/netcheck/commit/1c301876f6c9df9ee6095c27391eda6de77fd431))
+* **web:** HUD redesign PR 3 — LandingHero + 3-card bento + drop Aggregate ([#116](https://github.com/Dezoxy/netcheck/issues/116)) ([280f83e](https://github.com/Dezoxy/netcheck/commit/280f83e9808305565fe54915937a8f98f959c858))
+* **web:** HUD redesign PR 5 — Live Event Stream + Target Topography + Telemetry Strip ([#119](https://github.com/Dezoxy/netcheck/issues/119)) ([9fb6999](https://github.com/Dezoxy/netcheck/commit/9fb699910530d19c61473ce4a00a38a6b9ae17d5))
+
+
+### Bug fixes
+
+* **web:** HUD PR 9 — drop react-hooks/set-state-in-effect suppressions in DNSCompareWorkbench ([#123](https://github.com/Dezoxy/netcheck/issues/123)) ([ef798ef](https://github.com/Dezoxy/netcheck/commit/ef798ef7cd753e109664021ff11e2f2540cfd9db))
+
+
+### Refactor
+
+* **web:** HUD PR 10 — lucide-react sweep + uninstall ([#124](https://github.com/Dezoxy/netcheck/issues/124)) ([db92802](https://github.com/Dezoxy/netcheck/commit/db9280229d5fd6dde3b8d078a42022b7ba006707))
+* **web:** HUD PR 11 — sunset styles.css ([#125](https://github.com/Dezoxy/netcheck/issues/125)) ([8eb32b7](https://github.com/Dezoxy/netcheck/commit/8eb32b7b93be2dc6005556579986498003b6f8a3))
+
 ## [2.5.0](https://github.com/Dezoxy/netcheck/compare/v2.4.1...v2.5.0) (2026-05-27)
 
 
