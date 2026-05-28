@@ -1,32 +1,21 @@
-// HUD-redesign TopAppBar (PR 2 of the redesign).
+// HUD-redesign TopAppBar.
 //
-// 80px-tall sticky bar above the main canvas. Three regions:
-//   - Global command line (left, max 768px) — terminal icon + input
-//     with a Cmd/Ctrl-K hint chip. Used today to focus + type a
-//     target; in PR 5 it becomes a real command palette modal.
-//   - System Health pill (lg+ only) — heartbeat icon + green dot,
-//     just a presence indicator; no real backend wiring yet.
-//   - Notifications + report actions (right).
-//
-// The Save/Export report buttons that used to live in the old
-// `.topbar` are kept here on the right side so the function isn't
-// lost mid-migration. They visually fit the HUD aesthetic but will
-// likely move to a contextual report toolbar in PR 5.
+// PR 2 (#115) shipped this with a global command-line input. PR 6
+// (dashboard restructure) removed the input — the prominent target
+// field lives on the Dashboard now (TargetInput.tsx). The TopAppBar
+// is now a compact bar with:
+//   - a placeholder slot on the left where PR 8 (palette modal) will
+//     install a "⌘K — Quick actions" button
+//   - System Health pill (decorative until PR 4's bus is fully wired
+//     to a real liveness signal)
+//   - Notifications button (placeholder for the eventbus warn/crit
+//     drain)
+//   - Right-side report-action cluster (Save / Export — inherited
+//     from the v1 topbar)
 
-import type { ChangeEvent, KeyboardEvent, MutableRefObject } from "react";
 import { Icon } from "./Icon";
 
 interface TopAppBarProps {
-  target: string;
-  onTargetChange: (next: string) => void;
-  // onTargetSubmit fires when the user presses Enter in the command
-  // line. When `category === null` and we're on Dashboard, this
-  // should kick off the default Full check (matching the old
-  // landing's behavior).
-  onTargetSubmit?: () => void;
-  // Ref to the input element so a Cmd+K hook elsewhere can focus
-  // the field globally.
-  inputRef?: MutableRefObject<HTMLInputElement | null>;
   // Right-side action buttons. Each is rendered as a square icon
   // button with the HUD glow on hover. Disabled state inherited.
   actions?: Array<{
@@ -40,55 +29,16 @@ interface TopAppBarProps {
   }>;
 }
 
-export function TopAppBar({
-  target,
-  onTargetChange,
-  onTargetSubmit,
-  inputRef,
-  actions = [],
-}: TopAppBarProps) {
-  function handleChange(e: ChangeEvent<HTMLInputElement>) {
-    onTargetChange(e.target.value);
-  }
-
-  function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" && onTargetSubmit) {
-      e.preventDefault();
-      onTargetSubmit();
-    }
-  }
-
+export function TopAppBar({ actions = [] }: TopAppBarProps) {
   return (
     <header
       className="z-30 flex h-20 w-full items-center justify-between bg-[#080a0f]/80 px-margin shadow-md backdrop-blur-xl"
       style={{ borderBottom: "1px solid rgb(255 255 255 / 0.1)" }}
     >
-      {/* Global command line. group lets the focus state ripple to
-          the icon + glow utility. The kbd chip on the right is a
-          visual hint that ⌘K focuses this input (the actual binding
-          lives in useCommandPalette). */}
-      <div className="group relative flex max-w-3xl flex-1 items-center">
-        <Icon
-          name="terminal"
-          size="md"
-          className="absolute left-4 text-on-surface-variant transition-colors group-focus-within:text-primary-fixed-dim group-focus-within:glow-text"
-        />
-        <input
-          ref={inputRef}
-          type="text"
-          value={target}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          autoCapitalize="none"
-          autoCorrect="off"
-          spellCheck="false"
-          placeholder="Enter target URL or IP address... (e.g., example.com)"
-          className="input-glow data-value w-full rounded-lg border border-white/10 bg-[#0a0c12] py-3 pl-12 pr-20 font-mono text-[13px] text-primary-fixed-dim transition-all placeholder:text-on-surface-variant/50 focus:bg-[#10131a] focus:outline-none"
-        />
-        <kbd className="absolute right-3 hidden rounded border border-white/10 bg-surface-container-highest/80 px-2 py-1 font-sans text-[11px] text-on-surface-variant sm:inline-block">
-          ⌘K
-        </kbd>
-      </div>
+      {/* Placeholder slot — left flex region for a future "⌘K"
+          palette trigger button (PR 8). Empty for now so the bar
+          stays compact and the right cluster sits flush. */}
+      <div className="flex flex-1 items-center gap-3" />
 
       {/* Right cluster: actions + system health + notifications. */}
       <div className="ml-6 flex items-center gap-3">
