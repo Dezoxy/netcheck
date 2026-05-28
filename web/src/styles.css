@@ -1,3 +1,24 @@
+/* netcheck — legacy component styles (HUD migration tail).
+ *
+ * PR 11 of the HUD redesign pruned this file from ~2.6k lines down to
+ * only the rules still referenced after PRs 1–10. The pre-PR6/PR7 era
+ * (sidenav/topbar/brand chrome, landing + category-card grid, ModeCard
+ * list, category-detail, auth-gate/auth-banner, and the FullCheck
+ * `metric`/`waterfall`/`http-grid` cluster) was rewritten to Tailwind
+ * and is gone.
+ *
+ * What remains are the report-renderer + shell rules that are either
+ * complex CSS grids with responsive breakpoints (dns-row variants,
+ * certificate-grid), animations (loading overlay, progress ring,
+ * ports progress bar), or dynamically-classed widgets (health-pill,
+ * diff-chip). These live here as named classes — the idiomatic place
+ * for them is Tailwind v4 @layer/@utility, which PR 11's relocation
+ * commit folds into index.css.
+ *
+ * Imported AFTER index.css (see main.tsx) so these plain selectors keep
+ * priority over Tailwind utilities, preserving the current cascade.
+ */
+
 :root {
   color: #e8eef2;
   background: #0b0d0e;
@@ -13,8 +34,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 
-  /* Canvas + surfaces. R-1 redesign tokens — slightly cooler darks with
-     more separation between canvas / surface / panel so cards feel raised. */
+  /* Canvas + surfaces. */
   --canvas: #0b0d0e;
   --surface: #14171b;
   --panel: #1a1e23;
@@ -27,7 +47,7 @@
   --muted: #9aa3ac;
   --faint: #5d6671;
 
-  /* Accent (kept on-spec with the existing cyan). */
+  /* Accent. */
   --accent: #4cd7f6;
   --accent-strong: #06b6d4;
   --accent-glow: 0 0 0 1px var(--accent), 0 0 16px -4px var(--accent);
@@ -38,14 +58,14 @@
   --fail: #f35f63;
   --info: #8db1ff;
 
-  /* Radius scale — pill buttons + soft cards. */
+  /* Radius scale. */
   --radius-xs: 6px;
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-pill: 999px;
 
-  /* Elevation. Cards: subtle inset highlight + drop shadow. */
+  /* Elevation. */
   --elev-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 1px 2px rgba(0, 0, 0, 0.4);
   --elev-2: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 4px 12px rgba(0, 0, 0, 0.45);
   --elev-hover: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 8px 24px rgba(0, 0, 0, 0.55);
@@ -87,26 +107,18 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Data text gets the mono face. */
 code,
 dd,
 input,
 .dns-table,
 .health-pill,
-.http-grid strong,
-.metric,
-.recent-item strong,
-.summary-card strong,
-.summary-card code,
-.timing-legend {
+.recent-item strong {
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-/* R-1 shell. Desktop = topbar + (sidenav, workbench) + status footer.
-   Mobile (≤920px) collapses to a single workbench column with a fixed
-   bottom-nav; rules at the bottom of this file.
-   R-11 widened the sidenav from 240px → 280px to match the Modern v1
-   mockup proportions; brand block now lives inside the sidenav so it
-   needs the extra room. */
+/* ─── Shell ──────────────────────────────────────────────────────────── */
+
 .app-shell {
   display: grid;
   grid-template:
@@ -115,94 +127,6 @@ input,
     "footer footer" 28px / 280px minmax(0, 1fr);
   min-height: 100vh;
   background: var(--canvas);
-}
-
-.topbar {
-  position: sticky;
-  z-index: 20;
-  top: 0;
-  grid-area: topbar;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: calc(48px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) 0
-    max(16px, env(safe-area-inset-left));
-  border-bottom: 1px solid var(--border-strong);
-  background: var(--surface);
-}
-
-/* Brand block — atom mark + wordmark. Two contexts:
-     1. Topbar (.topbar .brand)   — visible only on mobile (≤920px) where
-        the sidebar is hidden. Carries the brand for phone users.
-     2. Sidenav (.sidenav-brand)  — visible on ≥921px desktop where it
-        replaces the topbar brand. Matches the Modern v1 mockup where the
-        brand sits at the top of the sidebar.
-   R-11: desktop hides .topbar .brand via the media query lower in this
-   file. */
-/* Desktop: brand inside .topbar is hidden; sidebar's .sidenav-brand
-   takes over. Mobile (≤920px) re-enables it via the media query at the
-   bottom of this file. */
-.topbar .brand {
-  display: none;
-}
-
-@media (max-width: 920px) {
-  .topbar .brand {
-    display: inline-flex;
-  }
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--accent);
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 32px;
-}
-
-.brand-mark {
-  flex-shrink: 0;
-  color: var(--accent);
-}
-
-/* The sidenav variant — bigger mark, used at the top of the sidebar.
-   R-11 follow-up: tightened the top padding (was --space-5 = 20px) to
-   --space-4 (16px) so the brand sits closer to the sidebar's top
-   edge rather than floating mid-column. */
-.sidenav-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5) var(--space-2);
-  color: var(--accent);
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 28px;
-}
-
-.sidenav-brand .brand-mark {
-  flex-shrink: 0;
-}
-
-.topbar-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.topbar-leading {
-  display: flex;
-  min-width: 0;
-  gap: 4px;
-  align-items: center;
-}
-
-.mobile-menu-button {
-  display: none;
 }
 
 .icon-button {
@@ -215,15 +139,12 @@ input,
   place-items: center;
   color: var(--muted);
   cursor: pointer;
+  border-radius: var(--radius-sm);
 }
 
 .icon-button svg {
   width: 20px;
   height: 20px;
-}
-
-.icon-button {
-  border-radius: var(--radius-sm);
 }
 
 .icon-button:hover:not(:disabled),
@@ -239,139 +160,43 @@ input,
   opacity: 0.32;
 }
 
-/* R-11 sidebar — glassy: semi-transparent surface + backdrop blur so the
-   canvas color bleeds through. Brand block at the top, nav directly
-   below, then the remaining height is empty (fades into the canvas).
-   Mobile (≤920px) keeps `display: none` (see media query at the
-   bottom of this file).
-   R-11 follow-up: switched from `grid-template-rows: auto 1fr` to a
-   flex column. The grid layout was inflating the nav row to 1fr, which
-   created visual ambiguity about where the items "live" and shifted
-   brand visually toward center on tall viewports. Flex column with
-   `justify-content: flex-start` anchors brand + nav to the top with
-   their natural heights; the rest of the column is just empty space. */
-.sidenav {
-  position: sticky;
-  top: 48px;
-  grid-area: sidenav;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  height: calc(100vh - 48px);
-  overflow: hidden;
-  border-right: 1px solid var(--border-strong);
-  background: rgba(20, 23, 27, 0.55); /* ~55% of --surface */
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  backdrop-filter: blur(20px) saturate(140%);
-}
-
-.sidenav-backdrop {
-  display: none;
-}
-
-.sidenav-heading {
-  display: flex;
-  gap: 12px;
-  align-items: start;
-  justify-content: space-between;
-  padding: 16px;
-  border-bottom: 1px solid var(--border-strong);
-}
-
-.sidenav-heading div {
+.workbench {
+  grid-area: workbench;
   display: grid;
-  gap: 4px;
-}
-
-.sidenav-close-button {
-  display: none;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  padding: 5px;
-}
-
-/* R-11: removed `.nav-item` from this label-caps cluster — nav items now
-   use full sentence-case readable text (16px regular) rather than tiny
-   tracked-out caps, matching the Modern v1 mockup. The remaining members
-   are still legitimate label-caps rendering contexts. */
-.sidenav-heading span,
-.panel > header,
-.summary-card > span,
-.mode-tab,
-.metric > span,
-.dns-header,
-.empty-workbench span {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.055em;
-  line-height: 16px;
-  text-transform: none;
-}
-
-.sidenav-heading strong {
-  color: var(--accent);
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 20px;
-}
-
-/* R-11: nav items get a proper pill design — rounded background fills the
-   item width with margin on both sides; active state uses panel-raised
-   bg + accent text/icon. Matches the Modern v1 mockup where the active
-   item is a rounded rectangle hugging icon+text. Idle items hover into
-   a subtler panel tone. */
-.sidenav-nav {
-  display: grid;
+  min-width: 0;
   align-content: start;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
+  gap: 16px;
+  padding: 16px max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  background: var(--surface);
 }
 
-.nav-item {
+/* StatusFooter — desktop only. Sits in the `footer` grid area. */
+.status-footer {
+  grid-area: footer;
   display: flex;
-  min-height: 44px;
-  gap: var(--space-3);
   align-items: center;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
+  justify-content: space-between;
+  padding: 0 var(--space-5);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
   color: var(--muted);
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 20px;
-  cursor: pointer;
-  text-align: left;
-  transition:
-    background 120ms ease,
-    color 120ms ease;
+  font-size: 12px;
+  line-height: 28px;
 }
 
-.nav-item svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
+.status-footer .muted {
+  color: var(--faint);
 }
 
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+.status-footer code {
+  font-size: 11px;
   color: var(--fg);
+  background: transparent;
+  padding: 0;
 }
 
-.nav-item:focus-visible {
-  outline: 1px solid var(--border-strong);
-  outline-offset: -1px;
-}
-
-.nav-item-active,
-.nav-item-active:hover {
-  background: var(--panel-raised);
-  color: var(--accent);
-  font-weight: 600;
-}
+/* ─── Recents list (history / reports / sidebar rows) ─────────────────── */
 
 .recent-list {
   display: grid;
@@ -381,8 +206,6 @@ input,
   padding: var(--space-3) var(--space-2);
 }
 
-/* R-8: list-page variant gets card-style rows (radius + border) so the
-   history/reports pages don't look like a sidebar dump. */
 .recent-list-page {
   padding: 0;
 }
@@ -450,232 +273,97 @@ input,
   background: var(--fail);
 }
 
-.sidenav-footer {
+/* Multi-button variant for saved reports: main button + 1–2 icon buttons. */
+.recent-item-saved {
   display: grid;
-  gap: 2px;
-  padding: 9px 8px max(8px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border-strong);
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-2);
+  align-items: stretch;
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 
-.sidenav-footer a {
-  display: flex;
-  min-height: 36px;
-  gap: 16px;
+.recent-item-saved:hover {
+  border-color: var(--border-strong);
+}
+
+.recent-item-saved .recent-item-main {
+  background: none;
+  border: none;
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: var(--space-3);
   align-items: center;
-  padding: 8px 16px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.055em;
-  text-decoration: none;
-}
-
-.sidenav-footer svg {
-  width: 18px;
-  height: 18px;
-}
-
-.sidenav-footer a:hover,
-.sidenav-footer a:focus-visible {
-  color: var(--accent);
-}
-
-.workbench {
-  grid-area: workbench;
-  display: grid;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   min-width: 0;
-  align-content: start;
-  gap: 16px;
-  padding: 16px max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
-    max(16px, env(safe-area-inset-left));
-  background: var(--surface);
 }
 
-/* R-3 redesign: shared primitives get the new radius/shadow/padding
-   scale. The 14 result workbenches inherit these without per-component
-   edits. */
-.input-section,
-.panel,
-.summary-card,
+.recent-item-saved .recent-item-main:hover,
+.recent-item-saved .recent-item-main:focus-visible {
+  background: var(--panel-raised);
+  outline: 0;
+}
+
+.recent-item-saved .recent-item-main span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recent-item-saved .recent-item-main strong,
+.recent-item-saved .recent-item-main time {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-item-saved .recent-item-main strong {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--fg);
+}
+
+.recent-item-saved .recent-item-main time {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.recent-item-saved .icon-button {
+  align-self: center;
+  margin-right: var(--space-2);
+}
+
+.recent-item-picked {
+  border-color: var(--accent);
+  background: rgb(76 215 246 / 8%);
+}
+
+.empty-list {
+  margin: var(--space-5);
+  color: var(--faint);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ─── Result header + status pills ────────────────────────────────────── */
+
 .error-banner {
   border: 1px solid var(--border);
   background: var(--panel);
   border-radius: var(--radius-md);
   box-shadow: var(--elev-1);
-}
-
-.input-section {
-  display: grid;
-  gap: 8px;
-  padding: 17px;
-}
-
-.target-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.target-field {
-  position: relative;
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  border: 1px solid var(--border);
-  background: rgb(13 13 13 / 80%);
-}
-
-.target-field svg {
-  position: absolute;
-  left: 8px;
-  width: 17px;
-  height: 17px;
-  color: var(--muted);
-}
-
-.target-field input {
-  width: 100%;
-  height: 38px;
-  min-width: 0;
-  padding: 9px 9px 9px 33px;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: #e5e2e1;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.target-field:focus-within {
-  border-color: var(--accent);
-}
-
-.run-button {
-  display: inline-flex;
-  min-width: 139px;
-  min-height: 38px;
-  gap: 8px;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 24px;
-  border: 0;
-  background: var(--accent-strong);
-  color: #001f26;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 20px;
-}
-
-.run-button svg {
-  width: 13px;
-  height: 13px;
-  fill: currentColor;
-}
-
-.run-button:hover:not(:disabled),
-.run-button:focus-visible {
-  background: var(--accent);
-  outline: 0;
-}
-
-.run-button:disabled {
-  cursor: wait;
-  opacity: 0.72;
-}
-
-.mode-tabs {
-  display: flex;
-  gap: 16px;
-  min-height: 31px;
-  overflow: auto;
-  align-items: end;
-  border-bottom: 1px solid var(--border);
-}
-
-.mode-tab {
-  flex: none;
-  min-height: 30px;
-  padding: 8px 0 6px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-}
-
-.mode-tab-active {
-  border-bottom-color: var(--accent);
-  color: var(--accent);
-}
-
-.mode-tab:disabled {
-  opacity: 0.76;
-}
-
-.settings-panel {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 16px;
-  align-items: center;
-  padding: 12px 16px;
-  border: 1px solid var(--border-strong);
-  background: #171717;
-}
-
-.settings-panel strong {
-  display: block;
-  margin-bottom: 2px;
-  color: #e5e2e1;
-  font-size: 13px;
-}
-
-.settings-panel p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.settings-panel label {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: #e5e2e1;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.settings-panel input {
-  accent-color: var(--accent);
-}
-
-.empty-workbench {
-  display: flex;
-  min-height: 274px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 32px;
-  border: 1px dashed var(--border-strong);
-  background: linear-gradient(90deg, rgb(76 215 246 / 6%), transparent 42%), var(--panel);
-}
-
-.empty-workbench h1 {
-  margin: 6px 0;
-  color: #e5e2e1;
-  font-size: 24px;
-  line-height: 30px;
-}
-
-.empty-workbench p {
-  max-width: 520px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 22px;
-}
-
-.error-banner {
   padding: var(--space-4) var(--space-5);
   border-color: rgb(243 95 99 / 55%);
   background: rgb(243 95 99 / 6%);
@@ -758,40 +446,6 @@ input,
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.summary-card {
-  display: grid;
-  min-height: 64px;
-  gap: var(--space-1);
-  overflow: hidden;
-  padding: var(--space-3) var(--space-4);
-}
-
-.summary-card div {
-  display: flex;
-  min-width: 0;
-  align-items: end;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.summary-card strong {
-  min-width: 0;
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 20px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.summary-card code {
-  flex: none;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
-}
-
 .value-ok {
   color: var(--good);
   font-weight: 600;
@@ -811,183 +465,10 @@ input,
   letter-spacing: 0.04em;
 }
 
-/* ─── Mode groups (v1.4 web parity) ─────────────────────────────────────── */
+/* ─── DNS / generic record tables ─────────────────────────────────────── */
 
-.mode-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.mode-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.mode-group-label {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  min-width: 110px;
-}
-
-.mode-tab-active-tier::after {
-  content: " ●";
-  color: var(--warn, #b86200);
-  font-size: 10px;
-  margin-left: 4px;
-}
-
-.mode-tab-active.mode-tab-active-tier::after {
-  color: inherit;
-}
-
-/* ─── Active-scan authorization gate ────────────────────────────────────── */
-
-.auth-gate {
-  background: #fff7ec;
-  border: 1px solid #f4b400;
-  border-radius: 12px;
-  display: flex;
-  gap: 16px;
-  margin-top: 16px;
-  padding: 14px 18px;
-}
-
-.auth-gate-ack {
-  background: #f7fdf9;
-  border-color: #00a572;
-}
-
-.auth-gate-icon {
-  align-items: center;
-  color: #b86200;
-  display: flex;
-  flex-shrink: 0;
-}
-
-.auth-gate-ack .auth-gate-icon {
-  color: #00a572;
-}
-
-.auth-gate-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.auth-gate-body p {
-  color: var(--muted);
-  font-size: 13px;
-  margin: 0;
-}
-
-.auth-gate-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  margin-top: 4px;
-}
-
-.auth-gate-check input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-}
-
-/* ─── Audit mode options (passive vs passive+active) ─────────────────── */
-
-.audit-options {
-  background: #f6f8fb;
-  border: 1px solid #e0e0e6;
-  border-radius: 12px;
-  margin-top: 16px;
-  padding: 12px 18px;
-}
-
-.audit-options .auth-gate-check {
-  margin-top: 0;
-  font-size: 14px;
-}
-
-.panel {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.panel > header {
-  display: flex;
-  min-height: 38px;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--border);
-  background: rgb(255 255 255 / 1.5%);
-}
-
-.panel > header svg {
-  width: 14px;
-  height: 14px;
-}
-
-.panel-body {
-  min-width: 0;
-  padding: var(--space-4);
-}
-
-.timing-panel .panel-body {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
-}
-
-.waterfall {
-  display: flex;
-  width: 100%;
-  height: 16px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: #181818;
-}
-
-.timing-legend {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
-}
-
-.timing-legend span {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-
-.timing-legend i {
-  width: 8px;
-  height: 8px;
-}
-
-.details-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.dns-panel,
-.tls-panel {
+.dns-panel {
   min-height: 163px;
-}
-
-.http-panel {
-  grid-column: 1 / -1;
 }
 
 .dns-table {
@@ -1009,6 +490,16 @@ input,
   border-bottom: 1px solid var(--border);
 }
 
+/* dns-header also reads as a label-caps row heading. */
+.dns-header {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  line-height: 16px;
+  text-transform: none;
+}
+
 .dns-row {
   padding: var(--space-2) 0;
   font-weight: 500;
@@ -1028,9 +519,6 @@ input,
   white-space: nowrap;
 }
 
-/* Tech / subs / reverse / arch rows often want strong+code stacks
-   inside a single cell. Tighten the inline stacks so they don't blow
-   out the row height. */
 .dns-row strong {
   font-weight: 600;
   color: var(--fg);
@@ -1040,8 +528,42 @@ input,
   color: var(--muted);
 }
 
-/* DNS compare query-options panel (Show more / DNSSEC toggles). Sits
-   between the result header and the per-qtype panels. */
+/* Four-column variant: DNS compare (resolver/address/time/answer) +
+   Route (hop/address/rtt/asn). Applied to BOTH header and rows. */
+.dns-row-4 {
+  grid-template-columns: minmax(80px, 1.5fr) minmax(120px, 2fr) minmax(60px, 0.8fr) minmax(
+      140px,
+      3fr
+    );
+}
+
+/* Three-column variant: Ports panel with banners (port/service/banner). */
+.dns-row-3 {
+  grid-template-columns: minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(140px, 4fr);
+}
+
+/* Four-column ports variant: proto/port/state/service. */
+.dns-row-4-ports {
+  grid-template-columns: minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr);
+}
+
+/* Five-column ports variant: -4-ports plus a banner column. */
+.dns-row-5 {
+  grid-template-columns:
+    minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr)
+    minmax(140px, 3.5fr);
+}
+
+/* Banner cells are user-supplied free text — ellipsize, full string in title. */
+.banner-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* DNS compare query-options panel (Show more / DNSSEC toggles). */
 .dns-settings {
   display: flex;
   flex-wrap: wrap;
@@ -1109,325 +631,21 @@ input,
   color: var(--accent);
 }
 
-.http-grid {
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.metric {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-  color: var(--fg);
+.muted {
+  margin: 0;
   font-size: 12px;
   line-height: 18px;
-  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
-.metric strong {
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.metric-wide {
-  grid-column: 1 / -1;
-}
-
-.muted,
 .detail-error {
   margin: 0;
   font-size: 12px;
   line-height: 18px;
 }
 
-.muted {
-  color: var(--muted);
-}
+/* ─── Ports: protocol toggle + live progress banner ───────────────────── */
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-
-@media (max-width: 920px) {
-  .app-shell {
-    display: block;
-  }
-
-  .sidenav {
-    position: fixed;
-    z-index: 25;
-    inset: calc(48px + env(safe-area-inset-top)) auto 0 0;
-    width: min(82vw, 320px);
-    height: auto;
-    min-height: 0;
-    transform: translateX(-104%);
-    box-shadow: 12px 0 38px rgb(0 0 0 / 42%);
-    transition: transform 160ms ease;
-  }
-
-  .sidenav-open {
-    transform: translateX(0);
-  }
-
-  .desktop-history-button {
-    display: none;
-  }
-
-  .mobile-menu-button {
-    display: grid;
-  }
-
-  .sidenav-close-button {
-    display: grid;
-  }
-
-  .sidenav-backdrop {
-    position: fixed;
-    z-index: 24;
-    inset: calc(48px + env(safe-area-inset-top)) 0 0;
-    display: block;
-    border: 0;
-    background: rgb(0 0 0 / 48%);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 160ms ease;
-  }
-
-  .sidenav-backdrop-open {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .workbench {
-    min-height: calc(100vh - 48px);
-    padding-top: calc(16px + env(safe-area-inset-top));
-  }
-
-  .summary-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .topbar {
-    height: calc(56px + env(safe-area-inset-top));
-  }
-
-  .brand {
-    font-size: 20px;
-  }
-
-  .sidenav,
-  .sidenav-backdrop {
-    inset-block-start: calc(56px + env(safe-area-inset-top));
-  }
-
-  .workbench {
-    gap: 12px;
-    padding-top: calc(12px + env(safe-area-inset-top));
-  }
-
-  .input-section {
-    gap: 10px;
-    padding: 12px;
-  }
-
-  .target-row {
-    display: grid;
-  }
-
-  .run-button {
-    width: 100%;
-  }
-
-  .settings-panel {
-    grid-template-columns: 1fr auto;
-  }
-
-  .settings-panel label {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-
-  .empty-workbench {
-    display: grid;
-    min-height: 240px;
-    gap: 18px;
-    padding: 20px;
-  }
-
-  .result-header h1 {
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-
-  .summary-strip,
-  .details-grid,
-  .http-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .timing-legend {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .dns-panel,
-  .tls-panel {
-    min-height: 0;
-  }
-}
-
-/* ─── v1.2: mode-switching, saved reports, four-column rows ────────────── */
-
-.empty-list {
-  margin: var(--space-5);
-  color: var(--faint);
-  font-size: 13px;
-  text-align: center;
-}
-
-/* Multi-button variant for saved reports: row contains the main button
-   (target + time) plus 1–2 icon buttons (compare, delete). R-8: lifted
-   into the new card chrome — radius-md, border, panel bg. */
-.recent-item-saved {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: var(--space-2);
-  align-items: stretch;
-  padding: 0;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  transition:
-    border-color 120ms ease,
-    background 120ms ease;
-}
-
-.recent-item-saved:hover {
-  border-color: var(--border-strong);
-}
-
-.recent-item-saved .recent-item-main {
-  background: none;
-  border: none;
-  display: grid;
-  grid-template-columns: 12px 1fr;
-  gap: var(--space-3);
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-  min-width: 0;
-}
-
-.recent-item-saved .recent-item-main:hover,
-.recent-item-saved .recent-item-main:focus-visible {
-  background: var(--panel-raised);
-  outline: 0;
-}
-
-.recent-item-saved .recent-item-main span:last-child {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.recent-item-saved .recent-item-main strong,
-.recent-item-saved .recent-item-main time {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.recent-item-saved .recent-item-main strong {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--fg);
-}
-
-.recent-item-saved .recent-item-main time {
-  font-size: 11px;
-  color: var(--muted);
-  font-style: normal;
-}
-
-.recent-item-saved .icon-button {
-  align-self: center;
-  margin-right: var(--space-2);
-}
-
-/* Four-column variant used by DNS compare (resolver/address/time/answer) and
-   Route (hop/address/rtt/asn). Apply .dns-row-4 to BOTH the header and rows. */
-.dns-row-4 {
-  grid-template-columns: minmax(80px, 1.5fr) minmax(120px, 2fr) minmax(60px, 0.8fr) minmax(
-      140px,
-      3fr
-    );
-}
-
-/* Three-column variant used by the Ports panel when banners are present
-   (port / service / banner). Banner column gets the lion's share since it's
-   the wide one. */
-.dns-row-3 {
-  grid-template-columns: minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(140px, 4fr);
-}
-
-/* R-13 four-column variant: proto / port / state / service. Used by the
-   Ports panel when the result mixes TCP and UDP. Proto and Port stay
-   tight; state ("open|filtered") gets a comfortable column. */
-.dns-row-4-ports {
-  grid-template-columns: minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr);
-}
-
-/* R-13 five-column variant: same as -4-ports but with the banner column
-   appended. Banner still owns the long tail. */
-.dns-row-5 {
-  grid-template-columns:
-    minmax(50px, 0.4fr) minmax(60px, 0.6fr) minmax(80px, 1fr) minmax(80px, 1fr)
-    minmax(140px, 3.5fr);
-}
-
-/* Banner cells are user-supplied free text — they can be long. We let them
-   ellipsize visually but keep the full string accessible via the `title`
-   attribute. Monospace because banners are protocol output, not prose. */
-.banner-cell {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-@media (max-width: 720px) {
-  .dns-row-4,
-  .dns-row-3,
-  .dns-row-4-ports,
-  .dns-row-5 {
-    grid-template-columns: 1fr;
-  }
-  .banner-cell {
-    white-space: normal;
-  }
-}
-
-/* R-13: TCP / UDP / Both segmented control rendered inside the Ports
-   modecard. Matches the visual weight of the surrounding modecard text
-   without competing with the Run pill. */
 .ports-proto-toggle {
   display: inline-flex;
   margin-top: var(--space-2);
@@ -1465,10 +683,6 @@ input,
   color: #000;
 }
 
-/* Live progress banner shown above the ports workbench during a streaming
-   scan. Disappears once the `done` SSE frame arrives. */
-/* Ports SSE live-progress banner. Sits above the result panel while
-   a streaming scan is in flight; disappears on `done`. */
 .ports-progress {
   margin: var(--space-4) 0;
   padding: var(--space-4) var(--space-5);
@@ -1515,26 +729,8 @@ input,
   transition: width 100ms linear;
 }
 
-/* ─── R-1 redesign: shell, landing, route pages ────────────────────────── */
+/* ─── BottomNav — mobile only (shown via media query below) ────────────── */
 
-/* SideNav v2 was originally a grid with `1fr auto` rows so the
-   Documentation/Support footer pinned to the bottom while nav filled
-   the space. R-11 removed both the footer and the grid layout — but
-   left this `.sidenav-v2` block in place by accident. Codex caught
-   the cascade: `display: grid; grid-template-rows: 1fr auto` here
-   overrode the flex layout I added to `.sidenav` in #77, AND swapped
-   the row sizing so the brand (now the first child) consumed `1fr`
-   and pushed nav to the bottom.
-   The duplicated `.sidenav-v2 .nav-item*` rules were also fighting the
-   R-11 `.nav-item` pill design (smaller font, left-border instead of
-   rounded background, etc.). All deleted — the base `.sidenav` /
-   `.nav-item` rules above are now the single source of truth. The
-   `.sidenav-v2` class on the JSX element is kept for future-proofing
-   (so we have a hook if we ever ship a v3 layout side-by-side) but
-   carries no styles. */
-
-/* BottomNav — mobile only. Hidden on desktop via the media query at the
-   end of the file. Safe-area inset baked in for notch devices. */
 .bottom-nav {
   display: none;
   position: fixed;
@@ -1574,261 +770,8 @@ input,
   color: var(--accent);
 }
 
-/* StatusFooter — desktop only. Sits in the `footer` grid area. */
-.status-footer {
-  grid-area: footer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-5);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 28px;
-}
+/* ─── Route pages (History / Reports / Settings) ──────────────────────── */
 
-.status-footer .muted {
-  color: var(--faint);
-}
-
-.status-footer code {
-  font-size: 11px;
-  color: var(--fg);
-  background: transparent;
-  padding: 0;
-}
-
-/* Back link — "← Categories". Used to leave a category-detail view. */
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  align-self: flex-start;
-  margin-bottom: var(--space-2);
-  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-}
-
-.back-link svg {
-  width: 16px;
-  height: 16px;
-}
-
-.back-link:hover,
-.back-link:focus-visible {
-  color: var(--accent);
-  border-color: var(--border-strong);
-  outline: 0;
-}
-
-/* Landing — the workbench-route default view. Target input on top,
-   2×2 category grid below. */
-.landing {
-  display: grid;
-  gap: var(--space-6);
-  padding: var(--space-7) 0 var(--space-6);
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.landing-input {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  transition:
-    box-shadow 120ms ease,
-    border-color 120ms ease;
-}
-
-.landing-input:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--accent-glow);
-}
-
-.landing-input svg {
-  width: 18px;
-  height: 18px;
-  color: var(--muted);
-  flex: none;
-}
-
-.landing-input input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--fg);
-  font-size: 15px;
-  line-height: 24px;
-  outline: 0;
-}
-
-.landing-input input::placeholder {
-  color: var(--faint);
-}
-
-/* Category grid — 2×2 on desktop, single column on mobile (see media). */
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.category-card {
-  display: grid;
-  grid-template-columns: 48px 1fr auto;
-  grid-template-rows: 1fr;
-  align-items: start;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  color: var(--fg);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: var(--elev-1);
-  transition:
-    transform 100ms ease,
-    box-shadow 120ms ease,
-    border-color 120ms ease,
-    background 120ms ease;
-}
-
-/* R-10: card hover combines tonal lift (elev-hover) with a cyan glow ring
-   so the focused card pops against the panel. Both shadows compose:
-   drop-shadow for depth + accent-glow for "this is the focused thing".
-   The Modern v1 mockup's cards visibly glow on hover; the v1 build was
-   doing only the drop-shadow which read as flat in the dark surface. */
-.category-card:hover,
-.category-card:focus-visible {
-  background: var(--panel-raised);
-  border-color: var(--accent);
-  box-shadow: var(--elev-hover), var(--accent-glow);
-  outline: 0;
-  transform: translateY(-1px);
-}
-
-.category-card-icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-sm);
-  background: rgb(76 215 246 / 8%);
-  color: var(--accent);
-}
-
-.category-card-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-.category-card-body {
-  display: grid;
-  gap: var(--space-2);
-  align-self: center;
-  min-width: 0;
-}
-
-.category-card-body strong {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0;
-  color: var(--fg);
-}
-
-.category-card-body p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--muted);
-}
-
-.category-card-cta {
-  align-self: center;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: #001218;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.category-card:hover .category-card-cta,
-.category-card:focus-visible .category-card-cta {
-  background: var(--accent-strong);
-}
-
-/* R-10: central "Run Check" pill on the landing — the default-action CTA
-   below the category grid. Runs a Full Check on the typed target without
-   needing the user to pick a category first. Matches the Modern v1 mockup
-   where this big cyan pill is the visual centerpiece of the landing. */
-/* R-11 bumped the halo: multi-step radial bloom (outer wide + outer
-   narrow + inner ring) so the button reads as a glowing centerpiece
-   rather than just a button with a thin glow. Matches the Modern v1
-   mockup's hero CTA. */
-.run-check-cta {
-  justify-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 240px;
-  padding: var(--space-4) var(--space-7);
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: #001218;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  box-shadow:
-    0 0 0 1px var(--accent),
-    0 0 24px -2px rgba(76, 215, 246, 0.55),
-    0 0 48px -8px rgba(76, 215, 246, 0.4);
-  transition:
-    background 120ms ease,
-    box-shadow 120ms ease,
-    transform 100ms ease;
-}
-
-.run-check-cta:hover:not(:disabled),
-.run-check-cta:focus-visible {
-  background: var(--accent-strong);
-  outline: 0;
-  transform: translateY(-1px);
-}
-
-.run-check-cta:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.run-check-cta svg {
-  width: 18px;
-  height: 18px;
-  flex: none;
-}
-
-/* Route pages — generic shell for History / Reports / Settings routes.
-   R-8 will properly redesign each; R-1 just gives them a consistent
-   page header so they don't look like floating fragments. */
 .route-page {
   display: grid;
   gap: var(--space-5);
@@ -1856,10 +799,6 @@ input,
 .route-page-head code {
   font-size: 12px;
   padding: 1px 6px;
-}
-
-.recent-list-page {
-  padding: 0;
 }
 
 .settings-list {
@@ -1902,217 +841,7 @@ input,
   font-size: 11px;
 }
 
-/* ─── Tablet + mobile (≤920px) — collapse desktop chrome, show bottom-nav.
-
-   Codex flagged on #63 that 721–920px had no navigation: the legacy
-   v1 rule above (`@media (max-width: 920px)`) pushes `.sidenav`
-   off-canvas (`translateX(-104%)`) but the v1 hamburger toggle that
-   used to open it is gone with R-1, and the bottom-nav was only
-   active at ≤720px. Bumping the breakpoint to 920px gives tablets
-   the same bottom-nav layout as phones.
-
-   Force-hide `.sidenav` so the legacy 920px translate-off rule
-   doesn't leak interactive elements off-screen. */
-@media (max-width: 920px) {
-  .app-shell {
-    grid-template:
-      "topbar" 48px
-      "workbench" 1fr / 1fr;
-    padding-bottom: calc(56px + env(safe-area-inset-bottom));
-  }
-
-  .sidenav,
-  .status-footer {
-    display: none;
-  }
-
-  .bottom-nav {
-    display: grid;
-  }
-
-  .category-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .landing {
-    padding: var(--space-4) 0;
-  }
-}
-
-/* ─── R-2 redesign: category-detail + ModeCard + auth banner ─────────── */
-
-.category-detail {
-  display: grid;
-  gap: var(--space-5);
-  padding: var(--space-5) 0 var(--space-6);
-  max-width: 960px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.category-detail-header h1 {
-  margin: 0 0 var(--space-2);
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--fg);
-}
-
-.category-detail-header p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.category-detail-input {
-  /* Inherits .landing-input chrome. Sub-class hook for any
-     category-detail-only tweaks (none today). */
-}
-
-/* Auth banner — category-level. Replaces the old per-mode .auth-gate.
-   Pending state: orange-cast warning. Acknowledged: dimmer, still
-   visible so the user remembers active scope is in force. */
-.auth-banner {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--warn);
-  border-radius: var(--radius-md);
-  background: rgb(231 148 0 / 8%);
-}
-
-.auth-banner-ack {
-  border-color: var(--border-strong);
-  background: var(--panel);
-}
-
-.auth-banner-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  background: rgb(231 148 0 / 16%);
-  color: var(--warn);
-}
-
-.auth-banner-ack .auth-banner-icon {
-  background: rgb(78 222 163 / 10%);
-  color: var(--good);
-}
-
-.auth-banner-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.auth-banner-body strong {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-1);
-}
-
-.auth-banner-body p {
-  margin: 0 0 var(--space-3);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.auth-banner-body a {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.auth-banner-body a:hover {
-  text-decoration: underline;
-}
-
-.auth-banner-check {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 13px;
-  color: var(--fg);
-  cursor: pointer;
-}
-
-.auth-banner-check input[type="checkbox"] {
-  accent-color: var(--accent);
-}
-
-/* ModeCard list — one card per mode inside the picked category. */
-.modecard-list {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.modecard {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--space-4);
-  align-items: center;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--panel);
-  box-shadow: var(--elev-1);
-  transition:
-    border-color 120ms ease,
-    box-shadow 120ms ease,
-    background 120ms ease;
-}
-
-.modecard:hover {
-  border-color: var(--border-strong);
-  background: var(--panel-raised);
-}
-
-.modecard-body {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
-
-.modecard-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.modecard-head strong {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--fg);
-}
-
-.modecard-tier {
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  background: rgb(231 148 0 / 14%);
-  color: var(--warn);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.modecard-body p {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--muted);
-}
-
-.modecard-actions {
-  display: flex;
-  gap: var(--space-2);
-  flex: none;
-}
+/* ─── Run pill (inline mode panel) ────────────────────────────────────── */
 
 .modecard-run {
   display: inline-flex;
@@ -2166,21 +895,7 @@ input,
   color: var(--accent);
 }
 
-@media (max-width: 720px) {
-  .modecard {
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
-  }
-  .modecard-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .modecard-run {
-    width: 100%;
-  }
-}
-
-/* ─── R-7 redesign: diff viewer + compare bar ────────────────────────── */
+/* ─── Diff viewer + compare bar (DNS compare report) ──────────────────── */
 
 .compare-bar {
   display: flex;
@@ -2203,11 +918,6 @@ input,
 .compare-bar-actions {
   display: flex;
   gap: var(--space-2);
-}
-
-.recent-item-picked {
-  border-color: var(--accent);
-  background: rgb(76 215 246 / 8%);
 }
 
 .diff-viewer {
@@ -2343,120 +1053,8 @@ input,
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 720px) {
-  .diff-change {
-    grid-template-columns: 1fr;
-    gap: var(--space-1);
-  }
-  .compare-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
+/* ─── R-12 interactive loading overlay ────────────────────────────────── */
 
-/* ─── R-9 redesign: mobile polish ────────────────────────────────────── */
-@media (max-width: 720px) {
-  /* Tighten workbench padding on phones — env() safe-area still
-     handled in .workbench base rule. */
-  .workbench {
-    padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right)) var(--space-5)
-      max(var(--space-3), env(safe-area-inset-left));
-    gap: var(--space-3);
-  }
-
-  /* Result-area gap shrinks on portrait so panels don't waste
-     vertical real estate. */
-  .result-area {
-    gap: var(--space-3);
-  }
-
-  /* Summary strip: 4 columns → 2 columns at phone widths so each
-     stat card stays readable without ellipsis-truncating the value. */
-  .summary-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-2);
-  }
-
-  /* HTTP timing grid: 3 columns → 1 column. The DNS/Connect/TLS/TTFB/
-     Total readout reads top-to-bottom on phone. */
-  .http-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* Brand at 24px reads fine on phones but the topbar gets cramped —
-     dial back to 20px so save/export icons have room.
-
-     Codex P2 on #71: keep the left/right safe-area-inset handling
-     from the base .topbar rule. Notched phones in landscape (and
-     standalone-mode iOS) have non-zero horizontal insets; without
-     `max(token, env(...))` the brand and action icons would clip
-     into the rounded corner / notch area. */
-  .topbar {
-    padding: env(safe-area-inset-top) max(var(--space-3), env(safe-area-inset-right)) 0
-      max(var(--space-3), env(safe-area-inset-left));
-  }
-  .brand {
-    font-size: 20px;
-  }
-
-  /* Bottom-nav active state — soft accent-tinted background behind
-     the icon-and-label stack, not just an icon colour change.
-     Makes the active route obviously selected at glance. */
-  .bottom-nav-item-active {
-    background: rgb(76 215 246 / 8%);
-  }
-
-  /* Recent-item gets denser on mobile so 8 entries don't fill the
-     viewport. */
-  .recent-item,
-  .recent-item-saved .recent-item-main {
-    padding: var(--space-3);
-  }
-
-  /* Category-detail header drops the body blurb on phones — the user
-     just navigated from the card that showed it. */
-  .category-detail-header p {
-    display: none;
-  }
-
-  /* Status-footer remains hidden by R-1's rule; nothing to add here. */
-
-  /* Result-header h1 wraps instead of ellipsizing — the target URL
-     should stay readable even at narrow widths. */
-  .result-header h1 {
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
-
-  /* Diff viewer: tighter padding, change chip moves to its own row. */
-  .diff-viewer {
-    padding: var(--space-4);
-  }
-  .diff-viewer-meta {
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: space-between;
-  }
-}
-
-/* ─── R-12: interactive loading overlay ──────────────────────────────────
-   Covers the (now-blurred) app shell while any check is in flight.
-   Mounted as a sibling of .topbar/.sidenav/.workbench inside .app-shell.
-   Uses position: fixed so it ignores the app-shell grid and overlays
-   the full viewport — overlapping the topbar / sidenav too, since the
-   intent is "the user is waiting, nothing else is interactive".
-
-   The Stitch demo (project 13607768137297805486, screen
-   8d5dc89dbf22453ab9946b84daf36977) drove the visual spec: black/40
-   dimmer + backdrop blur, glass card with subtle cyan corner glow,
-   176px progress ring with cyan stroke + drop-shadow glow, pulsing
-   cyan caps status text, three progressively-bright dots underneath.
-*/
-
-/* The shell-level state class: blurs + dims the workbench while the
-   overlay is up. Pointer events disabled so background clicks can't
-   accidentally fire under the overlay. */
 .app-shell-loading > .topbar,
 .app-shell-loading > .sidenav,
 .app-shell-loading > .workbench,
@@ -2513,8 +1111,6 @@ input,
   overflow: hidden;
 }
 
-/* Subtle cyan glow blob in the top-right corner — purely decorative,
-   matches the Stitch design's depth. */
 .loading-card-glow {
   position: absolute;
   top: -96px;
@@ -2527,8 +1123,6 @@ input,
   pointer-events: none;
 }
 
-/* Progress ring: SVG with cyan-glow drop shadow on the active arc.
-   stroke-dashoffset is set inline from JS — transition smooths it. */
 .progress-ring {
   position: relative;
   display: grid;
@@ -2607,18 +1201,126 @@ input,
   opacity: 0.85;
 }
 
-/* Mobile — slightly tighter card so it fits 360px screens with
-   horizontal padding to spare. */
+/* ─── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 920px) {
+  /* Tablet + phone: collapse desktop chrome to a single workbench column
+     with a fixed bottom-nav; hide the desktop status footer. */
+  .app-shell {
+    grid-template:
+      "topbar" 48px
+      "workbench" 1fr / 1fr;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+
+  .status-footer {
+    display: none;
+  }
+
+  .bottom-nav {
+    display: grid;
+  }
+
+  .workbench {
+    min-height: calc(100vh - 48px);
+    padding-top: calc(16px + env(safe-area-inset-top));
+  }
+
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .dns-row-4,
+  .dns-row-3,
+  .dns-row-4-ports,
+  .dns-row-5 {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-cell {
+    white-space: normal;
+  }
+
+  .diff-change {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
+  .compare-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .workbench {
+    padding: var(--space-3) max(var(--space-3), env(safe-area-inset-right)) var(--space-5)
+      max(var(--space-3), env(safe-area-inset-left));
+    gap: var(--space-3);
+  }
+
+  .result-area {
+    gap: var(--space-3);
+  }
+
+  .summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .bottom-nav-item-active {
+    background: rgb(76 215 246 / 8%);
+  }
+
+  .recent-item,
+  .recent-item-saved .recent-item-main {
+    padding: var(--space-3);
+  }
+
+  .result-header h1 {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .diff-viewer {
+    padding: var(--space-4);
+  }
+
+  .diff-viewer-meta {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 640px) {
+  .result-header h1 {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .dns-panel {
+    min-height: 0;
+  }
+}
+
 @media (max-width: 480px) {
   .loading-card {
     padding: var(--space-6) var(--space-5) var(--space-5);
     gap: var(--space-6);
   }
+
   .progress-ring,
   .progress-ring svg {
     width: 140px;
     height: 140px;
   }
+
   .progress-ring-value {
     font-size: 26px;
   }
