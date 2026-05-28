@@ -23,10 +23,15 @@ import {
 // SelectedModePanel, target input → TargetInput. The old CategoryDetail
 // "page" dissolved; everything renders on the single Dashboard route.
 import { CategoryDropdown } from "./components/CategoryDropdown";
+import { DataRow } from "./components/DataRow";
 import { LandingHero } from "./components/LandingHero";
 import { LiveEventStream } from "./components/LiveEventStream";
+// Panel from ./components/Panel replaces the legacy local Panel
+// helper for all 14 workbench renderers (PR 7 restyle).
+import { Panel } from "./components/Panel";
 import { SelectedModePanel } from "./components/SelectedModePanel";
 import { SideNav } from "./components/SideNav";
+import { StatusPill } from "./components/StatusPill";
 import { TargetInput } from "./components/TargetInput";
 import { TargetTopography } from "./components/TargetTopography";
 import { TelemetryStrip } from "./components/TelemetryStrip";
@@ -1271,45 +1276,52 @@ function ReportView({ loading, report }: { loading: boolean; report: AnyReport }
 
 function FullCheckWorkbench({ loading, report }: { loading: boolean; report: FullCheckReport }) {
   const tcp = report.tcp_v4 ?? report.tcp_v6;
-  const status = report.ok ? "Healthy" : "Needs attention";
-  const statusClass = report.ok ? "health-pill-ok" : "health-pill-fail";
   const timing = useMemo(() => timingSegments(report), [report]);
+  const overallTone = report.ok ? "ok" : "crit";
 
   return (
-    <section className={loading ? "result-area result-area-loading" : "result-area"}>
-      <div className="result-header">
-        <h1>
-          Full Check: <span>{report.target.host}</span>
+    <section className={`flex flex-col gap-4 ${loading ? "opacity-70" : ""}`}>
+      <div className="flex items-center justify-between">
+        <h1 className="font-sans text-on-surface" style={{ fontSize: "20px", fontWeight: 600 }}>
+          Full Check:{" "}
+          <span className="data-value text-primary-fixed-dim">{report.target.host}</span>
         </h1>
-        <div className={`health-pill ${statusClass}`}>
-          <span />
-          {status}
-        </div>
+        <StatusPill tone={overallTone} size="md">
+          {report.ok ? "Healthy" : "Needs attention"}
+        </StatusPill>
       </div>
 
-      <div className="summary-strip">
-        <SummaryCard
-          error={report.dns.error}
+      {/* Top status strip — 4 SummaryRow tiles in a grid. Each row uses
+          the report's data to derive ok/crit tone + a short status word. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <SummaryTile
           label="DNS Resolution"
           ms={report.dns.took_ms}
-          value="Success"
+          tone={report.dns.error ? "crit" : "ok"}
+          value={report.dns.error ? "Failed" : "Success"}
         />
-        <SummaryCard
-          error={tcp?.error}
+        <SummaryTile
           label="TCP Connection"
           ms={tcp?.took_ms}
-          value={tcp ? "Success" : "Unavailable"}
+          tone={tcp?.error ? "crit" : tcp ? "ok" : "warn"}
+          value={tcp?.error ? "Failed" : tcp ? "Success" : "Unavailable"}
         />
-        <SummaryCard
-          error={report.tls?.error}
+        <SummaryTile
           label="TLS Handshake"
           ms={report.tls?.took_ms}
-          value={report.tls ? "Success" : "Skipped"}
+          tone={report.tls?.error ? "crit" : report.tls ? "ok" : "info"}
+          value={report.tls?.error ? "Failed" : report.tls ? "Success" : "Skipped"}
         />
-        <SummaryCard
-          error={report.http.error}
+        <SummaryTile
           label="HTTP Response"
           ms={report.http.timing.total_ms}
+          tone={
+            report.http.error
+              ? "crit"
+              : report.http.status > 0 && report.http.status < 400
+                ? "ok"
+                : "warn"
+          }
           value={
             report.http.status
               ? `${report.http.status} ${report.http.status < 400 ? "OK" : ""}`.trim()
@@ -1318,8 +1330,8 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
         />
       </div>
 
-      <Panel className="timing-panel" title="Timing Waterfall">
-        <div className="waterfall" aria-label="HTTP timing waterfall">
+      <Panel title="Timing Waterfall" icon="schedule">
+        <div className="flex h-2 w-full overflow-hidden rounded" aria-label="HTTP timing waterfall">
           {timing.map((segment) => (
             <span
               key={segment.label}
@@ -1327,71 +1339,128 @@ function FullCheckWorkbench({ loading, report }: { loading: boolean; report: Ful
             />
           ))}
         </div>
-        <div className="timing-legend">
+        <div
+          className="mt-3 flex flex-wrap gap-3 font-sans text-on-surface-variant"
+          style={{ fontSize: "11px" }}
+        >
           {timing.map((segment) => (
-            <span key={segment.label}>
-              <i style={{ background: segment.color }} />
+            <span key={segment.label} className="flex items-center gap-1.5">
+              <i
+                className="inline-block h-2 w-2 rounded-sm"
+                style={{ background: segment.color }}
+              />
               {segment.label}
             </span>
           ))}
         </div>
       </Panel>
 
-      <div className="details-grid">
-        <Panel className="dns-panel" icon={<FileText />} title="DNS Records">
-          <div className="dns-table">
-            <div className="dns-header">
-              <span>Type</span>
-              <span>Value</span>
-            </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Panel title="DNS Records" icon={<FileText />}>
+          <div className="flex flex-col gap-1">
             {report.dns.a.map((ip) => (
-              <div className="dns-row" key={`a-${ip}`}>
-                <span>A</span>
-                <code>{ip}</code>
-              </div>
+              <DataRow key={`a-${ip}`} label="A" value={ip} />
             ))}
             {report.dns.aaaa.map((ip) => (
-              <div className="dns-row" key={`aaaa-${ip}`}>
-                <span>AAAA</span>
-                <code>{ip}</code>
-              </div>
+              <DataRow key={`aaaa-${ip}`} label="AAAA" value={ip} />
             ))}
-            {report.dns.error ? <p className="detail-error">{report.dns.error}</p> : null}
+            {report.dns.error ? (
+              <p className="mt-2 font-mono text-error" style={{ fontSize: "12px" }}>
+                {report.dns.error}
+              </p>
+            ) : null}
           </div>
         </Panel>
 
-        <Panel className="tls-panel" icon={<LockKeyhole />} title="TLS Certificate">
+        <Panel title="TLS Certificate" icon={<LockKeyhole />}>
           {report.tls ? (
-            <dl className="certificate-grid">
-              <Detail label="Protocol" value={report.tls.version} />
-              <Detail label="Cipher" value={report.tls.cipher_suite} />
-              <Detail label="Issuer" value={report.tls.issuer} />
-              <Detail
+            <div className="flex flex-col gap-1">
+              <DataRow label="Protocol" value={report.tls.version} />
+              <DataRow label="Cipher" value={report.tls.cipher_suite} />
+              <DataRow label="Issuer" value={report.tls.issuer} wide />
+              <DataRow
                 label="Expiry"
                 value={`${formatDate(report.tls.not_after)} (${report.tls.days_remaining}d)`}
               />
-              {report.tls.error ? <Detail error label="Error" value={report.tls.error} /> : null}
-            </dl>
+              {report.tls.error ? (
+                <p className="mt-2 font-mono text-error" style={{ fontSize: "12px" }}>
+                  {report.tls.error}
+                </p>
+              ) : null}
+            </div>
           ) : (
-            <p className="muted">TLS does not run for this target.</p>
+            <p className="font-sans text-on-surface-variant/70" style={{ fontSize: "12px" }}>
+              TLS does not run for this target.
+            </p>
           )}
         </Panel>
 
-        <Panel className="http-panel" title="HTTP Response">
-          <div className="http-grid">
-            <Metric
+        <Panel title="HTTP Response" icon="public">
+          <div className="flex flex-col gap-1">
+            <DataRow
               label="Status"
-              ok={report.http.status > 0 && report.http.status < 400}
               value={httpStatusLabel(report.http.status)}
+              accessory={
+                <StatusPill
+                  tone={
+                    report.http.status > 0 && report.http.status < 400
+                      ? "ok"
+                      : report.http.status >= 500
+                        ? "crit"
+                        : report.http.status >= 400
+                          ? "warn"
+                          : "info"
+                  }
+                >
+                  {report.http.status || "—"}
+                </StatusPill>
+              }
             />
-            <Metric label="Redirects" value={report.http.hops.length} />
-            <Metric label="Server" value={report.http.server || "-"} />
-            <Metric label="Final URL" value={report.http.final_url || "-"} wide />
+            <DataRow label="Redirects" value={report.http.hops.length} />
+            <DataRow label="Server" value={report.http.server || "-"} />
+            <DataRow label="Final URL" value={report.http.final_url || "-"} wide />
           </div>
-          {report.http.error ? <p className="detail-error">{report.http.error}</p> : null}
+          {report.http.error ? (
+            <p className="mt-2 font-mono text-error" style={{ fontSize: "12px" }}>
+              {report.http.error}
+            </p>
+          ) : null}
         </Panel>
       </div>
     </section>
+  );
+}
+
+// SummaryTile is a single status cell in the Full Check top strip.
+// Replaces the legacy SummaryCard pattern with the HUD tone system.
+function SummaryTile({
+  label,
+  value,
+  ms,
+  tone,
+}: {
+  label: string;
+  value: string;
+  ms?: number;
+  tone: "ok" | "warn" | "crit" | "info";
+}) {
+  return (
+    <div className="glass-card rounded-lg p-3">
+      <div
+        className="font-sans uppercase tracking-wider text-on-surface-variant"
+        style={{ fontSize: "10px", letterSpacing: "0.08em" }}
+      >
+        {label}
+      </div>
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <StatusPill tone={tone} size="md">
+          {value}
+        </StatusPill>
+        <code className="data-value font-mono text-on-surface-variant" style={{ fontSize: "11px" }}>
+          {formatMS(ms)}
+        </code>
+      </div>
+    </div>
   );
 }
 
@@ -2533,6 +2602,15 @@ function auditGradeClass(g: AuditGrade): string {
 
 // ─── Shared building blocks ───────────────────────────────────────────────
 
+// SummaryCard / Detail / Metric — adapters that delegate to the
+// shared HUD components introduced in PR 7. Every legacy call site
+// in the 13 not-yet-touched renderers below picks up the HUD look
+// (status pills, mono data rows, glass cards) automatically. The
+// adapters can be removed once per-call-site conversion is done.
+//
+// The old local `Panel` helper is gone — its consumers import the
+// new richer Panel from ./components/Panel.
+
 function SummaryCard({
   error,
   label,
@@ -2544,36 +2622,24 @@ function SummaryCard({
   ms?: number;
   value: string;
 }) {
+  const tone = error ? "crit" : "ok";
   return (
-    <article className="summary-card">
-      <span>{label}</span>
-      <div>
-        <strong className={error ? "value-fail" : "value-ok"}>{error ? "Failed" : value}</strong>
-        <code>{formatMS(ms)}</code>
+    <div className="glass-card rounded-lg p-3">
+      <div
+        className="font-sans uppercase tracking-wider text-on-surface-variant"
+        style={{ fontSize: "10px", letterSpacing: "0.08em" }}
+      >
+        {label}
       </div>
-    </article>
-  );
-}
-
-function Panel({
-  children,
-  className = "",
-  icon,
-  title,
-}: {
-  children: ReactNode;
-  className?: string;
-  icon?: ReactNode;
-  title: string;
-}) {
-  return (
-    <section className={`panel ${className}`}>
-      <header>
-        <span>{title}</span>
-        {icon}
-      </header>
-      <div className="panel-body">{children}</div>
-    </section>
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <StatusPill tone={tone} size="md">
+          {error ? "Failed" : value}
+        </StatusPill>
+        <code className="data-value font-mono text-on-surface-variant" style={{ fontSize: "11px" }}>
+          {formatMS(ms)}
+        </code>
+      </div>
+    </div>
   );
 }
 
@@ -2587,31 +2653,24 @@ function Detail({
   value: string;
 }) {
   return (
-    <>
-      <dt>{label}:</dt>
-      <dd className={error ? "detail-error" : ""}>{value}</dd>
-    </>
+    <DataRow
+      label={label}
+      value={
+        error ? (
+          <span className="text-error" style={{ fontWeight: 600 }}>
+            {value}
+          </span>
+        ) : (
+          value
+        )
+      }
+    />
   );
 }
 
-function Metric({
-  label,
-  ok = false,
-  value,
-  wide = false,
-}: {
-  label: string;
-  ok?: boolean;
-  value: number | string;
-  wide?: boolean;
-}) {
-  return (
-    <div className={wide ? "metric metric-wide" : "metric"}>
-      <span>{label}</span>
-      <strong className={ok ? "value-ok" : ""}>{value}</strong>
-    </div>
-  );
-}
+// Metric adapter was removed — its callsites all came from
+// FullCheckWorkbench which now uses DataRow directly. SummaryCard
+// and Detail adapters stay for the not-yet-converted renderers.
 
 function ErrorBanner({ message }: { message: string }) {
   return (
