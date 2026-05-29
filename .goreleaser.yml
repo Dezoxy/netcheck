@@ -50,6 +50,37 @@ archives:
       - LICENSE
       - config.example.yaml
 
+# Container image — published to GitHub Container Registry (GHCR).
+#
+# The homelab (01-myapps-vm) pulls from GHCR. Single-arch (linux/amd64) so no
+# buildx/manifest is needed; goreleaser packages the prebuilt static binary
+# with the repo Dockerfile and pushes during `goreleaser release`.
+#
+# Docker Hub is intentionally NOT wired yet — add a second image_templates
+# entry (docker.io/{{ .Env.DOCKERHUB_USERNAME }}/netcheck) plus the
+# DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets + a docker login step when ready.
+#
+# Auth: the release-please.yml goreleaser job logs in to ghcr.io with the
+# built-in GITHUB_TOKEN (needs `packages: write`). The GHCR package starts
+# private — make it public once, or give the pulling host a registry login.
+dockers:
+  - id: netcheck
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile
+    use: docker
+    image_templates:
+      - "ghcr.io/dezoxy/netcheck:{{ .Version }}"
+      - "ghcr.io/dezoxy/netcheck:{{ .Major }}.{{ .Minor }}"
+      - "ghcr.io/dezoxy/netcheck:latest"
+    build_flag_templates:
+      - "--label=org.opencontainers.image.source=https://github.com/Dezoxy/netcheck"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
 # Homebrew Cask — distributes the prebuilt macOS binary via Homebrew.
 #
 # Why Cask and not Formula: goreleaser v2 deprecated the `brews:` block in
