@@ -161,6 +161,7 @@
      scanline: CRT-style overhead scan effect on the event stream. */
   --animate-translate-x-shimmer: translateX 1s linear infinite;
   --animate-radar-pulse: radarPulse 3s ease-out infinite;
+  --animate-radar-sweep: radarSweep 4s linear infinite;
   --animate-scanline: scanline 6s linear infinite;
   --animate-heartbeat: heartbeat 1.4s ease-in-out infinite;
 }
@@ -191,6 +192,17 @@
   }
   100% {
     transform: translateY(100%);
+  }
+}
+
+/* radarSweep: a wedge of light rotating around the topography panel's
+   idle state, so "No active scan" still reads as a live radar dish. */
+@keyframes radarSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 

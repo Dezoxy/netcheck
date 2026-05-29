@@ -107,6 +107,30 @@ export function TargetTopography() {
               );
             })}
 
+            {/* Packets: bright dots streaming from each hop to the next,
+                so a static graph still reads as live traffic. Staggered
+                begin offsets keep them from marching in lockstep. */}
+            {graph.edges.map((e, i) => {
+              const from = graph.nodes.find((n) => n.id === e.from);
+              const to = graph.nodes.find((n) => n.id === e.to);
+              if (!from || !to) return null;
+              return (
+                <circle
+                  key={`pkt-${e.from}-${e.to}`}
+                  r={0.45}
+                  fill="#00f2ff"
+                  filter="url(#topo-glow)"
+                >
+                  <animateMotion
+                    dur="1.8s"
+                    begin={`${(i % 5) * 0.36}s`}
+                    repeatCount="indefinite"
+                    path={`M ${from.x * 100} ${from.y * 100} L ${to.x * 100} ${to.y * 100}`}
+                  />
+                </circle>
+              );
+            })}
+
             {/* Nodes: small dots, with a pulsing ring around the target. */}
             {graph.nodes.map((n) => {
               const color = nodeColor(n.status);
@@ -136,7 +160,20 @@ export function TargetTopography() {
           </svg>
         ) : (
           <div className="relative z-10 flex flex-col items-center gap-2 text-on-surface-variant/60">
-            <Icon name="radar" size="xl" className="text-primary-fixed-dim/40" />
+            {/* A rotating wedge of light behind the icon keeps the idle
+                panel reading as a live radar dish rather than a dead state. */}
+            <div className="relative flex h-24 w-24 items-center justify-center">
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background:
+                    "conic-gradient(from 0deg, transparent 0deg, rgb(0 219 231 / 0.18) 40deg, transparent 70deg)",
+                  animation: "radarSweep 4s linear infinite",
+                }}
+                aria-hidden
+              />
+              <Icon name="radar" size="xl" className="relative text-primary-fixed-dim/40" />
+            </div>
             <span className="font-sans uppercase tracking-wider" style={{ fontSize: "11px" }}>
               No active scan
             </span>
