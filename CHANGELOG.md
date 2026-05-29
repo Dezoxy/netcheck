@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.7.0](https://github.com/Dezoxy/netcheck/compare/v2.6.0...v2.7.0) (2026-05-29)
+
+
+### Features
+
+* add whois RDAP registrar lookup (CLI + report + web) ([#126](https://github.com/Dezoxy/netcheck/issues/126)) ([2e2b30c](https://github.com/Dezoxy/netcheck/commit/2e2b30cd253077402f2a0aea209b6a1b3c8b5729))
+
 ## [2.6.0](https://github.com/Dezoxy/netcheck/compare/v2.5.0...v2.6.0) (2026-05-28)
 
 
