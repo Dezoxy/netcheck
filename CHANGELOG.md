@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.8.0](https://github.com/Dezoxy/netcheck/compare/v2.7.0...v2.8.0) (2026-05-29)
+
+
+### Features
+
+* **whois:** WHOIS port-43 + manual-lookup fallbacks ([#128](https://github.com/Dezoxy/netcheck/issues/128)) ([7a6e417](https://github.com/Dezoxy/netcheck/commit/7a6e417c721c7f0b67df903347bc713e26d41665))
+
 ## [2.7.0](https://github.com/Dezoxy/netcheck/compare/v2.6.0...v2.7.0) (2026-05-29)
 
 
