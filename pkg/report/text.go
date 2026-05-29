@@ -677,12 +677,30 @@ func RenderWhois(w io.Writer, d WhoisJSON) {
 	}
 	fmt.Fprintln(w)
 	if d.NotFound {
-		fmt.Fprintln(w, "  (no RDAP registrar data for this TLD)")
+		fmt.Fprintln(w, "  (no registrar data via RDAP or WHOIS for this TLD)")
+		if d.ManualLookupURL != "" {
+			fmt.Fprintf(w, "  Look it up manually: %s\n", d.ManualLookupURL)
+		}
 		return
 	}
 	fmt.Fprintf(w, "Registrar:       %s\n", orDash(d.Registrar))
 	fmt.Fprintf(w, "Registrar IANA:  %s\n", orDash(d.RegistrarIANAID))
 	fmt.Fprintf(w, "Registrar URL:   %s\n", orDash(d.RegistrarURL))
+	if d.Source != "" {
+		fmt.Fprintf(w, "Source:          %s\n", whoisSourceLabel(d.Source))
+	}
+}
+
+// whoisSourceLabel renders the data provenance for display.
+func whoisSourceLabel(src string) string {
+	switch src {
+	case "whois":
+		return "WHOIS (port 43)"
+	case "rdap":
+		return "RDAP"
+	default:
+		return src
+	}
 }
 
 // RenderSubs writes the subdomain enumeration result as text.

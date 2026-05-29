@@ -737,7 +737,10 @@ func RenderWhoisMD(w io.Writer, d WhoisJSON) {
 		return
 	}
 	if d.NotFound {
-		fmt.Fprintln(w, "_(no RDAP registrar data for this TLD)_")
+		fmt.Fprintln(w, "_(no registrar data via RDAP or WHOIS for this TLD)_")
+		if d.ManualLookupURL != "" {
+			fmt.Fprintf(w, "\n[Look it up manually](%s)\n", d.ManualLookupURL)
+		}
 		return
 	}
 	fmt.Fprintln(w, "| Field | Value |")
@@ -745,6 +748,9 @@ func RenderWhoisMD(w io.Writer, d WhoisJSON) {
 	fmt.Fprintf(w, "| Registrar | %s |\n", mdEscapePipes(orMDDash(d.Registrar)))
 	fmt.Fprintf(w, "| Registrar IANA ID | %s |\n", orMDDash(d.RegistrarIANAID))
 	fmt.Fprintf(w, "| Registrar URL | %s |\n", orMDDash(d.RegistrarURL))
+	if d.Source != "" {
+		fmt.Fprintf(w, "| Source | %s |\n", whoisSourceLabel(d.Source))
+	}
 	fmt.Fprintln(w)
 }
 

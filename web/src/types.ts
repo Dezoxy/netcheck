@@ -245,7 +245,9 @@ export type WhoisReport = {
   registrar?: string;
   registrar_iana_id?: string;
   registrar_url?: string;
+  source?: "rdap" | "whois";
   not_found?: boolean;
+  manual_lookup_url?: string;
   error?: string;
 };
 

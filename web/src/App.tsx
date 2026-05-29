@@ -2067,13 +2067,24 @@ function WhoisWorkbench({ loading, report }: { loading: boolean; report: WhoisRe
         </h1>
         <div className={`health-pill ${found ? "health-pill-ok" : "health-pill-warn"}`}>
           <span />
-          {report.error ? "Lookup failed" : found ? "Registrar found" : "No RDAP data"}
+          {report.error ? "Lookup failed" : found ? "Registrar found" : "No registrar data"}
         </div>
       </div>
       {report.error ? <ErrorBanner message={report.error} /> : null}
-      <Panel className="dns-panel" icon={<Icon name="badge" size="sm" />} title="RDAP registrar">
+      <Panel className="dns-panel" icon={<Icon name="badge" size="sm" />} title="Registrar">
         {report.not_found && !report.error ? (
-          <p className="muted">No RDAP registrar data for this TLD (many ccTLDs are WHOIS-only).</p>
+          <div className="flex flex-col gap-2">
+            <p className="muted">
+              No registrar data published for this TLD over RDAP or WHOIS. Some registries (.hu and
+              other GDPR-stripped ccTLDs) only expose it on their own web lookup; otherwise the
+              authoritative registry can be found in the IANA root zone database.
+            </p>
+            {report.manual_lookup_url ? (
+              <a href={report.manual_lookup_url} target="_blank" rel="noopener noreferrer">
+                Look it up manually →
+              </a>
+            ) : null}
+          </div>
         ) : (
           <div className="flex flex-col">
             <DataRow label="Registrar" value={report.registrar || "—"} />
@@ -2090,6 +2101,10 @@ function WhoisWorkbench({ loading, report }: { loading: boolean; report: WhoisRe
                   "—"
                 )
               }
+            />
+            <DataRow
+              label="Source"
+              value={report.source === "whois" ? "WHOIS (port 43)" : "RDAP"}
             />
           </div>
         )}

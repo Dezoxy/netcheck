@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/Dezoxy/netcheck/pkg/check"
@@ -356,7 +357,9 @@ type WhoisJSON struct {
 	Registrar       string    `json:"registrar,omitempty"`
 	RegistrarIANAID string    `json:"registrar_iana_id,omitempty"`
 	RegistrarURL    string    `json:"registrar_url,omitempty"`
-	NotFound        bool      `json:"not_found,omitempty"` // no RDAP service / no registrar entity
+	Source          string    `json:"source,omitempty"`            // "rdap" or "whois" (port-43 fallback)
+	NotFound        bool      `json:"not_found,omitempty"`         // no RDAP/WHOIS registrar data
+	ManualLookupURL string    `json:"manual_lookup_url,omitempty"` // registry's manual web-whois page or IANA root-zone db entry
 	Error           string    `json:"error,omitempty"`
 }
 
@@ -786,12 +789,40 @@ func ToWhoisJSON(domain string, r *ipinfo.Registrar, startedAt time.Time, took t
 	}
 	if r == nil {
 		out.NotFound = true
+		out.ManualLookupURL = manualLookupURL(domain)
 		return out
 	}
 	out.Registrar = r.Name
 	out.RegistrarIANAID = r.IANAID
 	out.RegistrarURL = r.URL
+	out.Source = r.Source
 	return out
+}
+
+// manualLookupURL returns a human-facing page where a registrar can be looked
+// up by hand when both RDAP and port-43 WHOIS come back empty (typically
+// GDPR-stripped ccTLDs). For TLDs with a known registry web-whois portal it
+// returns that direct link; the page is behind bot detection, so netcheck only
+// ever *links* to it — it never scrapes it. For every other TLD it falls back
+// to the authoritative IANA root-zone database entry, which always exists for a
+// valid TLD and is never fabricated. Returns "" when no TLD can be extracted.
+func manualLookupURL(domain string) string {
+	d := strings.ToLower(strings.TrimSpace(domain))
+	d = strings.TrimSuffix(d, ".")
+	if i := strings.IndexAny(d, "/:"); i >= 0 {
+		d = d[:i]
+	}
+	i := strings.LastIndexByte(d, '.')
+	if i < 0 || i == len(d)-1 {
+		return ""
+	}
+	tld := d[i+1:]
+	switch tld {
+	case "hu":
+		return "https://info.domain.hu/webwhois/hu/domain/" + d
+	default:
+		return "https://www.iana.org/domains/root/db/" + tld + ".html"
+	}
 }
 
 // ToTLSAuditJSON projects a tlsaudit.Result into TLSAuditJSON. Only supported
