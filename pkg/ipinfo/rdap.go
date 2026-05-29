@@ -78,11 +78,21 @@ type rdapIPResponse struct {
 type rdapEntity struct {
 	Handle     string          `json:"handle"`
 	Roles      []string        `json:"roles"`
+	PublicIds  []rdapPublicID  `json:"publicIds"`
+	Links      []rdapLink      `json:"links"`
 	VCardArray json.RawMessage `json:"vcardArray"`
 	Entities   []rdapEntity    `json:"entities"`
 }
 
+// rdapPublicID is an entity's public identifier; the registrar entity
+// carries one of type "IANA Registrar ID".
+type rdapPublicID struct {
+	Type       string `json:"type"`
+	Identifier string `json:"identifier"`
+}
+
 type rdapLink struct {
+	Rel   string `json:"rel"`
 	Href  string `json:"href"`
 	Value string `json:"value"`
 }

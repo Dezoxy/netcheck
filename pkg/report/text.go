@@ -666,6 +666,25 @@ func RenderArch(w io.Writer, d ArchJSON) {
 	tw.Flush()
 }
 
+// RenderWhois writes the RDAP registrar lookup as text.
+func RenderWhois(w io.Writer, d WhoisJSON) {
+	fmt.Fprintln(w, "RDAP REGISTRAR")
+	fmt.Fprintf(w, "Domain:   %s\n", d.Domain)
+	fmt.Fprintf(w, "Time:     %s (%dms)\n", d.StartedAt.Format("2006-01-02 15:04:05"), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "  %s lookup failed: %s\n", Mark(false), d.Error)
+		return
+	}
+	fmt.Fprintln(w)
+	if d.NotFound {
+		fmt.Fprintln(w, "  (no RDAP registrar data for this TLD)")
+		return
+	}
+	fmt.Fprintf(w, "Registrar:       %s\n", orDash(d.Registrar))
+	fmt.Fprintf(w, "Registrar IANA:  %s\n", orDash(d.RegistrarIANAID))
+	fmt.Fprintf(w, "Registrar URL:   %s\n", orDash(d.RegistrarURL))
+}
+
 // RenderSubs writes the subdomain enumeration result as text.
 func RenderSubs(w io.Writer, d SubsJSON) {
 	fmt.Fprintln(w, "SUBDOMAIN ENUMERATION")

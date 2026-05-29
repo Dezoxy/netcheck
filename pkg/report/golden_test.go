@@ -689,6 +689,71 @@ func TestRenderArchErr(t *testing.T) {
 	}
 }
 
+func fixtureWhois() WhoisJSON {
+	return WhoisJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "whois",
+		Domain:          "example.com",
+		StartedAt:       fixedTime,
+		TookMS:          412,
+		Registrar:       "MarkMonitor Inc.",
+		RegistrarIANAID: "292",
+		RegistrarURL:    "https://www.markmonitor.com",
+	}
+}
+
+func TestRenderWhoisText(t *testing.T) {
+	var buf bytes.Buffer
+	RenderWhois(&buf, fixtureWhois())
+	assertGolden(t, "whois.txt", buf.Bytes())
+}
+
+func TestRenderWhoisMD(t *testing.T) {
+	var buf bytes.Buffer
+	RenderWhoisMD(&buf, fixtureWhois())
+	assertGolden(t, "whois.md", buf.Bytes())
+}
+
+func TestRenderWhoisHTML(t *testing.T) {
+	var buf bytes.Buffer
+	RenderWhoisHTML(&buf, fixtureWhois())
+	assertGolden(t, "whois.html", buf.Bytes())
+}
+
+func TestRenderWhoisNotFound(t *testing.T) {
+	d := WhoisJSON{Domain: "example.hu", Kind: "whois", StartedAt: fixedTime, NotFound: true}
+	for _, render := range []func(*bytes.Buffer, WhoisJSON){
+		func(b *bytes.Buffer, w WhoisJSON) { RenderWhois(b, w) },
+		func(b *bytes.Buffer, w WhoisJSON) { RenderWhoisMD(b, w) },
+		func(b *bytes.Buffer, w WhoisJSON) { RenderWhoisHTML(b, w) },
+	} {
+		var buf bytes.Buffer
+		render(&buf, d)
+		if !bytes.Contains(bytes.ToLower(buf.Bytes()), []byte("no rdap registrar data")) {
+			t.Errorf("not-found path missing message:\n%s", buf.String())
+		}
+	}
+}
+
+func TestRenderWhoisErr(t *testing.T) {
+	d := WhoisJSON{Domain: "bad", Kind: "whois", StartedAt: fixedTime, Error: "boom"}
+	var buf bytes.Buffer
+	RenderWhois(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("lookup failed")) {
+		t.Errorf("text err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderWhoisMD(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("md err path:\n%s", buf.String())
+	}
+	buf.Reset()
+	RenderWhoisHTML(&buf, d)
+	if !bytes.Contains(buf.Bytes(), []byte("Lookup failed")) {
+		t.Errorf("html err path:\n%s", buf.String())
+	}
+}
+
 // ─── JSON ─────────────────────────────────────────────────────────────────
 
 func TestWriteJSON(t *testing.T) {

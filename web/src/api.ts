@@ -16,6 +16,7 @@ import type {
   TakeoverReport,
   TechReport,
   TLSAuditReport,
+  WhoisReport,
 } from "./types";
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
@@ -193,6 +194,10 @@ export function runReverseCheck(ip: string): Promise<ReverseReport> {
 
 export function runArchCheck(domain: string): Promise<ArchReport> {
   return postJSON<ArchReport>("/api/check/arch", { domain });
+}
+
+export function runWhoisCheck(domain: string): Promise<WhoisReport> {
+  return postJSON<WhoisReport>("/api/check/whois", { domain });
 }
 
 // ─── v1.4 active scanning ──────────────────────────────────────────────────
