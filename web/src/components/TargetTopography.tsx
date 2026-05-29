@@ -60,8 +60,11 @@ export function TargetTopography() {
       </div>
 
       {/* Ambient backdrop + node graph. The radial gradient fades
-          the edges so the SVG stops feeling like a hard rectangle. */}
-      <div className="relative z-10 flex flex-1 items-center justify-center bg-transparent">
+          the edges so the SVG stops feeling like a hard rectangle.
+          min-h keeps the graph visible when the panel is stacked on
+          mobile (where flex-1 has no row height to grow into); on the
+          lg 3-col grid it still stretches to match the event stream. */}
+      <div className="relative z-10 flex min-h-[220px] flex-1 items-center justify-center bg-transparent">
         <div
           className="absolute inset-0 opacity-60"
           style={{
