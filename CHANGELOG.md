@@ -4,6 +4,14 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.9.0](https://github.com/Dezoxy/netcheck/compare/v2.8.0...v2.9.0) (2026-05-29)
+
+
+### Features
+
+* **docker:** publish container image to GHCR via goreleaser ([#132](https://github.com/Dezoxy/netcheck/issues/132)) ([b10943a](https://github.com/Dezoxy/netcheck/commit/b10943a3299e5ca7e0956095717ab3a9ab074cc3))
+* **web:** animate Target Topography + fix mobile layout ([#130](https://github.com/Dezoxy/netcheck/issues/130)) ([6cc8d95](https://github.com/Dezoxy/netcheck/commit/6cc8d95f93d0a545f8f4bf0b33b8029bc8f85302))
+
 ## [2.8.0](https://github.com/Dezoxy/netcheck/compare/v2.7.0...v2.8.0) (2026-05-29)
 
 
