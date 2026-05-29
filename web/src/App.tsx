@@ -57,6 +57,7 @@ import {
   runTakeoverCheck,
   runTechCheck,
   runTLSAuditCheck,
+  runWhoisCheck,
   saveReport,
 } from "./api";
 import type {
@@ -80,6 +81,7 @@ import type {
   TakeoverReport,
   TechReport,
   TLSAuditReport,
+  WhoisReport,
 } from "./types";
 // isActiveMode moved into CategoryDropdown + SelectedModePanel after
 // PR 6 — App.tsx no longer needs the predicate at this layer.
@@ -124,6 +126,7 @@ const MODE_LABEL: Record<CheckMode, string> = {
   subs: "Subdomains",
   reverse: "Reverse IP",
   arch: "Wayback",
+  whois: "Registrar",
   tls: "TLS Audit",
   takeover: "Takeover",
   ports: "Ports",
@@ -260,6 +263,9 @@ export default function App() {
             break;
           case "arch":
             next = await runArchCheck(effectiveTarget);
+            break;
+          case "whois":
+            next = await runWhoisCheck(effectiveTarget);
             break;
           case "tls":
             next = await runTLSAuditCheck(effectiveTarget);
@@ -1274,6 +1280,8 @@ function ReportView({ loading, report }: { loading: boolean; report: AnyReport }
       return <ReverseWorkbench loading={loading} report={report} />;
     case "arch":
       return <ArchWorkbench loading={loading} report={report} />;
+    case "whois":
+      return <WhoisWorkbench loading={loading} report={report} />;
     case "tls-audit":
       return <TLSAuditWorkbench loading={loading} report={report} />;
     case "takeover":
@@ -2045,6 +2053,47 @@ function ArchWorkbench({ loading, report }: { loading: boolean; report: ArchRepo
           </div>
         </Panel>
       ) : null}
+    </section>
+  );
+}
+
+function WhoisWorkbench({ loading, report }: { loading: boolean; report: WhoisReport }) {
+  const found = !report.error && !report.not_found;
+  return (
+    <section className={loading ? "result-area result-area-loading" : "result-area"}>
+      <div className="result-header">
+        <h1>
+          Registrar: <span>{report.domain}</span>
+        </h1>
+        <div className={`health-pill ${found ? "health-pill-ok" : "health-pill-warn"}`}>
+          <span />
+          {report.error ? "Lookup failed" : found ? "Registrar found" : "No RDAP data"}
+        </div>
+      </div>
+      {report.error ? <ErrorBanner message={report.error} /> : null}
+      <Panel className="dns-panel" icon={<Icon name="badge" size="sm" />} title="RDAP registrar">
+        {report.not_found && !report.error ? (
+          <p className="muted">No RDAP registrar data for this TLD (many ccTLDs are WHOIS-only).</p>
+        ) : (
+          <div className="flex flex-col">
+            <DataRow label="Registrar" value={report.registrar || "—"} />
+            <DataRow label="IANA ID" value={report.registrar_iana_id || "—"} />
+            <DataRow
+              label="Registrar URL"
+              wide
+              value={
+                report.registrar_url ? (
+                  <a href={report.registrar_url} target="_blank" rel="noopener noreferrer">
+                    {report.registrar_url}
+                  </a>
+                ) : (
+                  "—"
+                )
+              }
+            />
+          </div>
+        )}
+      </Panel>
     </section>
   );
 }
@@ -2866,6 +2915,7 @@ function reportTarget(report: AnyReport): string {
     case "subs":
     case "arch":
     case "takeover":
+    case "whois":
       return report.domain;
     case "reverse":
       return report.ip;
@@ -2899,6 +2949,8 @@ function reportOK(report: AnyReport): boolean {
       return (report.hostnames?.length ?? 0) > 0;
     case "arch":
       return report.total > 0;
+    case "whois":
+      return !report.error && !report.not_found;
     case "tls-audit":
       return (report.findings ?? []).every((f) => f.severity !== "high");
     case "takeover":

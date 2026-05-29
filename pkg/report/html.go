@@ -844,6 +844,45 @@ func RenderArchHTML(w io.Writer, d ArchJSON) {
 	htmlTail(w)
 }
 
+// RenderWhoisHTML writes a single-file HTML rendering of the RDAP
+// registrar lookup.
+func RenderWhoisHTML(w io.Writer, d WhoisJSON) {
+	htmlHead(w, "netcheck whois — "+d.Domain)
+	fmt.Fprintf(w, "<h1>netcheck whois</h1>\n")
+	fmt.Fprintf(w, "<p class=\"meta\">Domain: <code>%s</code> · %s · %dms</p>\n",
+		html.EscapeString(d.Domain), html.EscapeString(d.StartedAt.Format(time.RFC3339)), d.TookMS)
+
+	if d.Error != "" {
+		fmt.Fprintf(w, "<div class=\"warn\"><b>Lookup failed:</b> %s</div>\n", html.EscapeString(d.Error))
+		htmlTail(w)
+		return
+	}
+	if d.NotFound {
+		fmt.Fprintln(w, "<p class=\"muted\">No RDAP registrar data for this TLD.</p>")
+		htmlTail(w)
+		return
+	}
+	fmt.Fprintln(w, "<ul class=\"kv\">")
+	fmt.Fprintf(w, "<li><b>Registrar:</b> %s</li>\n", htmlOrDash(d.Registrar))
+	fmt.Fprintf(w, "<li><b>Registrar IANA ID:</b> %s</li>\n", htmlOrDash(d.RegistrarIANAID))
+	if d.RegistrarURL != "" {
+		esc := html.EscapeString(d.RegistrarURL)
+		fmt.Fprintf(w, "<li><b>Registrar URL:</b> <a href=\"%s\" rel=\"noopener noreferrer\">%s</a></li>\n", esc, esc)
+	} else {
+		fmt.Fprintln(w, "<li><b>Registrar URL:</b> <span class=\"muted\">—</span></li>")
+	}
+	fmt.Fprintln(w, "</ul>")
+	htmlTail(w)
+}
+
+// htmlOrDash escapes a value or renders a muted dash when empty.
+func htmlOrDash(s string) string {
+	if s == "" {
+		return "<span class=\"muted\">—</span>"
+	}
+	return html.EscapeString(s)
+}
+
 // RenderSubsHTML writes a single-file HTML rendering of the subdomain
 // enumeration result.
 func RenderSubsHTML(w io.Writer, d SubsJSON) {

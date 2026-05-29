@@ -236,6 +236,19 @@ export type ArchReport = {
   error?: string;
 };
 
+export type WhoisReport = {
+  netcheck_version: string;
+  kind: "whois";
+  domain: string;
+  started_at: string;
+  took_ms: number;
+  registrar?: string;
+  registrar_iana_id?: string;
+  registrar_url?: string;
+  not_found?: boolean;
+  error?: string;
+};
+
 // ─── v1.4 active scanning ─────────────────────────────────────────────────
 
 export type TLSAuditReport = {
@@ -401,6 +414,7 @@ export type AnyReport =
   | SubsReport
   | ReverseReport
   | ArchReport
+  | WhoisReport
   | TLSAuditReport
   | TakeoverReport
   | PortScanReport
@@ -419,6 +433,7 @@ export type CheckMode =
   | "subs"
   | "reverse"
   | "arch"
+  | "whois"
   | "tls"
   | "takeover"
   | "ports"
@@ -438,7 +453,7 @@ export function isActiveMode(mode: CheckMode): boolean {
 // other tiers, not a peer of the individual checks.
 export const MODE_GROUPS: Array<{ label: string; modes: CheckMode[] }> = [
   { label: "Network", modes: ["full", "dns", "route", "ip"] },
-  { label: "Passive recon", modes: ["headers", "tech", "subs", "reverse", "arch"] },
+  { label: "Passive recon", modes: ["headers", "tech", "subs", "reverse", "arch", "whois"] },
   { label: "Active scanning", modes: ["tls", "takeover", "ports", "enum"] },
   { label: "Aggregate", modes: ["audit"] },
 ];

@@ -344,6 +344,22 @@ type SnapshotJSON struct {
 	Status    int       `json:"status,omitempty"`
 }
 
+// WhoisJSON is the JSON representation of a `netcheck whois` RDAP
+// registrar lookup. RDAP registrar fields follow the ICANN gTLD profile;
+// ccTLDs that are WHOIS-only or omit registrar data yield NotFound=true.
+type WhoisJSON struct {
+	NetcheckVersion string    `json:"netcheck_version"`
+	Kind            string    `json:"kind"` // "whois"
+	Domain          string    `json:"domain"`
+	StartedAt       time.Time `json:"started_at"`
+	TookMS          int64     `json:"took_ms"`
+	Registrar       string    `json:"registrar,omitempty"`
+	RegistrarIANAID string    `json:"registrar_iana_id,omitempty"`
+	RegistrarURL    string    `json:"registrar_url,omitempty"`
+	NotFound        bool      `json:"not_found,omitempty"` // no RDAP service / no registrar entity
+	Error           string    `json:"error,omitempty"`
+}
+
 // TLSAuditJSON is the JSON representation of a `netcheck tls` audit.
 type TLSAuditJSON struct {
 	NetcheckVersion string                `json:"netcheck_version"`
@@ -750,6 +766,31 @@ func ToArchJSON(r wayback.Result) ArchJSON {
 			Status:    s.Status,
 		})
 	}
+	return out
+}
+
+// ToWhoisJSON projects an RDAP registrar lookup into WhoisJSON. A nil
+// registrar (no RDAP service or no registrar entity for this TLD) is a
+// successful "not found" — not an error.
+func ToWhoisJSON(domain string, r *ipinfo.Registrar, startedAt time.Time, took time.Duration, err error) WhoisJSON {
+	out := WhoisJSON{
+		NetcheckVersion: SchemaVersion,
+		Kind:            "whois",
+		Domain:          domain,
+		StartedAt:       startedAt,
+		TookMS:          took.Milliseconds(),
+	}
+	if err != nil {
+		out.Error = err.Error()
+		return out
+	}
+	if r == nil {
+		out.NotFound = true
+		return out
+	}
+	out.Registrar = r.Name
+	out.RegistrarIANAID = r.IANAID
+	out.RegistrarURL = r.URL
 	return out
 }
 

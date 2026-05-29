@@ -773,6 +773,11 @@ input,
   color: var(--fail);
 }
 
+.health-pill-warn {
+  background: rgb(231 148 0 / 10%);
+  color: var(--warn);
+}
+
 .summary-strip {
   display: grid;
   gap: var(--space-3);

@@ -76,6 +76,7 @@ const MODE_ACTIONS: Array<{
   { mode: "subs", label: "Subdomain Enum", icon: "search", active: false },
   { mode: "reverse", label: "Reverse DNS", icon: "swap_horiz", active: false },
   { mode: "arch", label: "Archive (Wayback)", icon: "history", active: false },
+  { mode: "whois", label: "Registrar (RDAP)", icon: "badge", active: false },
   { mode: "audit", auditActive: false, label: "Audit (Passive)", icon: "verified", active: false },
   { mode: "audit", auditActive: true, label: "Audit (Active)", icon: "verified", active: true },
   { mode: "tls", label: "TLS Audit", icon: "lock", active: true },

@@ -107,6 +107,8 @@ func Run() {
 		os.Exit(RunReverse(os.Args[2:]))
 	case "arch":
 		os.Exit(RunArch(os.Args[2:]))
+	case "whois":
+		os.Exit(RunWhois(os.Args[2:]))
 	case "tls":
 		os.Exit(RunTLSAudit(os.Args[2:]))
 	case "takeover":
@@ -170,6 +172,7 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  netcheck subs <domain>         enumerate subdomains via Certificate Transparency logs")
 	fmt.Fprintln(os.Stderr, "  netcheck reverse <ip>          other hostnames on this IP (reverse DNS / Hackertarget / Shodan)")
 	fmt.Fprintln(os.Stderr, "  netcheck arch <domain>         Wayback Machine snapshots and historical URLs")
+	fmt.Fprintln(os.Stderr, "  netcheck whois <domain>        registrar lookup via RDAP (name, IANA ID, URL)")
 	fmt.Fprintln(os.Stderr, "  netcheck tls <host[:port]>     TLS protocol+cipher matrix audit (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck takeover <domain>     subdomain-takeover check on CNAME (ACTIVE — requires --i-have-authorization)")
 	fmt.Fprintln(os.Stderr, "  netcheck ports <host>          TCP connect scan (ACTIVE — requires --i-have-authorization)")

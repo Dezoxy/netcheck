@@ -86,6 +86,7 @@ var completionSubcommands = []struct {
 	{"subs", "enumerate subdomains via Certificate Transparency"},
 	{"reverse", "other hostnames on this IP"},
 	{"arch", "Wayback Machine snapshots"},
+	{"whois", "registrar lookup via RDAP"},
 	{"tls", "TLS protocol+cipher matrix audit (ACTIVE)"},
 	{"takeover", "subdomain-takeover check on CNAME (ACTIVE)"},
 	{"ports", "TCP connect scan (ACTIVE)"},
@@ -110,7 +111,7 @@ _netcheck() {
 
     # Only complete the subcommand name (first positional).
     if [ "$COMP_CWORD" -eq 1 ]; then
-        local cmds="menu app dns route ip headers tech subs reverse arch tls takeover ports enum audit config completion help version"
+        local cmds="menu app dns route ip headers tech subs reverse arch whois tls takeover ports enum audit config completion help version"
         COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
         return 0
     fi
@@ -151,6 +152,7 @@ _netcheck() {
         'subs:enumerate subdomains via Certificate Transparency'
         'reverse:other hostnames on this IP'
         'arch:Wayback Machine snapshots'
+        'whois:registrar lookup via RDAP'
         'tls:TLS protocol+cipher matrix audit (ACTIVE)'
         'takeover:subdomain-takeover check on CNAME (ACTIVE)'
         'ports:TCP connect scan (ACTIVE)'
@@ -204,6 +206,7 @@ complete -c netcheck -n '__fish_use_subcommand' -a tech       -d 'fingerprint CM
 complete -c netcheck -n '__fish_use_subcommand' -a subs       -d 'enumerate subdomains via CT logs'
 complete -c netcheck -n '__fish_use_subcommand' -a reverse    -d 'other hostnames on this IP'
 complete -c netcheck -n '__fish_use_subcommand' -a arch       -d 'Wayback Machine snapshots'
+complete -c netcheck -n '__fish_use_subcommand' -a whois      -d 'registrar lookup via RDAP'
 complete -c netcheck -n '__fish_use_subcommand' -a tls        -d 'TLS protocol+cipher audit (ACTIVE)'
 complete -c netcheck -n '__fish_use_subcommand' -a takeover   -d 'subdomain-takeover check (ACTIVE)'
 complete -c netcheck -n '__fish_use_subcommand' -a ports      -d 'TCP connect scan (ACTIVE)'
@@ -245,6 +248,7 @@ Register-ArgumentCompleter -Native -CommandName netcheck -ScriptBlock {
         @{ Name = 'subs';       Tooltip = 'enumerate subdomains via CT logs' }
         @{ Name = 'reverse';    Tooltip = 'other hostnames on this IP' }
         @{ Name = 'arch';       Tooltip = 'Wayback Machine snapshots' }
+        @{ Name = 'whois';      Tooltip = 'registrar lookup via RDAP' }
         @{ Name = 'tls';        Tooltip = 'TLS protocol+cipher audit (ACTIVE)' }
         @{ Name = 'takeover';   Tooltip = 'subdomain-takeover check (ACTIVE)' }
         @{ Name = 'ports';      Tooltip = 'TCP connect scan (ACTIVE)' }

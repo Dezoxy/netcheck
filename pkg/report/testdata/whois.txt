@@ -1,0 +1,7 @@
+RDAP REGISTRAR
+Domain:   example.com
+Time:     2026-05-21 19:30:45 (412ms)
+
+Registrar:       MarkMonitor Inc.
+Registrar IANA:  292
+Registrar URL:   https://www.markmonitor.com

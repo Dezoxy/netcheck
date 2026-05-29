@@ -106,6 +106,12 @@ func RunMenu(args []string) {
 				fmt.Fprintf(out, "  %v\n", err)
 			}
 			s = res
+		case "10":
+			res, err := menuWhois(in, out)
+			if err != nil {
+				fmt.Fprintf(out, "  %v\n", err)
+			}
+			s = res
 		default:
 			fmt.Fprintf(out, "  unknown choice: %q\n", choice)
 			continue
@@ -130,6 +136,7 @@ func printMenu(w io.Writer) {
 	fmt.Fprintln(w, "  7) Subdomain enumeration (CT logs)")
 	fmt.Fprintln(w, "  8) Reverse IP lookup (other hostnames on this IP)")
 	fmt.Fprintln(w, "  9) Wayback / archive.org historical snapshots")
+	fmt.Fprintln(w, " 10) Registrar lookup (RDAP whois)")
 	fmt.Fprintln(w, "  q) Quit")
 	fmt.Fprintln(w)
 }
@@ -544,6 +551,40 @@ func menuArch(in *bufio.Reader, out io.Writer) (*savable, error) {
 				report.RenderArchHTML(w, j)
 			default:
 				report.RenderArch(w, j)
+			}
+			return nil
+		},
+	}, nil
+}
+
+// menuWhois prompts for a domain and runs the RDAP registrar lookup.
+func menuWhois(in *bufio.Reader, out io.Writer) (*savable, error) {
+	raw, err := readLine(in, "Domain: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintln(out)
+
+	timeout := whoisDefaultTimeout(loadedConfig.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout+2*time.Second)
+	defer cancel()
+
+	j := BuildWhois(ctx, strings.TrimSpace(raw), timeout)
+	report.RenderWhois(out, j)
+
+	return &savable{
+		Kind: "whois",
+		Host: j.Domain,
+		Render: func(w io.Writer, f Format) error {
+			switch f {
+			case FormatJSON:
+				return report.WriteJSON(w, j)
+			case FormatMarkdown:
+				report.RenderWhoisMD(w, j)
+			case FormatHTML:
+				report.RenderWhoisHTML(w, j)
+			default:
+				report.RenderWhois(w, j)
 			}
 			return nil
 		},

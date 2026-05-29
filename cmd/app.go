@@ -77,6 +77,10 @@ type archCheckRequest struct {
 	Domain string `json:"domain"`
 }
 
+type whoisCheckRequest struct {
+	Domain string `json:"domain"`
+}
+
 // ─── v1.4 active scanning — request types ─────────────────────────────────
 //
 // Active checks require the client to set `"i_have_authorization": true` in
@@ -222,6 +226,7 @@ func newAppHandler(bus *eventbus.Bus, tel *telemetry.Collector, topo *telemetry.
 	mux.HandleFunc("/api/check/subs", pub("subs", handleSubsCheck))
 	mux.HandleFunc("/api/check/reverse", pub("reverse", handleReverseCheck))
 	mux.HandleFunc("/api/check/arch", pub("arch", handleArchCheck))
+	mux.HandleFunc("/api/check/whois", pub("whois", handleWhoisCheck))
 	// v1.4 active scanning — auth gate enforced inside the handler
 	mux.HandleFunc("/api/check/tls", pub("tls", handleTLSAuditCheck))
 	mux.HandleFunc("/api/check/takeover", pub("takeover", handleTakeoverCheck))
@@ -696,6 +701,22 @@ func handleArchCheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := BuildArch(r.Context(), req.Domain, archDefaultTimeout(loadedConfig.Timeout))
+	writeJSON(w, http.StatusOK, out)
+}
+
+func handleWhoisCheck(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
+	var req whoisCheckRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if strings.TrimSpace(req.Domain) == "" {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "domain required"})
+		return
+	}
+	out := BuildWhois(r.Context(), req.Domain, whoisDefaultTimeout(loadedConfig.Timeout))
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -1346,7 +1367,7 @@ func sniffTarget(raw json.RawMessage, kind string) string {
 		}
 		_ = json.Unmarshal(raw, &s)
 		return s.URL
-	case "subs", "arch", "takeover":
+	case "subs", "arch", "takeover", "whois":
 		var s struct {
 			Domain string `json:"domain"`
 		}

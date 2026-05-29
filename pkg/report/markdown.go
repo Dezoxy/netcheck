@@ -728,6 +728,34 @@ func RenderArchMD(w io.Writer, d ArchJSON) {
 	fmt.Fprintln(w)
 }
 
+// RenderWhoisMD writes the RDAP registrar lookup as Markdown.
+func RenderWhoisMD(w io.Writer, d WhoisJSON) {
+	fmt.Fprintf(w, "# netcheck whois — `%s`\n\n", d.Domain)
+	fmt.Fprintf(w, "_%s · %dms_\n\n", d.StartedAt.Format(time.RFC3339), d.TookMS)
+	if d.Error != "" {
+		fmt.Fprintf(w, "> **Lookup failed:** %s\n", d.Error)
+		return
+	}
+	if d.NotFound {
+		fmt.Fprintln(w, "_(no RDAP registrar data for this TLD)_")
+		return
+	}
+	fmt.Fprintln(w, "| Field | Value |")
+	fmt.Fprintln(w, "|---|---|")
+	fmt.Fprintf(w, "| Registrar | %s |\n", mdEscapePipes(orMDDash(d.Registrar)))
+	fmt.Fprintf(w, "| Registrar IANA ID | %s |\n", orMDDash(d.RegistrarIANAID))
+	fmt.Fprintf(w, "| Registrar URL | %s |\n", orMDDash(d.RegistrarURL))
+	fmt.Fprintln(w)
+}
+
+// orMDDash renders an empty optional field as an em dash for Markdown.
+func orMDDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}
+
 // RenderSubsMD writes the subdomain enumeration result as Markdown.
 func RenderSubsMD(w io.Writer, d SubsJSON) {
 	fmt.Fprintf(w, "# netcheck subs — `%s`\n\n", d.Domain)
