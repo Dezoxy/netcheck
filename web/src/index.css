@@ -508,6 +508,11 @@ input,
 .workbench {
   grid-area: workbench;
   display: grid;
+  /* minmax(0, 1fr) lets the single content column shrink below its
+     children's min-content width — without it, grid items default to
+     min-width:auto and force horizontal page overflow on narrow
+     viewports (mobile). */
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   align-content: start;
   gap: 16px;

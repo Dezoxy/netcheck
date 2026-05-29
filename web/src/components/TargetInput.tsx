@@ -74,7 +74,7 @@ export function TargetInput({
         spellCheck="false"
         placeholder="Enter target URL or IP address — e.g. example.com, 1.1.1.1"
         aria-label="Target"
-        className="data-value flex-1 bg-transparent py-2 font-mono text-[15px] text-primary-fixed-dim placeholder:text-on-surface-variant/40 focus:outline-none"
+        className="data-value min-w-0 flex-1 bg-transparent py-2 font-mono text-[15px] text-primary-fixed-dim placeholder:text-on-surface-variant/40 focus:outline-none"
       />
 
       <button
