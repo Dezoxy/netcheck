@@ -699,6 +699,7 @@ func fixtureWhois() WhoisJSON {
 		Registrar:       "MarkMonitor Inc.",
 		RegistrarIANAID: "292",
 		RegistrarURL:    "https://www.markmonitor.com",
+		Source:          "rdap",
 	}
 }
 
@@ -729,9 +730,24 @@ func TestRenderWhoisNotFound(t *testing.T) {
 	} {
 		var buf bytes.Buffer
 		render(&buf, d)
-		if !bytes.Contains(bytes.ToLower(buf.Bytes()), []byte("no rdap registrar data")) {
+		if !bytes.Contains(bytes.ToLower(buf.Bytes()), []byte("no registrar data")) {
 			t.Errorf("not-found path missing message:\n%s", buf.String())
 		}
+	}
+}
+
+func TestWhoisNotFoundManualURL(t *testing.T) {
+	hu := ToWhoisJSON("vipcomm.hu", nil, fixedTime, 0, nil)
+	if !hu.NotFound {
+		t.Fatal("nil registrar should yield NotFound")
+	}
+	if want := "https://info.domain.hu/webwhois/hu/domain/vipcomm.hu"; hu.ManualLookupURL != want {
+		t.Errorf(".hu manual URL = %q, want %q", hu.ManualLookupURL, want)
+	}
+	// Non-.hu TLDs fall back to the authoritative IANA root-zone db entry.
+	want := "https://www.iana.org/domains/root/db/com.html"
+	if com := ToWhoisJSON("example.com", nil, fixedTime, 0, nil); com.ManualLookupURL != want {
+		t.Errorf("non-.hu manual URL = %q, want %q", com.ManualLookupURL, want)
 	}
 }
 

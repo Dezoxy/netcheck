@@ -49,7 +49,8 @@ const MODE_BLURB: Record<CheckMode, string> = {
   subs: "Passive subdomain enumeration across CT, DNS, and archive sources.",
   reverse: "Find every hostname pointing at an IP via passive sources.",
   arch: "Wayback Machine snapshot history for a domain.",
-  whois: "Sponsoring registrar via RDAP — name, IANA ID, and URL. Many ccTLDs expose no RDAP data.",
+  whois:
+    "Sponsoring registrar via RDAP — name, IANA ID, and URL — with a WHOIS (port 43) fallback for ccTLDs that publish no RDAP data.",
   tls: "Cipher / protocol / cert audit. Requires authorization.",
   takeover: "Detect dangling DNS records pointing at hijack-prone services.",
   ports: "TCP/UDP port scan. Requires authorization.",

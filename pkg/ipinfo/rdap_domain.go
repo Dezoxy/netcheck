@@ -23,11 +23,14 @@ import (
 	"time"
 )
 
-// Registrar is the subset of an RDAP domain response we surface.
+// Registrar is the subset of a domain registration we surface. Populated
+// primarily from RDAP; Name may instead come from the WHOIS (port 43)
+// fallback when the TLD has no RDAP registrar entity.
 type Registrar struct {
 	Name   string // vCard "fn" of the registrar entity
-	IANAID string // publicIds entry of type "IANA Registrar ID"
-	URL    string // registrar "about" link (fallback: vCard "url")
+	IANAID string // publicIds entry of type "IANA Registrar ID" (RDAP only)
+	URL    string // registrar "about" link (fallback: vCard "url"; RDAP only)
+	Source string // "rdap" or "whois" — provenance of the data
 }
 
 // RDAPDomainCache is a process-local cache of domain registrar lookups
@@ -66,6 +69,13 @@ func (c *RDAPDomainCache) Lookup(ctx context.Context, domain string) *Registrar 
 	c.mu.Unlock()
 
 	info := lookupRDAPDomain(ctx, c.client, key)
+	if info != nil {
+		info.Source = "rdap"
+	} else if name := lookupWhois43(ctx, key); name != "" {
+		// RDAP had no registrar (common for ccTLDs) — fall back to the
+		// TLD's classic WHOIS server. Only the name is available there.
+		info = &Registrar{Name: name, Source: "whois"}
+	}
 
 	c.mu.Lock()
 	c.m[key] = info

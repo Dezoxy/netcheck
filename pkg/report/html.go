@@ -858,7 +858,11 @@ func RenderWhoisHTML(w io.Writer, d WhoisJSON) {
 		return
 	}
 	if d.NotFound {
-		fmt.Fprintln(w, "<p class=\"muted\">No RDAP registrar data for this TLD.</p>")
+		fmt.Fprintln(w, "<p class=\"muted\">No registrar data via RDAP or WHOIS for this TLD.</p>")
+		if d.ManualLookupURL != "" {
+			esc := html.EscapeString(d.ManualLookupURL)
+			fmt.Fprintf(w, "<p>Look it up manually: <a href=\"%s\" rel=\"noopener noreferrer\">%s</a></p>\n", esc, esc)
+		}
 		htmlTail(w)
 		return
 	}
@@ -870,6 +874,9 @@ func RenderWhoisHTML(w io.Writer, d WhoisJSON) {
 		fmt.Fprintf(w, "<li><b>Registrar URL:</b> <a href=\"%s\" rel=\"noopener noreferrer\">%s</a></li>\n", esc, esc)
 	} else {
 		fmt.Fprintln(w, "<li><b>Registrar URL:</b> <span class=\"muted\">—</span></li>")
+	}
+	if d.Source != "" {
+		fmt.Fprintf(w, "<li><b>Source:</b> %s</li>\n", html.EscapeString(whoisSourceLabel(d.Source)))
 	}
 	fmt.Fprintln(w, "</ul>")
 	htmlTail(w)
