@@ -1,11 +1,13 @@
 # PUBLISHING — outstanding steps
 
-Status as of this commit: **scaffolding shipped, tap + bucket repos created, not yet pushing.**
+Status as of this commit: **container image live on GHCR (public, since v2.9.0); brew/scoop scaffolding shipped, tap + bucket repos created, not yet pushing.**
 
 Full walkthrough in [PUBLISHING.md](PUBLISHING.md); this file is the minimal checklist of what's still required to make `brew install netcheck` and `scoop install netcheck` work.
 
 ## Done
 
+- [x] Container image: `dockers:` block in `.goreleaser.yml` + GHCR login step in `release-please.yml`. Pushes `ghcr.io/dezoxy/netcheck:{version,major.minor,latest}` on every release using the built-in `GITHUB_TOKEN`.
+- [x] GHCR package made public — verified with an anonymous pull token against `ghcr.io/v2/dezoxy/netcheck/tags/list` (v2.9.0 published `2.9.0`, `2.9`, `latest`).
 - [x] Empty repos exist: [Dezoxy/homebrew-netcheck](https://github.com/Dezoxy/homebrew-netcheck), [Dezoxy/scoop-netcheck](https://github.com/Dezoxy/scoop-netcheck).
 - [x] `.goreleaser.yml` has `homebrew_casks:` and `scoops:` blocks pointing at those repos.
 - [x] `release-please.yml` and `release.yml` thread `GORELEASER_PAT` into the goreleaser step env, with a `|| ''` fallback so the pipeline stays green while the secret doesn't exist.

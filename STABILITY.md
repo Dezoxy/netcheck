@@ -15,7 +15,7 @@ If something must change in a breaking way, it earns a **v3.0.0**, not a `v2.x` 
 
 These flag names, their semantics, and the commands they're attached to are stable through `v2.x`:
 
-In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`, `tech`, `subs`, `reverse`, `arch`, `tls`, `takeover`, `ports`, `enum`, `audit`. `app`, `menu`, `watch`, `completion` are control-plane subcommands and don't register the per-check flag set.
+In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`, `tech`, `subs`, `reverse`, `arch`, `whois`, `tls`, `takeover`, `ports`, `enum`, `audit`. `app`, `menu`, `watch`, `completion` are control-plane subcommands and don't register the per-check flag set.
 
 | Flag | Commands | Behavior |
 |---|---|---|
@@ -32,6 +32,7 @@ In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`
 | `--no-system` | dns | Skip the system resolver |
 | `--no-defaults` | dns | Skip built-in resolvers (Cloudflare/Google/Quad9) |
 | `--no-config-resolvers` | dns | Skip resolvers defined in config |
+| `--dnssec` | dns | Set the DO bit so resolvers return DNSSEC records. Fetches, does not validate. |
 | `--max-hops <n>` | route | Max hops |
 | `--probes <n>` | route | Probes per hop |
 | `--wait <n>` | route | Per-probe wait in seconds |
@@ -43,7 +44,11 @@ In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`
 | `--per-port-timeout <duration>` | ports | Per-port connect timeout |
 | `--no-banners` | ports | Disable best-effort banner grab on open ports |
 | `--banner-timeout <duration>` | ports | Per-port banner-grab read deadline |
+| `--udp` | ports | Also run a UDP pass (service-aware probes, top-50 UDP ports) |
+| `--udp-only` | ports | Run the UDP pass and skip TCP |
+| `--udp-ports <list>` | ports | Explicit UDP port list. Implies `--udp`. |
 | `--wordlist <file>` | enum | Override the builtin wordlist |
+| `--per-path-timeout <duration>` | enum | Per-request timeout |
 | `--follow-redirects` | enum | Follow HTTP redirects during enumeration |
 | `--active` | audit | Include the active sub-checks (tls, takeover, ports, enum) |
 | `--interval <duration>` | watch | How often to re-run the wrapped subcommand |
@@ -56,7 +61,7 @@ In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`
 
 All stable for `v2.x`:
 
-`full` (default), `dns`, `route`, `ip`, `headers`, `tech`, `subs`, `reverse`, `arch`, `tls`, `takeover`, `ports`, `enum`, `audit`, `diff`, `watch`, `app`, `menu`, `config show`, `completion`, `help`, `version`.
+`full` (default), `dns`, `route`, `ip`, `headers`, `tech`, `subs`, `reverse`, `arch`, `whois`, `tls`, `takeover`, `ports`, `enum`, `audit`, `diff`, `watch`, `app`, `menu`, `config show`, `completion`, `help`, `version`.
 
 ### Web app HTTP API (`netcheck app`)
 
@@ -74,6 +79,7 @@ When `netcheck app` is running, it exposes JSON endpoints on the listen address.
 | `POST` | `/api/check/subs` | CT-log subdomain enum. Returns `SubsJSON`. |
 | `POST` | `/api/check/reverse` | Other hostnames on an IP. Returns `ReverseJSON`. |
 | `POST` | `/api/check/arch` | Wayback Machine snapshots. Returns `ArchJSON`. |
+| `POST` | `/api/check/whois` | RDAP/WHOIS registrar lookup. Returns `WhoisJSON`. |
 | `POST` | `/api/check/tls` | TLS protocol+cipher matrix. **Requires `"i_have_authorization": true`.** Returns `TLSAuditJSON`. |
 | `POST` | `/api/check/takeover` | Subdomain-takeover check. **Auth-gated.** Returns `TakeoverJSON`. |
 | `POST` | `/api/check/ports` | TCP connect scan. **Auth-gated.** Returns `PortScanJSON`. |
@@ -84,6 +90,10 @@ When `netcheck app` is running, it exposes JSON endpoints on the listen address.
 | `POST` | `/api/reports` | Save a report. |
 | `GET` | `/api/reports/{id}` | Fetch one saved report by id. |
 | `DELETE` | `/api/reports/{id}` | Delete one saved report by id. |
+| `POST` | `/api/diff` | Body: `{"old": <report>, "new": <report>}`. Returns `diff.Report`. |
+| `GET` | `/api/events/stream` | `text/event-stream` of check lifecycle events, for the UI's live event stream. |
+| `GET` | `/api/telemetry` | Derived metrics over a rolling 60s window (events/sec, mean latency, 60-sample sparkline). |
+| `GET` | `/api/topology` | Node/edge snapshot of the last traced target, for the topography view. |
 
 Auth-gated endpoints return `403` with `{"error": "...", "how_to_enable": "..."}` when `i_have_authorization` is missing or false.
 
@@ -108,7 +118,7 @@ The schema version is in every JSON output as `"netcheck_version"`. The current 
 - Fields won't be removed.
 - New **optional** fields may be added — JSON consumers should ignore unknown fields.
 
-The `"kind"` discriminator is stable. Current values: `"full"`, `"dns"`, `"route"`, `"ip"`, `"headers"`, `"tech"`, `"subs"`, `"reverse"`, `"arch"`, `"tls-audit"`, `"takeover"`, `"ports"`, `"enum"`, `"audit"`, `"config"`.
+The `"kind"` discriminator is stable. Current values: `"full"`, `"dns"`, `"route"`, `"ip"`, `"headers"`, `"tech"`, `"subs"`, `"reverse"`, `"arch"`, `"whois"`, `"tls-audit"`, `"takeover"`, `"ports"`, `"enum"`, `"audit"`, `"config"`.
 
 If a breaking schema change becomes necessary, the schema version bumps (e.g. to `"2.0.0"`) and the old version stays available behind an opt-out flag for at least one minor release.
 
@@ -127,7 +137,7 @@ The public packages are:
 | `pkg/check` | Full DNS+TCP+TLS+HTTP probe primitives |
 | `pkg/dnscompare` | Multi-resolver DNS comparison |
 | `pkg/route` | Traceroute + per-hop ASN |
-| `pkg/ipinfo` | RDAP, reverse DNS, CDN classification |
+| `pkg/ipinfo` | RDAP (IP + domain), port-43 WHOIS, reverse DNS, CDN classification |
 | `pkg/secheaders` | Security-header report card |
 | `pkg/techdetect` | Passive CMS/framework/server fingerprinting |
 | `pkg/subenum` | Certificate-Transparency subdomain enumeration |
@@ -140,6 +150,8 @@ The public packages are:
 | `pkg/report` | Versioned JSON schemas + text/markdown/HTML renderers |
 | `pkg/diff` | Structured diff between two report JSONs |
 | `pkg/target` | URL / host normalization |
+| `pkg/eventbus` | In-process pub/sub for check lifecycle events |
+| `pkg/telemetry` | Derived metrics + topology snapshots computed from the event stream |
 
 Anything under `internal/` (currently `internal/config` and `internal/webui`) is enforced-unstable by Go's `internal/` rule.
 
@@ -163,6 +175,7 @@ These can change between any two releases:
 - **`netcheck tech` fingerprint catalogue.** New detectors get added; existing ones may have their `name`, `category`, or `confidence` adjusted as the rules improve. The JSON envelope is stable; the *contents* of `matches` aren't. Don't pin tests to "exactly these matches."
 - **`netcheck subs` source list.** crt.sh and CertSpotter today. Sources may grow or shrink. JSON envelope stable; which sources contribute per-subdomain isn't.
 - **`netcheck reverse` source list.** Same — `ptr`, `hackertarget`, optionally `shodan`. The set can grow or shrink.
+- **`netcheck whois` lookup path.** RDAP first, port-43 WHOIS as fallback, manual-lookup URL when neither publishes a registrar. Which path answers for a given TLD depends on that registry and can change. The `source` field and the rest of the envelope are stable; which value it holds isn't.
 - **`netcheck takeover` provider catalog.** The list of services we fingerprint grows as more services become documented as takeover-able. Existing providers' CNAME-pattern regex may be refined.
 - **`netcheck ports` builtin port list.** `TopPorts(N)` returns the first N of the embedded nmap top-1000. The bytes are frozen for reproducibility today, but if a future release ships nmap's newer ordering, the list will change. `--ports` explicit lists are obviously stable in shape.
 - **`netcheck enum` builtin wordlist.** The default wordlist is curated for high-signal coverage and will be revised. The output schema is stable; the *list of paths probed by default* isn't. Point `--wordlist` at a fixed file for reproducible enumerations.
