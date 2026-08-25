@@ -39,16 +39,27 @@ jobs:
       # nilerr — the local pre-commit hook runs the same binary and the
       # same .golangci.yml, so a clean pre-commit run guarantees this
       # step is green. golangci/golangci-lint-action handles its own
-      # binary install + caching; pinned to v8 for stability.
+      # binary install + caching.
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          # Pinned to v2.12.2 — v2.5.0 was built with Go 1.25 and its
-          # embedded go/types panics on transitively-imported Go 1.26
-          # source files ("file requires newer Go version go1.26"),
-          # which is what the runner's `go-version: stable` now resolves
-          # to. Bump again when Go 1.27 ships and the same issue recurs.
-          version: v2.12.2
+          # This pin MUST be a release built with a Go at least as new as
+          # whatever `go-version: stable` above resolves to. golangci-lint
+          # embeds go/types; a binary built with go1.N panics outright when
+          # it type-checks transitively-imported go1.N+1 stdlib source
+          # ("file requires newer Go version go1.N+1"), taking down every
+          # PR until the pin moves.
+          #
+          # Recurs on each Go minor: v2.5.0 (built with Go 1.25) died when
+          # stable became 1.26; v2.12.2 (Go 1.26) died when stable became
+          # 1.27. Expect the same when 1.28 lands.
+          #
+          # Check a candidate's BUILD toolchain, not its go.mod: the `go`
+          # directive there is the language minimum and reads lower than
+          # reality (v2.13.1 declares go 1.26.0 but ships a go1.27.0 build).
+          #   golangci-lint --version
+          #   go version -m /path/to/golangci-lint | head -1
+          version: v2.13.1
 
       - name: go test
         run: go test -race -coverprofile=coverage.out ./...
