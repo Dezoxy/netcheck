@@ -18,13 +18,7 @@
 //   support   → Support   (placeholder)
 
 export type Route =
-  | "workbench"
-  | "history"
-  | "reports"
-  | "settings"
-  | "analytics"
-  | "nodes"
-  | "support";
+  "workbench" | "history" | "reports" | "settings" | "analytics" | "nodes" | "support";
 
 // PLACEHOLDER_ROUTES is the subset that renders the "Coming soon"
 // stub. Kept here so the App component can dispatch on it without
