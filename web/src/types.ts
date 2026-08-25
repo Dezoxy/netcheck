@@ -450,7 +450,7 @@ export function isActiveMode(mode: CheckMode): boolean {
   return (ACTIVE_MODES as readonly CheckMode[]).includes(mode);
 }
 
-// MODE_GROUPS organises the 14 modes into four rows for the tab UI.
+// MODE_GROUPS organises the 15 modes into four rows for the tab UI.
 // "Aggregate" is its own row because `audit` is *composition* over the
 // other tiers, not a peer of the individual checks.
 export const MODE_GROUPS: Array<{ label: string; modes: CheckMode[] }> = [

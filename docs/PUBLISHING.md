@@ -1,13 +1,57 @@
-# Publishing — Homebrew Cask + Scoop bucket
+# Publishing — container image, Homebrew Cask, Scoop bucket
 
-netcheck's release pipeline can publish to two third-party channels alongside the GitHub release:
+netcheck's release pipeline can publish to three channels alongside the GitHub release:
 
-- **Homebrew Cask** at `Dezoxy/homebrew-netcheck` → `brew install dezoxy/netcheck/netcheck` (macOS).
-- **Scoop bucket** at `Dezoxy/scoop-netcheck` → `scoop bucket add netcheck https://github.com/Dezoxy/scoop-netcheck && scoop install netcheck` (Windows).
+- **Container image** at `ghcr.io/dezoxy/netcheck` → `docker run ghcr.io/dezoxy/netcheck` (Linux/amd64). **Active.**
+- **Homebrew Cask** at `Dezoxy/homebrew-netcheck` → `brew install dezoxy/netcheck/netcheck` (macOS). Wired, not pushing.
+- **Scoop bucket** at `Dezoxy/scoop-netcheck` → `scoop bucket add netcheck https://github.com/Dezoxy/scoop-netcheck && scoop install netcheck` (Windows). Wired, not pushing.
 
-The pipeline is **wired but not active** — every release builds the Cask file + Scoop manifest into `dist/` for inspection, then stops short of pushing to the tap/bucket repos. This document walks you through flipping the switch when you're ready.
+The brew/scoop half is **wired but not active** — every release builds the Cask file + Scoop manifest into `dist/` for inspection, then stops short of pushing to the tap/bucket repos. Most of this document walks you through flipping that switch; the container image below is already live.
 
 > **Linux Homebrew users**: Cask is macOS-only. You keep the existing direct-download path from the GitHub release page (`netcheck_*_linux_*.tar.gz`). If we ever want a Linux-brew formula, that's a separate addition.
+
+---
+
+## Container image (GHCR)
+
+Unlike the tap and bucket, this one is on. `goreleaser release` packages the prebuilt `linux/amd64` binary with the repo [`Dockerfile`](../Dockerfile) and pushes to GHCR during the release job.
+
+| Piece | Where |
+|---|---|
+| goreleaser config | `dockers:` block in [`.goreleaser.yml`](../.goreleaser.yml) |
+| Registry login | `docker/login-action` step in [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) |
+| Credentials | The workflow's built-in `GITHUB_TOKEN` — no PAT needed, because GHCR lives in the same org. The job declares `packages: write`. |
+
+Tags pushed per release: `:<version>` (e.g. `2.9.0`), `:<major>.<minor>` (`2.9`), and `:latest`.
+
+**Base image:** `gcr.io/distroless/static:nonroot` — no shell, no package manager, runs as uid 65532. The binary is `CGO_ENABLED=0` static with the web UI embedded, so nothing else is needed at runtime. One consequence: there is no `traceroute` in the image, so `netcheck route` exits 2 inside the container. Every other command works.
+
+**The default `CMD` is `app --listen 0.0.0.0:8787`.** The CLI defaults to `127.0.0.1` — correct for a laptop, useless in a container where loopback is the container's own. Bind the published port to loopback on the host (`-p 127.0.0.1:8787:8787`) if you don't want the workbench on your LAN.
+
+### Package visibility — already public
+
+A newly created GHCR package is **private**, and until someone flips it `docker pull ghcr.io/dezoxy/netcheck` fails for anyone not logged in — including the homelab host. This was flipped after the first image push (v2.9.0); anonymous pulls work. Recorded here because it's invisible in the repo and easy to forget if the package is ever recreated:
+
+1. https://github.com/users/Dezoxy/packages/container/netcheck/settings (or the repo's Packages sidebar).
+2. **Danger Zone → Change visibility → Public**.
+
+To keep a package private instead, give the pulling host a read-only token:
+
+```bash
+echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u Dezoxy --password-stdin
+```
+
+### Verify a release
+
+```bash
+docker pull ghcr.io/dezoxy/netcheck:latest
+docker run --rm ghcr.io/dezoxy/netcheck version
+docker run --rm -p 127.0.0.1:8787:8787 ghcr.io/dezoxy/netcheck   # then open http://127.0.0.1:8787/
+```
+
+### Not wired: Docker Hub
+
+Deliberately skipped. To add it: a second entry under `image_templates` (`docker.io/{{ .Env.DOCKERHUB_USERNAME }}/netcheck`), `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets, and a second `docker/login-action` step. Multi-arch (`linux/arm64`) would need `docker_manifests:` plus a per-arch build — not worth it until something actually needs ARM.
 
 ---
 
@@ -106,6 +150,8 @@ goreleaser release --snapshot --clean --skip=publish
 ```
 
 The Cask file lands at `dist/homebrew/Casks/netcheck.rb` and the Scoop manifest at `dist/scoop/bucket/netcheck.json`. Inspect both; they're the bytes that will eventually get pushed.
+
+The same run also builds the container image locally (`--snapshot` skips the push), so it needs a running Docker daemon. Without one, add `--skip=docker`.
 
 ## macOS Gatekeeper note
 

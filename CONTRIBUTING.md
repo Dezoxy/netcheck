@@ -79,7 +79,20 @@ Use sparingly — the hooks usually catch real things.
 
 ## CI relationship
 
-CI (`.github/workflows/ci.yml`) runs `golangci-lint` against the same
-`.golangci.yml` the pre-commit hook uses, followed by `go test -race`.
-The local hooks are a strict superset — if `lefthook run pre-commit`
-and `lefthook run pre-push` pass locally, CI passes too.
+CI (`.github/workflows/ci.yml`) runs three jobs on every push and PR:
+
+| Job | What |
+| --- | --- |
+| `lint + test` | `golangci-lint` against the same `.golangci.yml` the pre-commit hook uses, then `go test -race` with a coverage summary |
+| `web (lint + build)` | `npm run lint`, `format:check`, and `build` (tsc + vite) under `web/` |
+| `build <goos>/<goarch>` | cross-platform build matrix + a `netcheck version` smoke test |
+
+The local hooks are a strict superset of the Go and web checks — if
+`lefthook run pre-commit` and `lefthook run pre-push` pass locally, CI
+passes too.
+
+Two more workflows you'll see on the repo but not on your PR:
+`security.yml` runs a weekly Trivy scan (vulns, secrets, misconfig) and
+uploads SARIF to the Security tab, and `release-please.yml` maintains the
+release PR from your commit messages — which is why the commitlint gate
+above matters.
