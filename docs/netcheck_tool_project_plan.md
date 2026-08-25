@@ -1,5 +1,14 @@
 # NetCheck / WebPath Project Plan
 
+> **How to read this.** This started as the pre-implementation planning
+> document and has been kept alive as the architecture note. Sections 7-9,
+> 15-17 have been rewritten to describe what actually shipped; the rest is
+> the original reasoning, preserved because *why* a choice was made ages
+> better than *what* was chosen. Where the two disagree, the code wins,
+> then [README.md](../README.md) and [STABILITY.md](../STABILITY.md).
+>
+> Current release: see [CHANGELOG.md](../CHANGELOG.md).
+
 ## 1. Project Goal
 
 Build a CLI tool that analyzes a website or domain and explains what happens between your machine and the target.
@@ -336,35 +345,45 @@ Make the tool useful both for humans and automation.
 
 ## 7. Command Design
 
-Recommended commands:
+The shipped surface — `netcheck help` is the authoritative list, the README
+table explains what each one answers:
 
 ```bash
-netcheck google.com
-netcheck full google.com
-netcheck dns google.com
-netcheck http https://google.com
-netcheck tls google.com
-netcheck route google.com
-netcheck ip 142.250.184.206
+netcheck google.com                    # full check (DNS + TCP + TLS + HTTP)
+netcheck dns google.com                # multi-resolver compare
+netcheck route google.com              # traceroute + per-hop ASN
+netcheck ip 142.250.184.206            # RDAP, reverse DNS, CDN
+netcheck headers <url>                 # security-header report card
+netcheck tech <url>                    # passive fingerprint
+netcheck subs <domain>                 # CT-log subdomain enumeration
+netcheck reverse <ip>                  # other hostnames on the IP
+netcheck arch <domain>                 # Wayback snapshots
+netcheck whois <domain>                # registrar via RDAP / port-43 WHOIS
+netcheck tls <host>                    # ACTIVE: protocol + cipher matrix
+netcheck takeover <domain>             # ACTIVE: dangling-CNAME check
+netcheck ports <host>                  # ACTIVE: TCP (+ optional UDP) scan
+netcheck enum <url>                    # ACTIVE: path enumeration
+netcheck audit <target>                # everything passive, one report
+netcheck diff a.json b.json            # what changed between two reports
+netcheck watch --interval 5m -- ...    # re-run and diff on an interval
+netcheck app                           # local web workbench
+netcheck menu                          # interactive picker
+netcheck config show / completion / version
 ```
 
-Future commands:
+How the planning-era ideas resolved:
 
-```bash
-netcheck compare google.com facebook.com
-netcheck monitor google.com --every 30s
-netcheck export google.com --format markdown
-netcheck doh google.com --resolver cloudflare
-netcheck dot google.com --resolver cloudflare
-```
+| Planned | Became |
+|---|---|
+| `netcheck full <target>` | The bare `netcheck <target>` default — a separate `full` verb would have been noise. |
+| `netcheck http <url>` | Folded into the full check's HTTP section, plus `headers` for the security-header angle. |
+| `netcheck export --format markdown` | A global `--output text\|json\|markdown\|html` + `--out` on every command, rather than an export verb. |
+| `netcheck monitor --every 30s` | `netcheck watch --interval 30s -- <cmd>`, which wraps *any* subcommand and prints a structured diff. |
+| `netcheck doh` / `netcheck dot` | `--resolver doh://…` / `tls://…` on `dns`, plus resolver entries in the config file — protocol is an attribute of a resolver, not its own command. |
+| `netcheck compare a b` | Not built. `diff` compares two saved reports, which covers the actual need (same target over time) better than comparing two live targets. |
 
-Default behavior:
-
-```bash
-netcheck google.com
-```
-
-Should run a smart full check that is useful but not too slow.
+Default behavior: bare `netcheck <target>` runs the full check. Bare `netcheck`
+on a TTY opens the menu; without a TTY it prints usage and exits 2.
 
 ---
 
@@ -372,117 +391,115 @@ Should run a smart full check that is useful but not too slow.
 
 ### Current layout
 
-Split into `cmd/` (CLI and local app surface), `internal/` (reusable check
-primitives and embedded app assets), and `web/` (React/PWA source). Each
-`internal/` subpackage has a single responsibility and earns its own test file.
+Split into `cmd/` (CLI and local app surface), `pkg/` (the public check
+engines, importable from outside the module), `internal/` (config format and
+the embedded app bundle — deliberately not importable), and `web/` (React/PWA
+source). Each `pkg/` subpackage has a single responsibility and its own tests.
+
+The engines lived under `internal/` until v2.0.0, which moved them to `pkg/`
+and changed the module path to `github.com/Dezoxy/netcheck` so external code
+could import them at all. See [MIGRATING.md](../MIGRATING.md).
 
 ```text
 netcheck/
-├── main.go                          # entry — calls cmd.Run()
-├── cmd/                             # package cmd — CLI surface
+├── main.go                          # entry — loads config, calls cmd.Run()
+├── cmd/                             # package cmd — CLI surface, one file per subcommand
 │   ├── root.go                      # usage, version, dispatch
-│   ├── full.go                      # `netcheck <target>` (full check)
-│   ├── app.go                       # `netcheck app` local HTTP API + asset server
-│   ├── dns.go                       # `netcheck dns`
-│   ├── route.go                     # `netcheck route`
-│   ├── ip.go                        # `netcheck ip`
-│   └── menu.go                      # `netcheck menu`
+│   ├── full.go dns.go route.go ip.go
+│   ├── headers.go tech.go subs.go reverse.go arch.go whois.go
+│   ├── tls.go takeover.go ports.go enum.go     # active tier
+│   ├── authz.go                     # --i-have-authorization / NETCHECK_AUTHORIZED gate
+│   ├── audit.go                     # aggregate runner
+│   ├── diff.go watch.go             # history mode
+│   ├── app.go                       # `netcheck app` — local HTTP API + asset server
+│   ├── menu.go menu_save.go         # interactive picker + save prompt
+│   ├── output.go out.go             # --output / --out plumbing shared by every command
+│   ├── completion.go config_show.go
+│   └── *_test.go
+├── pkg/                             # public Go API (stable across v2.x)
+│   ├── doc.go                       # package overview / import map
+│   ├── target/                      # URL + host normalization
+│   ├── check/                       # full-check primitives (DNS, TCP, TLS, HTTP)
+│   ├── dnscompare/                  # multi-resolver compare, record-type tiers, DNSSEC
+│   ├── route/                       # traceroute wrapper + parser + per-hop ASN
+│   ├── ipinfo/                      # ASN (Cymru), RDAP for IPs and domains, port-43
+│   │                                #   WHOIS, CDN classification
+│   ├── secheaders/ techdetect/ subenum/ reverseip/ wayback/   # passive recon
+│   ├── tlsaudit/ takeover/ portscan/ pathenum/                # active scanning
+│   ├── eventbus/ telemetry/         # in-process pub/sub + derived HUD metrics
+│   ├── report/                      # versioned JSON schema + text/MD/HTML renderers
+│   │   └── testdata/                # golden files, one per kind
+│   └── diff/                        # structured per-kind diff between two reports
 ├── internal/
-│   ├── target/                      # URL/host normalization
-│   │   ├── target.go                # parseTarget
-│   │   ├── normalize.go             # normalizeHost
-│   │   └── *_test.go
-│   ├── check/                       # full-check primitives
-│   │   ├── dns.go                   # lookupDNS, DNSResult
-│   │   ├── tcp.go                   # checkTCP, TCPResult
-│   │   ├── tls.go                   # checkTLS, TLSResult
-│   │   ├── http.go                  # checkHTTP, HTTPResult
-│   │   └── *_test.go
-│   ├── dnscompare/                  # multi-resolver compare
-│   │   ├── compare.go
-│   │   ├── resolvers.go
-│   │   └── *_test.go
-│   ├── route/                       # traceroute wrapper + parser
-│   │   ├── route.go
-│   │   ├── parser.go
-│   │   └── *_test.go
-│   ├── ipinfo/                      # IP enrichment
-│   │   ├── ipinfo.go                # orchestration
-│   │   ├── asn.go                   # Team Cymru DNS
-│   │   ├── rdap.go                  # RDAP HTTP
-│   │   ├── cdn.go                   # static CDN classification
-│   │   └── *_test.go
-│   ├── report/                      # rendering
-│   │   ├── text.go                  # v0.4: human output
-│   │   ├── json.go                  # v0.5
-│   │   ├── markdown.go              # v0.5
-│   │   ├── html.go                  # v0.5
-│   │   └── *_test.go
-│   ├── config/                      # v0.6
-│   │   ├── config.go
-│   │   └── *_test.go
+│   ├── config/                      # config file + env overrides
 │   └── webui/                       # embedded React/PWA production assets
-│       ├── assets.go
-│       └── dist/
-├── web/                             # React/PWA app source, Vite build
-│   ├── src/
+│       ├── assets.go                # go:embed
+│       └── dist/                    # vite output (gitignored, built by `make web-build`)
+├── web/                             # React/PWA source, Vite + Tailwind v4
+│   ├── src/{components,hooks}/
 │   └── public/
-├── testdata/                        # parser fixtures, RDAP/Cymru samples
 ├── bin/                             # build output (gitignored)
-├── .github/workflows/               # v0.7 (CI) + v0.8 (release)
-│   ├── ci.yml
-│   └── release.yml
-├── Makefile
+├── .github/workflows/               # ci.yml, release.yml, release-please.yml, security.yml
+├── Dockerfile                       # distroless wrapper, packaged by goreleaser
+├── Makefile, .goreleaser.yml, lefthook.yml, .golangci.yml
 ├── go.mod, go.sum
-├── README.md
-├── config.example.yaml              # v0.6
-└── docs/netcheck_tool_project_plan.md
+├── README.md, STABILITY.md, MIGRATING.md, CONTRIBUTING.md, CHANGELOG.md
+├── config.example.yaml
+└── docs/                            # this plan, ETHICS.md, PUBLISHING*.md
 ```
 
 ### Why this layout
 
 | Path | Purpose |
 |---|---|
-| `cmd/` | Thin CLI command definitions — flag parsing, output dispatch. No check logic. |
-| `internal/target/` | URL parsing and host normalization. Used by every command. |
-| `internal/check/` | The four check primitives behind the `full` command (DNS, TCP, TLS, HTTP). |
-| `internal/dnscompare/` | Multi-resolver DNS comparison engine and verdict. |
-| `internal/route/` | Traceroute exec + output parser; platform-aware. |
-| `internal/ipinfo/` | ASN (Cymru), RDAP, CDN classification. Reusable as a library. |
-| `internal/report/` | All output formats — keeps text/JSON/MD/HTML in one place. |
-| `internal/config/` | Config-file loading and env-var overrides (v0.6). |
+| `cmd/` | Thin CLI command definitions — flag parsing, output dispatch, the local HTTP API. No check logic. |
+| `pkg/target/` | URL parsing and host normalization. Used by every command. |
+| `pkg/check/` | The four check primitives behind the `full` command (DNS, TCP, TLS, HTTP). |
+| `pkg/dnscompare/` | Multi-resolver DNS comparison engine, record-type tiers, verdict. |
+| `pkg/route/` | Traceroute exec + output parser; platform-aware. |
+| `pkg/ipinfo/` | ASN (Cymru), RDAP for IPs and domains, port-43 WHOIS, CDN classification. |
+| `pkg/secheaders/`, `pkg/techdetect/`, `pkg/subenum/`, `pkg/reverseip/`, `pkg/wayback/` | Passive recon engines — one source family each. |
+| `pkg/tlsaudit/`, `pkg/takeover/`, `pkg/portscan/`, `pkg/pathenum/` | Active-scanning engines. Same authorization boundary as the CLI. |
+| `pkg/eventbus/`, `pkg/telemetry/` | Check lifecycle events and the metrics the web HUD renders from them. |
+| `pkg/report/` | All output formats — keeps the JSON schema and text/MD/HTML in one place. Golden-tested. |
+| `pkg/diff/` | Per-kind structured diff, shared by `netcheck diff`, `netcheck watch`, and `/api/diff`. |
+| `internal/config/` | Config-file loading and env-var overrides. |
 | `internal/webui/` | Production web assets embedded into the Go binary. |
 | `web/` | React/PWA source for the local browser workbench. |
-| `testdata/` | Fixtures for parser tests (traceroute output, RDAP JSON, Cymru TXT). |
-| `.github/workflows/` | CI (v0.7) and release automation (v0.8). |
+| `.github/workflows/` | CI, release automation, and the weekly Trivy scan. |
 
-`internal/` is enforced by Go itself — external code cannot import it, so we keep freedom to refactor the check primitives without breaking anyone.
+The split is a stability boundary, not just tidiness: `pkg/` is frozen for `v2.x` per [STABILITY.md](../STABILITY.md), while `internal/` is enforced-unimportable by Go itself — so the config format and the asset bundle stay free to change.
 
 ---
 
-## 9. Recommended Go Libraries
+## 9. Go Libraries
 
-| Purpose | Library |
+What actually shipped — two direct dependencies, everything else stdlib:
+
+| Purpose | Choice |
 |---|---|
-| CLI framework | `github.com/spf13/cobra` |
+| CLI framework | stdlib `flag`, one `FlagSet` per subcommand, manual dispatch in `cmd/root.go` |
 | DNS queries | `github.com/miekg/dns` |
-| Config handling | `github.com/spf13/viper` |
-| Tables | `github.com/olekukonko/tablewriter` |
-| Colors | `github.com/fatih/color` |
-| HTTP | Go standard library |
-| TLS | Go standard library |
-| JSON | Go standard library |
-| OS commands | Go standard library |
+| Config handling | `gopkg.in/yaml.v3` |
+| Tables / colors | Hand-rolled in `pkg/report/text.go` |
+| HTTP, TLS, JSON, OS commands | Go standard library |
 
-Keep dependencies limited in the MVP.
+The original plan called for cobra + viper + tablewriter + color. None earned
+their keep:
 
-MVP dependency recommendation:
+- **cobra** — the dispatch it replaces is a ~40-line `switch` in `root.go`.
+  Its real value (nested commands, generated completions) didn't apply: the
+  command tree is one level deep, and `netcheck completion` writes the four
+  shell scripts directly.
+- **viper** — the config is one small struct with four env overrides.
+  `yaml.v3` plus ~100 lines of merge logic covers it.
+- **tablewriter / color** — the text renderer emits a fixed layout that also
+  has to round-trip through markdown and HTML; a general table engine would
+  have been fought, not used.
 
-```text
-cobra only
-```
-
-Then add `miekg/dns` when building the DNS deep-test phase.
+Two dependencies keeps the supply-chain surface near zero and the binary
+static (`CGO_ENABLED=0`), which is what makes the distroless container image
+possible.
 
 ---
 
@@ -713,7 +730,7 @@ Important choices:
 
 | Area | Recommendation |
 |---|---|
-| Telemetry | No telemetry by default |
+| Telemetry | None. Nothing is reported to us, ever — there is no endpoint to report to. (`pkg/telemetry` is a local counter feeding the web UI's metrics strip; it never leaves the process.) |
 | API keys | Optional only |
 | Config | Store locally |
 | Reports | Generated locally |
@@ -724,18 +741,18 @@ Important choices:
 
 ## 15. Nice Future Features
 
-| Feature | Why it is useful |
-|---|---|
-| HTTP/3 / QUIC test | Browser-like modern web debugging |
-| Proxy test | Compare direct vs proxy route |
-| VPN detection | Show if traffic exits through VPN |
-| Cloudflare detection | Useful for CDN troubleshooting |
-| NextDNS profile test | Useful for your DNS setup |
-| Prometheus exporter | Homelab monitoring |
-| Web app modes beyond full check | Visual DNS compare, route, and IP inspection |
-| TUI mode | Pretty terminal dashboard |
-| Historical comparison | Compare today vs yesterday |
-| Screenshot report | Shareable diagnostic report |
+| Feature | Why it is useful | Status |
+|---|---|---|
+| HTTP/3 / QUIC test | Browser-like modern web debugging | open |
+| Proxy test | Compare direct vs proxy route | open |
+| VPN detection | Show if traffic exits through VPN | open |
+| Cloudflare detection | Useful for CDN troubleshooting | shipped — `pkg/ipinfo` CDN classification, surfaced by `ip`, `full`, and `tech` |
+| NextDNS profile test | Useful for your DNS setup | shipped — any DoH/DoT resolver, including a NextDNS profile URL, via `--resolver` or the config file |
+| Prometheus exporter | Homelab monitoring | open |
+| Web app modes beyond full check | Visual DNS compare, route, and IP inspection | shipped — the workbench drives all fifteen checks |
+| TUI mode | Pretty terminal dashboard | open |
+| Historical comparison | Compare today vs yesterday | shipped as `diff` + `watch` (v1.9.0) |
+| Screenshot report | Shareable diagnostic report | partly — `--output html -o report.html` gives a shareable file without a screenshot |
 
 ---
 
@@ -1063,19 +1080,56 @@ Verified during implementation:
 - `enum http://scanme.nmap.org` found a 403 on `.svn/entries` — Apache
   default config has the rule even though the file doesn't exist.
 
-## v1.5+ — Unscheduled
+## v1.5 – v1.10 (shipped)
 
-(With v1.4.0 absorbing both originally-planned tiers, the next free minor is v1.5.)
+- **v1.5.0** — the nine v1.4 commands wired into the React workbench.
+- **v1.6.0** — `netcheck audit`: passive suite in parallel behind one
+  envelope, `--active` for the scanning tier. Homebrew Cask + Scoop
+  scaffolding (built into `dist/`, not pushed).
+- **v1.7.0** — audit mode in the web workbench.
+- **v1.8.0** — shell completions (bash/zsh/fish/powershell); banner grab on
+  open ports (the item that sat in this list).
+- **v1.9.0** — `netcheck diff` + `netcheck watch`, i.e. the "historical
+  comparison" item, done as a general per-kind differ rather than a
+  today-vs-yesterday special case.
+- **v1.10.0** — SSE streaming for the ports scan, so the web UI shows
+  progress instead of blocking on the slowest port.
+
+## v2.0.0 — Public API (shipped)
+
+The breaking release. Engines moved `internal/` → `pkg/`, module path became
+`github.com/Dezoxy/netcheck`, two JSON fields were renamed for consistency,
+and `-j` / `-o` shortcuts landed. Everything netcheck promises for `v2.x` is
+written down in [STABILITY.md](../STABILITY.md); the upgrade path is in
+[MIGRATING.md](../MIGRATING.md).
+
+## v2.1 – v2.9 (shipped)
+
+- **v2.1 – v2.2** — web UI redesign; UDP port scanning with service-aware
+  probes (no root required, unlike a raw-socket scanner).
+- **v2.3 – v2.5** — DNS record-type tiers (tier 1 by default, tier 2 on
+  request, tier 3 behind `--dnssec`), DNSSEC record fetching, report error
+  boundary in the UI, non-null JSON slices.
+- **v2.6** — HUD redesign: Tailwind v4 tokens, side nav, Cmd/Ctrl-K command
+  palette, live event stream, telemetry strip, target topography. This is
+  where `pkg/eventbus` and `pkg/telemetry` came from.
+- **v2.7 – v2.8** — `netcheck whois`: RDAP registrar lookup, port-43 WHOIS
+  fallback, and a manual-lookup URL for registries that publish neither.
+- **v2.9** — container image published to `ghcr.io/dezoxy/netcheck` on every
+  release. goreleaser packages the prebuilt static binary with the repo
+  `Dockerfile` (distroless), so there's no build stage and no Go toolchain in
+  the image.
+
+## Unscheduled
 
 - HTTP/3 / QUIC test
 - Prometheus exporter
 - TUI mode
-- Historical comparison (today vs. yesterday)
 - Proxy / VPN detection
 - Browser-like mode (HSTS cache, cookies, HTTP/3, extensions)
-- Native TCP traceroute (avoids needing system `traceroute`)
-- Banner-grab option for `ports` (read first line of response from open
-  ports to identify service version)
+- Native TCP traceroute (removes the system `traceroute` dependency — the one
+  thing that doesn't work in the container image)
+- Multi-arch container images (`linux/arm64` alongside amd64)
 
 Out of scope, full stop — these are owned by other tools and adding them
 would dilute the netcheck story:
@@ -1087,28 +1141,24 @@ would dilute the netcheck story:
 
 ---
 
-## 17. GitHub Actions Ideas
+## 17. GitHub Actions
 
-Recommended CI checks:
+Four workflows, all in `.github/workflows/`:
 
-```text
-Go fmt
-Go vet
-Go test
-Staticcheck
-Build Linux binary
-Build macOS binary
-Build Windows binary
-Release artifact generation
-```
+| File | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | every push / PR | `golangci-lint` (which subsumes gofmt, vet, staticcheck, errcheck, bodyclose…), `go test -race` with a coverage summary, an ESLint + Prettier + `tsc` + Vite pass over `web/`, and a cross-platform build matrix with a `version` smoke test |
+| `release-please.yml` | push to `main` | Maintains the release PR from conventional commits; on merge, tags, then runs goreleaser to attach binaries and push the GHCR image |
+| `release.yml` | tag push | goreleaser, for tags cut outside the release-please flow |
+| `security.yml` | weekly (Mon 05:00 UTC) + manual dispatch | Trivy filesystem scan (vulns, secrets, misconfig) uploaded as SARIF to the Security tab. Deliberately not a PR gate — a CVE in a transitive dep usually isn't the PR author's to fix. |
 
-Possible workflow files:
+Two details worth keeping in mind:
 
-```text
-.github/workflows/test.yml
-.github/workflows/build.yml
-.github/workflows/release.yml
-```
+- **release-please owns the version**, derived from conventional-commit
+  subjects (`feat:` → minor, `fix:` → patch, `!` → major). goreleaser only
+  attaches artifacts to the release it already created (`mode: append`).
+- **The pre-push hooks mirror CI** (see [CONTRIBUTING.md](../CONTRIBUTING.md)),
+  so a green `lefthook run pre-push` means a green CI run.
 
 ---
 

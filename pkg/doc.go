@@ -9,7 +9,8 @@
 //   - [github.com/Dezoxy/netcheck/pkg/check]      — full DNS+TCP+TLS+HTTP probe behind `netcheck <target>`
 //   - [github.com/Dezoxy/netcheck/pkg/dnscompare] — multi-resolver DNS comparison
 //   - [github.com/Dezoxy/netcheck/pkg/route]      — traceroute with per-hop ASN annotation
-//   - [github.com/Dezoxy/netcheck/pkg/ipinfo]     — RDAP, reverse DNS, CDN classification
+//   - [github.com/Dezoxy/netcheck/pkg/ipinfo]     — RDAP (IP and domain), port-43 WHOIS, reverse
+//     DNS, CDN classification. Also backs `netcheck whois`.
 //   - [github.com/Dezoxy/netcheck/pkg/secheaders] — security-header report card
 //   - [github.com/Dezoxy/netcheck/pkg/techdetect] — passive CMS/framework/server fingerprinting
 //   - [github.com/Dezoxy/netcheck/pkg/subenum]    — Certificate-Transparency subdomain enumeration
@@ -19,6 +20,14 @@
 //   - [github.com/Dezoxy/netcheck/pkg/takeover]   — subdomain-takeover heuristic check
 //   - [github.com/Dezoxy/netcheck/pkg/portscan]   — parallel TCP connect scan
 //   - [github.com/Dezoxy/netcheck/pkg/pathenum]   — HTTP path/wordlist enumeration
+//
+// Web-app support (used by `netcheck app`; importable like everything else
+// under pkg/):
+//
+//   - [github.com/Dezoxy/netcheck/pkg/eventbus]  — in-process pub/sub for check lifecycle
+//     events. Never blocks a publisher; drops the oldest event for a stalled subscriber.
+//   - [github.com/Dezoxy/netcheck/pkg/telemetry] — rolling 60s metrics and topology
+//     snapshots derived from the event stream.
 //
 // Schemas and tooling:
 //
