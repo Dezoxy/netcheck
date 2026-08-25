@@ -36,7 +36,7 @@ jobs:
     name: trivy fs (vuln + secrets + config)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Trivy scans the working tree for:
       #   - vuln: known CVEs in Go modules + npm packages (go.sum,
