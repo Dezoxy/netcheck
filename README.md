@@ -83,7 +83,7 @@ sudo mv netcheck /usr/local/bin/
 
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`, `windows_arm64`. Each archive bundles `README.md`, `LICENSE`, and `config.example.yaml`. SHA256s in `checksums.txt`.
 
-**From source** (requires Go 1.24+):
+**From source** (requires Go 1.25+ — the `go` directive in [go.mod](go.mod) is the source of truth):
 
 ```bash
 git clone https://github.com/Dezoxy/netcheck.git
