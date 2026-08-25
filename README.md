@@ -53,23 +53,37 @@ scoop bucket add netcheck https://github.com/Dezoxy/scoop-netcheck
 scoop install netcheck
 ```
 
-**Pre-built binary** — download the archive for your platform from the [latest release](https://github.com/Dezoxy/netcheck/releases/latest), or curl one-liner:
+**Docker / OCI image** — published to GitHub Container Registry on every release:
 
 ```bash
+# Web workbench on http://127.0.0.1:8787
+docker run --rm -p 127.0.0.1:8787:8787 ghcr.io/dezoxy/netcheck
+
+# One-off CLI run
+docker run --rm ghcr.io/dezoxy/netcheck dns google.com
+```
+
+Tags: `latest`, `<major>.<minor>` (e.g. `2.9`), and the exact version (`2.9.0`). `linux/amd64` only. The image is `distroless/static:nonroot` wrapped around the static binary — no shell, no package manager, and **no `traceroute`**, so `netcheck route` is the one command that doesn't work in the container (see [Caveats](#caveats)). The default command binds `0.0.0.0:8787` because a container-local loopback bind would be unreachable; publish it to `127.0.0.1` as above unless you actually want it on the LAN.
+
+**Pre-built binary** — download the archive for your platform from the [latest release](https://github.com/Dezoxy/netcheck/releases/latest), or curl one-liner (set `V` to the release you want):
+
+```bash
+V=2.9.0
+
 # macOS Apple Silicon
-curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.4.1_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/Dezoxy/netcheck/releases/download/v$V/netcheck_${V}_darwin_arm64.tar.gz | tar xz
 sudo mv netcheck /usr/local/bin/
 
 # Linux amd64 (Homebrew Cask is macOS-only — Linux users use this path)
-curl -L https://github.com/Dezoxy/netcheck/releases/latest/download/netcheck_1.4.1_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/Dezoxy/netcheck/releases/download/v$V/netcheck_${V}_linux_amd64.tar.gz | tar xz
 sudo mv netcheck /usr/local/bin/
 
-# Windows: download netcheck_1.4.1_windows_amd64.zip, unzip, run netcheck.exe
+# Windows: download netcheck_${V}_windows_amd64.zip, unzip, run netcheck.exe
 ```
 
 Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`, `windows_arm64`. Each archive bundles `README.md`, `LICENSE`, and `config.example.yaml`. SHA256s in `checksums.txt`.
 
-**From source** (requires Go 1.22+):
+**From source** (requires Go 1.24+):
 
 ```bash
 git clone https://github.com/Dezoxy/netcheck.git
@@ -100,10 +114,10 @@ Completes subcommand names and a few flag values (`--output text|json|markdown|h
 
 ## What it does
 
-netcheck has four checks, an interactive terminal menu, and a local web
-workbench for visual full checks. Run the checks from a terminal; pipe the
-output through `jq`; run `netcheck` with no arguments to get the menu; or start
-`netcheck app` for the browser UI.
+netcheck has fifteen checks, an interactive terminal menu, and a local web
+workbench that drives every one of them. Run the checks from a terminal; pipe
+the output through `jq`; run `netcheck` with no arguments to get the menu; or
+start `netcheck app` for the browser UI.
 
 | Command | Asks |
 |---|---|
@@ -116,17 +130,19 @@ output through `jq`; run `netcheck` with no arguments to get the menu; or start
 | `netcheck subs <domain>` | Which subdomains exist? Enumerated from Certificate Transparency logs (crt.sh + CertSpotter). |
 | `netcheck reverse <ip>` | What else lives on this IP? Reverse DNS + Hackertarget + optional Shodan (via API key in config). |
 | `netcheck arch <domain>` | What does the Wayback Machine remember about this domain? First/last seen, total snapshots, recent URLs. |
+| `netcheck whois <domain>` | Who's the sponsoring registrar? RDAP first, classic port-43 WHOIS as fallback, manual-lookup URL when neither publishes it. |
 | `netcheck tls <host>` | Full TLS audit: protocol matrix, cipher suites, cert chain, expiry. *Active — requires `--i-have-authorization`.* |
 | `netcheck takeover <domain>` | Is this domain's CNAME pointing at an unclaimed third-party service? *Active — requires `--i-have-authorization`.* |
-| `netcheck ports <host>` | Parallel TCP connect scan (top-100 by default). *Active — requires `--i-have-authorization`.* |
+| `netcheck ports <host>` | Parallel TCP connect scan (top-100 by default) with banner grabbing, plus an optional service-aware UDP pass. *Active — requires `--i-have-authorization`.* |
 | `netcheck enum <url>` | HTTP path enumeration against a wordlist. *Active — requires `--i-have-authorization`.* |
+| `netcheck audit <target>` | Run the passive suite in parallel and emit one consolidated report. `--active` adds tls + takeover + ports + enum. |
 | `netcheck diff <a.json> <b.json>` | What changed between two saved JSON reports? Exits 1 on changes, 0 if identical. |
 | `netcheck watch -- <cmd> ...` | Re-run a sub-command on an interval and print the diff between iterations. |
 | `netcheck menu` | Interactive picker for any of the above. Offers to save results after each run. |
-| `netcheck app` | Local web workbench for a visual full check from the same Go engine. |
+| `netcheck app` | Local web workbench — every check above, from the same Go engine, in a browser. |
 | `netcheck config show` | What config is netcheck actually using right now? |
 
-Every command accepts `--output text|json|markdown|html` (or `-j` for json) and `--out <file>` (or `-o`; `-` means stdout). The text format is byte-stable across `v2.x`; the JSON schema is versioned (`"netcheck_version"` field) and stable per [STABILITY.md](STABILITY.md). Upgrading from v1? See [MIGRATING.md](MIGRATING.md) — two JSON field renames + a Go import-path change.
+Every command accepts `--output text|json|markdown|html` (or `-j` for json) and `--out <file>` (or `-o`; `-` means stdout). Text output is written for humans and its exact wording and spacing can shift between releases — if you're parsing, use `--output json`: the JSON schema is versioned (`"netcheck_version"`, currently `1.0.0`) and stable per [STABILITY.md](STABILITY.md). Upgrading from v1? See [MIGRATING.md](MIGRATING.md) — two JSON field renames + a Go import-path change.
 
 ## Examples
 
@@ -145,20 +161,46 @@ netcheck app
 netcheck app --listen 127.0.0.1:8787
 ```
 
-Open `http://127.0.0.1:8787/` for the React/PWA workbench. The app serves from
-the Go binary and uses the same full-check engine as the CLI. Its current UI
-scope is visual full checks, recent checks, and JSON export; DNS compare, route,
-and IP info stay on the CLI for now.
+Open `http://127.0.0.1:8787/` for the React/PWA workbench. The assets are
+embedded in the Go binary (`go:embed`) — there's nothing to install and nothing
+phones home. It calls the same engines the CLI does, over a local JSON API.
+
+What's in it:
+
+- **All fifteen checks**, grouped as Network / Passive recon / Active scanning
+  / Aggregate. The active four sit behind an in-UI authorization checkbox that
+  mirrors `--i-have-authorization`.
+- **Live port-scan progress** — the ports scan streams over SSE
+  (`/api/check/ports/stream`) instead of blocking until the last port answers.
+- **Saved reports** — save, list, reload, delete, and diff two saved runs.
+  Stored as JSON under `~/.config/netcheck/saved-reports/` (or
+  `$XDG_DATA_HOME/netcheck/saved-reports/`).
+- **HUD surfaces** — Cmd/Ctrl-K command palette, a live event stream, a
+  telemetry strip (events/sec + mean latency over a 60s window), and a Target
+  Topography view rendered from the last traceroute.
+
+The API is documented in [STABILITY.md](STABILITY.md#web-app-http-api-netcheck-app)
+and is stable for `v2.x` — the HTML/CSS/JS assets are not (filenames change every
+build).
 
 ### Compare DNS resolvers
 
 ```bash
 netcheck dns google.com
 netcheck dns --type MX,TXT cloudflare.com
+netcheck dns --dnssec cloudflare.com                                       # DO bit + DNSKEY/DS/RRSIG/NSEC
 netcheck dns --resolver tls://1.1.1.1 cloudflare.com                       # DoT
 netcheck dns --resolver doh://dns.google/dns-query cloudflare.com          # DoH
 netcheck dns --no-defaults --resolver 1.0.0.1 google.com                   # pinned single resolver
 ```
+
+Record types come in three tiers. Without `--type`, netcheck scans tier 1 —
+`A, AAAA, CNAME, NS, MX, TXT, SOA, CAA` — the broadly useful, low-noise set.
+Tier 2 (`SRV, PTR, NAPTR, HINFO, HTTPS, SVCB, SPF`) is situational, and tier 3
+(`DNSKEY, DS, RRSIG, NSEC, NSEC3, CDS, CDNSKEY`) is what `--dnssec` turns on
+along with the DO bit. Any of them can be requested explicitly via `--type`.
+`--dnssec` fetches DNSSEC records so you can see them; it does **not** validate
+the chain of trust.
 
 ### Trace the path
 
@@ -242,7 +284,22 @@ the most-recent unique URLs the Wayback Machine has indexed. Useful for finding
 abandoned admin paths, old API endpoints, or historical hostnames that no longer
 resolve. No API key needed.
 
-### Active scanning (v1.5)
+### Registrar lookup
+
+```bash
+netcheck whois example.com
+netcheck whois -j example.com | jq '.registrar, .source'
+```
+
+Answers one question — who sponsors this domain — and answers it three ways in
+descending order of quality. RDAP first (structured, gives registrar name, IANA
+ID, and URL). If the TLD's RDAP service exposes no registrar, it falls back to a
+classic port-43 WHOIS query for the name. If neither publishes it (`.hu` and
+other GDPR-stripped ccTLDs), the report says "not found" and hands you the
+registry's manual web-whois URL. The `source` field tells you which path
+answered. Passive — netcheck never touches the domain itself.
+
+### Active scanning
 
 **Active commands send traffic to the target.** They refuse to run unless you
 confirm authorization — pass `--i-have-authorization` (or set
@@ -259,9 +316,14 @@ netcheck tls --i-have-authorization cloudflare.com
 # (GitHub Pages, S3, Heroku, Azure, Shopify, Fastly, Bitbucket Cloud, Ghost).
 netcheck takeover --i-have-authorization foo.example.com
 
-# TCP port scan (default: top-100 nmap-style ports, 50-way concurrent).
+# TCP port scan (default: top-100 nmap-style ports, 50-way concurrent,
+# best-effort banner grab on whatever answers).
 netcheck ports --i-have-authorization scanme.nmap.org
 netcheck ports --i-have-authorization --ports 22,80,443,8000-8010 host.example.com
+
+# UDP too (service-aware probes, top-50 UDP ports, no root needed).
+netcheck ports --i-have-authorization --udp host.example.com
+netcheck ports --i-have-authorization --udp-only --udp-ports 53,123,161 host.example.com
 
 # HTTP path enumeration (~70-entry builtin wordlist, or --wordlist file).
 netcheck enum --i-have-authorization https://target.example.com
@@ -270,6 +332,24 @@ netcheck enum --i-have-authorization --wordlist /path/to/SecLists/Discovery/Web-
 
 Once you've thought about it, `export NETCHECK_AUTHORIZED=1` for the session
 instead of typing `--i-have-authorization` on every call.
+
+### Aggregate audit
+
+```bash
+# Passive suite in parallel: ip + headers + tech + subs + arch.
+netcheck audit example.com
+
+# Everything, including the active tier (tls + takeover + ports + enum).
+netcheck audit --active --i-have-authorization example.com
+
+netcheck audit -j example.com | jq '.errors'
+```
+
+One target, one consolidated report, every sub-check running concurrently. IP
+targets fall back to `ip + reverse` (the rest need a hostname). Sub-checks fail
+independently — a flaking crt.sh doesn't sink the run; the failure lands in
+`errors` keyed by sub-command and everything else still reports. `--active` is
+gated on `--i-have-authorization` exactly like the individual active commands.
 
 ### Diff and watch
 
@@ -382,8 +462,9 @@ Public packages:
 | `pkg/check` | Full check (DNS + TCP + TLS + HTTP) |
 | `pkg/dnscompare` | Multi-resolver DNS query comparison |
 | `pkg/route` | Traceroute + per-hop ASN |
-| `pkg/ipinfo` | RDAP, reverse DNS, CDN classification |
+| `pkg/ipinfo` | RDAP (IP + domain), port-43 WHOIS, reverse DNS, CDN classification |
 | `pkg/secheaders`, `pkg/techdetect`, `pkg/subenum`, `pkg/reverseip`, `pkg/wayback` | Passive recon engines |
+| `pkg/eventbus`, `pkg/telemetry` | In-process pub/sub + derived metrics behind the web app's live event stream, telemetry strip, and topology view |
 | `pkg/tlsaudit`, `pkg/takeover`, `pkg/portscan`, `pkg/pathenum` | Active scanning engines |
 | `pkg/report` | Versioned JSON schemas + text/Markdown/HTML renderers |
 | `pkg/diff` | Structured diff between two saved reports |
@@ -399,6 +480,7 @@ Stability: exported names are stable across `v2.x`. Catalogue-style packages (`p
 - **Traceroute is heuristic.** Routers can drop, rate-limit, or reorder ICMP/UDP probes. A missing hop doesn't always mean a broken route, and the path for TCP traffic may differ from what traceroute shows.
 - **Browser behavior may differ.** netcheck doesn't use HSTS cache, HTTP/3, cookies, browser extensions, or VPN settings. It tells you what a fresh `curl` would see, not what your Chrome will do.
 - **macOS `/etc/resolv.conf`** points at internal loopback resolvers; `netcheck dns` uses just the first one for table readability.
+- **`netcheck route` shells out.** It wraps the system `traceroute` (`tracert` on Windows) and parses its output, so it needs that binary on `PATH` — it exits 2 if there isn't one. That's also why `route` is the one command the container image can't run.
 
 ## Stability
 
@@ -408,7 +490,7 @@ If you're using netcheck in a script, pin the major version (`v2.x.y`) and `--ou
 
 ## Contributing
 
-PRs welcome. The codebase is small (~3000 lines), unit-tested where the logic isn't network-bound, and uses `make verify` / `make coverage` for local checks. CI runs `gofmt`, `go vet`, `staticcheck`, `go test -race`, and a cross-platform build matrix on every PR.
+PRs welcome. Roughly 35k lines of Go (plus the React front-end under `web/`), unit-tested wherever the logic isn't network-bound, with `make verify` / `make coverage` for local checks. CI runs `golangci-lint`, `go test -race` with a coverage summary, an ESLint + Prettier + `tsc` + Vite pass over `web/`, and a cross-platform build matrix on every PR; a weekly Trivy scan covers vulns, secrets, and config.
 
 ```bash
 make verify     # gofmt + vet + build + version
@@ -419,7 +501,7 @@ make app        # rebuild the React/PWA assets and run the local web app
 The released binary already embeds the web assets. Building the app UI from
 source also needs Node.js/npm for the frontend under `web/`.
 
-See [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md) for architecture notes.
+Commit messages follow [conventional commits](https://www.conventionalcommits.org/) — release-please reads them to pick the next version and write the changelog. Local git hooks (lefthook) run the same linters CI does; setup is in [CONTRIBUTING.md](CONTRIBUTING.md). Architecture notes live in [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
 
 ## License
 
@@ -452,6 +534,18 @@ The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes 
 | v1.2.0 | shipped | Web app: DNS / Route / IP tabs wired end-to-end, saved-reports CRUD, recent rerun |
 | v1.3.x | shipped | Build & release hardening: `make app` leaves `./bin/netcheck`, npm-ci stamp, goreleaser-in-same-workflow as release-please |
 | **v1.4.0** | **shipped** | **Pentest-tooling tier (passive + active in one release).** Passive: `subs` (CT logs), `reverse` (PTR / Hackertarget / optional Shodan), `tech` (Wappalyzer-style fingerprinting), `headers` (security-header report card), `arch` (archive.org CDX). Active (gated behind `--i-have-authorization` per [ETHICS.md](docs/ETHICS.md)): `tls` (protocol/cipher matrix), `takeover` (CNAME-takeover detection), `ports` (parallel TCP connect scan), `enum` (HTTP path enumeration). |
-| v1.5+ | unscheduled | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, historical comparison, browser-like mode |
+| v1.5.0 | shipped | The nine v1.4 commands wired into the React workbench |
+| v1.6.0 | shipped | `netcheck audit` aggregate command; Homebrew Cask + Scoop scaffolding (still `skip_upload`) |
+| v1.7.0 | shipped | Audit mode in the web workbench |
+| v1.8.0 | shipped | Shell completions (bash/zsh/fish/powershell); banner grab on open ports |
+| v1.9.0 | shipped | `netcheck diff` + `netcheck watch` — history mode |
+| v1.10.0 | shipped | SSE streaming for the ports scan (live progress in the web UI) |
+| **v2.0.0** | **shipped** | **Public `pkg/` API, module path → `github.com/Dezoxy/netcheck`, JSON field normalization, `-j`/`-o` shortcuts. See [MIGRATING.md](MIGRATING.md).** |
+| v2.1–v2.2 | shipped | Web UI redesign; UDP port scan (service-aware, privilege-free) |
+| v2.3–v2.5 | shipped | DNS record-type tiers + DNSSEC inspection; report error boundary; non-null JSON slices |
+| v2.6 | shipped | HUD redesign: Tailwind v4 tokens, side nav, Cmd/Ctrl-K palette, live event stream, telemetry strip, target topography |
+| v2.7–v2.8 | shipped | `netcheck whois` — RDAP registrar lookup with port-43 WHOIS and manual-lookup fallbacks |
+| v2.9.0 | shipped | Container image published to `ghcr.io/dezoxy/netcheck` on every release |
+| unscheduled | — | HTTP/3 / QUIC test, Prometheus exporter, TUI mode, native TCP traceroute, browser-like mode |
 
 </details>

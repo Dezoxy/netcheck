@@ -30,7 +30,7 @@ Anything else — "I'm curious", "they shouldn't have left it open", "I'm just l
 
 ## How netcheck enforces this
 
-Every v1.5 active-scanning command refuses to run unless you confirm authorization. Two equivalent ways to confirm:
+Every active-scanning command — `tls`, `takeover`, `ports`, `enum`, and `audit --active` — refuses to run unless you confirm authorization. Two equivalent ways to confirm:
 
 ```bash
 # per-invocation flag
@@ -77,15 +77,19 @@ Bug bounty programs typically provide narrow contractual authorization within th
 | `netcheck dns <host>` | passive | no (resolvers only) | no |
 | `netcheck route <host>` | passive | yes (ICMP traceroute) | no — common diagnostic |
 | `netcheck ip <ip>` | passive | no (RDAP / WHOIS) | no |
-| `netcheck headers <url>` | v1.4 passive | yes (1 GET) | no — same as a browser visit |
-| `netcheck tech <url>` | v1.4 passive | yes (1 GET) | no — same as a browser visit |
-| `netcheck subs <domain>` | v1.4 passive | no (CT log aggregators) | no |
-| `netcheck reverse <ip>` | v1.4 passive | no (PTR + APIs) | no |
-| `netcheck arch <domain>` | v1.4 passive | no (archive.org) | no |
-| `netcheck ports <host>` | **v1.5 active** | yes (TCP handshakes per port) | **yes** |
-| `netcheck tls <host>` | **v1.5 active** | yes (TLS handshakes per protocol/cipher) | **yes** |
-| `netcheck enum <url>` | **v1.5 active** | yes (HTTP request per path) | **yes** |
-| `netcheck takeover <domain>` | **v1.5 active** | DNS only — but the *output* is exploitation-actionable | **yes** |
+| `netcheck headers <url>` | passive | yes (1 GET) | no — same as a browser visit |
+| `netcheck tech <url>` | passive | yes (1 GET) | no — same as a browser visit |
+| `netcheck subs <domain>` | passive | no (CT log aggregators) | no |
+| `netcheck reverse <ip>` | passive | no (PTR + APIs) | no |
+| `netcheck arch <domain>` | passive | no (archive.org) | no |
+| `netcheck whois <domain>` | passive | no (RDAP / port-43 WHOIS at the registry) | no |
+| `netcheck audit <target>` | passive by default | yes (the GETs its passive sub-checks make) | no — **unless** `--active`, which inherits the gate below |
+| `netcheck ports <host>` | **active** | yes (TCP handshakes per port; UDP probes with `--udp`) | **yes** |
+| `netcheck tls <host>` | **active** | yes (TLS handshakes per protocol/cipher) | **yes** |
+| `netcheck enum <url>` | **active** | yes (HTTP request per path) | **yes** |
+| `netcheck takeover <domain>` | **active** | DNS only — but the *output* is exploitation-actionable | **yes** |
+
+`audit` is the other case worth calling out: on its own it's a parallel wrapper around passive checks, so it carries no gate. With `--active` it runs the bottom four rows of this table and needs `--i-have-authorization` exactly as they do — the aggregate doesn't get a discount for being a convenience.
 
 `takeover` is a borderline case. The CNAME lookup itself is benign — it's identical to `dig`. The reason it sits behind the gate anyway is that the *output* identifies a vulnerability and points at exactly how to exploit it. A passive command that produces an attack handoff is morally active. Same gate, same rules.
 
