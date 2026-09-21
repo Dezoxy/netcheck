@@ -152,7 +152,9 @@ There are scanning capabilities netcheck deliberately does *not* implement:
   Use Burp Suite or ZAP.
 - **CVE matching at scale.** netcheck doesn't ship a vulnerability database to
   match versions against. Use nuclei.
-- **Denial-of-service.** netcheck rate-limits its own active probes. There is no
+- **Denial-of-service.** netcheck bounds how hard its active probes hit a
+  target: the CLI defaults to modest parallelism (50 port dials, 10 HTTP
+  requests) and the web API caps it at twice that. There is no
   "stress test" mode and there won't be.
 
 These tools exist for the people who need them. Lumping them into a network

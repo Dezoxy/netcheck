@@ -183,11 +183,15 @@ netcheck --insecure https://self-signed.badssl.com    # inspect without verifyin
 ```bash
 netcheck app
 netcheck app --listen 127.0.0.1:8787
+netcheck app --allowed-host netcheck.home.lan   # also answer to this name
 ```
 
 Open `http://127.0.0.1:8787/` for the React/PWA workbench. The assets are
 embedded in the Go binary (`go:embed`) — there's nothing to install and nothing
 phones home. It calls the same engines the CLI does, over a local JSON API.
+The API refuses cross-origin requests and answers only to IP addresses,
+`localhost` and names passed with `--allowed-host`, so other web pages open in
+your browser cannot drive it.
 
 What's in it:
 

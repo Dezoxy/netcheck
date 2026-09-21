@@ -66,7 +66,7 @@ recorded, the ADR will say so.
 
 ## Known risks
 
-Recorded in the Scope page until the risk register exists: the local web
-server accepts cross-site requests (no `Origin`, `Host` or `Content-Type`
-check), and `docs/ETHICS.md` says active probes are rate-limited while the API
-passes a caller's concurrency through unbounded.
+Recorded in the Scope page until the risk register exists. The local web
+server now refuses cross-origin requests and unknown host names and caps the
+scan concurrency an API caller can ask for; it still has no authentication, so
+any non-browser client that reaches its port can use it.

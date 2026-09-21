@@ -37,6 +37,6 @@ netcheck.cli -> resolvers "Compares answers from" "DNS over UDP/TCP, DoT, DoH" "
 netcheck.cli -> registries "Looks up IP and domain ownership from" "RDAP over HTTPS, WHOIS over TCP 43, DNS TXT" "Layer Interface"
 netcheck.cli -> reconServices "Collects subdomains, co-hosted domains and archived URLs from" "HTTPS/JSON" "Layer Interface"
 
-// Observed gap, not a design: the server checks no Origin, Host or
-// Content-Type, so a cross-site request from any open page is accepted.
-otherSites -> netcheck.appServer "Can send cross-site requests to" "HTTP from the user's browser, no Origin or Host check" "Inbound across trust boundary"
+// Any open page can still send the request; the server refuses it
+// (cmd/app_security.go). Drawn so the Security view shows the control.
+otherSites -> netcheck.appServer "Sends cross-site requests, which are refused by" "HTTP from the user's browser; Sec-Fetch-Site, Origin and Host checked" "Inbound across trust boundary"
