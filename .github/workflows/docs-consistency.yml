@@ -1,0 +1,24 @@
+name: Docs / Consistency
+
+# Runs architecture-base's documentation checker (`make arch-docs`) on every
+# pull request: links, the view register against views.dsl, ADR format, IDs,
+# heading visibility in the Structurizr Documentation tab, the AGENTS.md /
+# CLAUDE.md twins, the skill mirror and 80-column prose. Python only; the
+# Structurizr and PDF checks need Docker and stay local (`make arch-check`,
+# `make arch-pdf`) or in the Architecture PDF workflow.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: docs consistency
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Documentation consistency
+        run: make arch-docs
