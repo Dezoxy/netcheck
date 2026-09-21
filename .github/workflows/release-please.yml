@@ -79,5 +79,5 @@ jobs:
           # to Dezoxy/homebrew-netcheck and Dezoxy/scoop-netcheck. While
           # skip_upload: true in .goreleaser.yml, the secret doesn't need to
           # exist — the `|| ''` fallback keeps the workflow green. See
-          # docs/PUBLISHING.md for the go-live steps.
+          # docs/operations/release-and-distribution.md for the go-live steps.
           GORELEASER_PAT: ${{ secrets.GORELEASER_PAT || '' }}

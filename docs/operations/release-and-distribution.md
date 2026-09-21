@@ -1,4 +1,7 @@
-# Publishing — container image, Homebrew Cask, Scoop bucket
+# Release and distribution
+
+Runbook for the channels a release publishes to: the container image, the
+Homebrew Cask and the Scoop bucket.
 
 netcheck's release pipeline can publish to three channels alongside the GitHub release:
 
@@ -20,18 +23,37 @@ switch; the container image below is already live.
 > (`netcheck_*_linux_*.tar.gz`). If we ever want a Linux-brew formula, that's a
 > separate addition.
 
+## Current status
+
+Last verified 2026-08-25; update this list, not a separate TODO file.
+
+- [x] Container image live on GHCR and public since v2.9.0: every release
+  pushes `ghcr.io/dezoxy/netcheck:{version,major.minor,latest}` with the
+  built-in `GITHUB_TOKEN`.
+- [x] Empty tap and bucket repos exist:
+  [Dezoxy/homebrew-netcheck](https://github.com/Dezoxy/homebrew-netcheck) and
+  [Dezoxy/scoop-netcheck](https://github.com/Dezoxy/scoop-netcheck).
+- [x] `.goreleaser.yml` has `homebrew_casks:` and `scoops:` blocks, both
+  `skip_upload: true`.
+- [x] `release-please.yml` and `release.yml` pass `GORELEASER_PAT` with a
+  `|| ''` fallback, so releases stay green while the secret is absent.
+- [x] Local dry-run (`goreleaser release --snapshot --clean --skip=publish`)
+  produces a valid Cask and Scoop manifest.
+- [ ] Create the `GORELEASER_PAT` token and repository secret (Step 2).
+- [ ] Flip `skip_upload` to `false` and verify the first push (Steps 3–4).
+
 ---
 
 ## Container image (GHCR)
 
 Unlike the tap and bucket, this one is on. `goreleaser release` packages the
-prebuilt `linux/amd64` binary with the repo [`Dockerfile`](../Dockerfile) and
+prebuilt `linux/amd64` binary with the repo [`Dockerfile`](../../Dockerfile) and
 pushes to GHCR during the release job.
 
 | Piece | Where |
 |---|---|
-| goreleaser config | `dockers:` block in [`.goreleaser.yml`](../.goreleaser.yml) |
-| Registry login | `docker/login-action` step in [`.github/workflows/release-please.yml`](../.github/workflows/release-please.yml) |
+| goreleaser config | `dockers:` block in [`.goreleaser.yml`](../../.goreleaser.yml) |
+| Registry login | `docker/login-action` step in [`.github/workflows/release-please.yml`](../../.github/workflows/release-please.yml) |
 | Credentials | The workflow's built-in `GITHUB_TOKEN` — no PAT needed, because GHCR lives in the same org. The job declares `packages: write`. |
 
 Tags pushed per release: `:<version>` (e.g. `2.9.0`), `:<major>.<minor>` (`2.9`), and `:latest`.

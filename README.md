@@ -43,7 +43,8 @@ Summary
 
 ## Install
 
-**macOS via Homebrew** _(coming once the tap is activated — see [docs/PUBLISHING.md](docs/PUBLISHING.md))_:
+**macOS via Homebrew** _(coming once the tap is activated — see the
+[release runbook](docs/operations/release-and-distribution.md))_:
 
 ```bash
 brew tap dezoxy/netcheck
@@ -562,8 +563,7 @@ Commit messages follow [conventional
 commits](https://www.conventionalcommits.org/) — release-please reads them to
 pick the next version and write the changelog. Local git hooks (lefthook) run
 the same linters CI does; setup is in [CONTRIBUTING.md](CONTRIBUTING.md).
-Architecture notes live in
-[docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
+All other documentation is indexed in [docs/README.md](docs/README.md).
 
 ## License
 
@@ -574,9 +574,9 @@ MIT — see [LICENSE](LICENSE).
 <details>
 <summary>Roadmap and project history</summary>
 
-The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes
-and feature plans live in
-[docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
+The full release history is in [CHANGELOG.md](CHANGELOG.md). The original
+project plan is archived in
+[docs/history/](docs/history/2026-05-project-plan.md).
 
 | Version | Status | Highlights |
 |---|---|---|
