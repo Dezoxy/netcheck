@@ -261,6 +261,7 @@ func scanTCP(
 	results := make([]portRes, len(ports))
 	sem := make(chan struct{}, conc)
 	var wg sync.WaitGroup
+	localTarget := isLocalIP(target)
 
 	for i, p := range ports {
 		i, p := i, p
@@ -271,8 +272,13 @@ func scanTCP(
 			defer func() { <-sem }()
 			pCtx, pCancel := context.WithTimeout(ctx, perPort)
 			defer pCancel()
-			conn, err := dialer(pCtx, "tcp", net.JoinHostPort(target.String(), strconv.Itoa(p)))
+			addr := net.JoinHostPort(target.String(), strconv.Itoa(p))
+			conn, err := dialer(pCtx, "tcp", addr)
 			pr := portRes{port: p}
+			if err == nil && localTarget && !confirmLocalOpen(ctx, conn, addr, perPort) {
+				conn.Close()
+				conn, err = nil, errCrossConnected
+			}
 			if err != nil {
 				pr.errStr = err.Error()
 			} else {
