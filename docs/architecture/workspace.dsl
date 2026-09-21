@@ -12,6 +12,7 @@ workspace "Netcheck" "Architecture model for netcheck: a single-binary network d
     // Attached to the workspace, not the software system, so the path resolves
     // unambiguously against this file.
     !docs overview
+    !adrs decisions
 
     properties {
         // Docs are attached at workspace level (above), so the per-system
