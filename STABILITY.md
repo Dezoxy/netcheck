@@ -163,7 +163,7 @@ Keys named in `config.example.yaml` are stable. New keys may be added; existing 
 
 ### Environment variables
 
-`NETCHECK_CONFIG`, `NETCHECK_TIMEOUT`, `NETCHECK_USER_AGENT`, `NETCHECK_AUTHORIZED`, `NETCHECK_APP_TOKEN` — stable. New `NETCHECK_*` variables may be added.
+`NETCHECK_CONFIG`, `NETCHECK_TIMEOUT`, `NETCHECK_USER_AGENT`, `NETCHECK_AUTHORIZED`, `NETCHECK_APP_TOKEN`, `NETCHECK_APP_TOKEN_FILE` — stable. New `NETCHECK_*` variables may be added.
 
 ## What's NOT covered
 

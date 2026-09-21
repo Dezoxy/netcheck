@@ -74,8 +74,10 @@ command.
 
 Because the image binds every interface, the API always requires a token.
 `docker logs` shows the sign-in URL; open it once and the browser keeps a
-cookie. For a token that survives restarts, pass
-`-e NETCHECK_APP_TOKEN=<at least 16 characters>` (it is then not printed).
+cookie. For a token that survives restarts, mount it as a file and point
+`NETCHECK_APP_TOKEN_FILE` at it (a Compose secret keeps it out of
+`docker inspect`), or pass `-e NETCHECK_APP_TOKEN=<at least 16 characters>`. A
+pinned token is not printed.
 `/api/healthz` needs no token, so container health checks keep working.
 
 ### Package visibility — already public

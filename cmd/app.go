@@ -169,14 +169,14 @@ func RunApp(args []string) int {
 		fs.Usage()
 		return 2
 	}
-	token := ""
+	token, tokenSource := "", ""
 	if authRequired(*listen, allowedHosts, *forceAuth) {
-		t, err := appToken()
+		t, src, err := appToken()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			return 2
 		}
-		token = t
+		token, tokenSource = t, src
 	}
 
 	// HUD redesign PR 4: stand up the event bus + telemetry collector
@@ -204,8 +204,8 @@ func RunApp(args []string) int {
 	fmt.Fprintf(os.Stderr, "netcheck app listening on http://%s\n", *listen)
 	switch {
 	case token == "":
-	case strings.TrimSpace(os.Getenv(appTokenEnvVar)) != "":
-		fmt.Fprintf(os.Stderr, "token required (from %s): open /?token=<token> once in the browser, or send Authorization: Bearer <token>\n", appTokenEnvVar)
+	case tokenSource != "":
+		fmt.Fprintf(os.Stderr, "token required (from %s): open /?token=<token> once in the browser, or send Authorization: Bearer <token>\n", tokenSource)
 	default:
 		fmt.Fprintf(os.Stderr, "token required; open %s\n", signInURL(*listen, token))
 		fmt.Fprintln(os.Stderr, "behind a proxy, open your public URL with the same /?token=...; scripts send Authorization: Bearer <token>")
