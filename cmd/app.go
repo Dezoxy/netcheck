@@ -155,6 +155,7 @@ func RunApp(args []string) int {
 		}
 		return nil
 	})
+	forceAuth := fs.Bool(authFlagName, false, "require the start-up token even on a loopback-only bind (it is always required when the server is reachable from other machines: a non-loopback --listen or any --allowed-host)")
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck app [flags]")
 		fmt.Fprintln(os.Stderr)
@@ -167,6 +168,15 @@ func RunApp(args []string) int {
 	if fs.NArg() != 0 {
 		fs.Usage()
 		return 2
+	}
+	token := ""
+	if authRequired(*listen, allowedHosts, *forceAuth) {
+		t, err := appToken()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			return 2
+		}
+		token = t
 	}
 
 	// HUD redesign PR 4: stand up the event bus + telemetry collector
@@ -181,13 +191,25 @@ func RunApp(args []string) int {
 	go func() { tel.Run(collectorDone); close(collectorDone) }()
 	_ = context.Background // placeholder so the import isn't dropped if no other context.* refs land here
 
+	handler := newAppHandler(bus, tel, topo)
+	if token != "" {
+		handler = requireToken(handler, token)
+	}
 	srv := &http.Server{
 		Addr:              *listen,
-		Handler:           protectLocalAPI(newAppHandler(bus, tel, topo), allowedHosts),
+		Handler:           protectLocalAPI(handler, allowedHosts),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	fmt.Fprintf(os.Stderr, "netcheck app listening on http://%s\n", *listen)
+	switch {
+	case token == "":
+	case strings.TrimSpace(os.Getenv(appTokenEnvVar)) != "":
+		fmt.Fprintf(os.Stderr, "token required (from %s): open /?token=<token> once in the browser, or send Authorization: Bearer <token>\n", appTokenEnvVar)
+	default:
+		fmt.Fprintf(os.Stderr, "token required; open %s\n", signInURL(*listen, token))
+		fmt.Fprintln(os.Stderr, "behind a proxy, open your public URL with the same /?token=...; scripts send Authorization: Bearer <token>")
+	}
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1

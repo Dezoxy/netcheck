@@ -72,6 +72,12 @@ server answers to IP addresses and `localhost`; to reach it by a hostname (a
 reverse proxy or a LAN DNS name), append `--allowed-host <name>` to the
 command.
 
+Because the image binds every interface, the API always requires a token.
+`docker logs` shows the sign-in URL; open it once and the browser keeps a
+cookie. For a token that survives restarts, pass
+`-e NETCHECK_APP_TOKEN=<at least 16 characters>` (it is then not printed).
+`/api/healthz` needs no token, so container health checks keep working.
+
 ### Package visibility — already public
 
 A newly created GHCR package is **private**, and until someone flips it

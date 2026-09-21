@@ -71,12 +71,14 @@ in the root [Makefile](../../Makefile). `workspace.json`, `.structurizr/` and
 
 ## Key decisions
 
-Written on 2026-09-21 from the archived project plan and the code; each says
-where its rationale is not recorded.
+Decisions 1–3 were written on 2026-09-21 from the archived project plan and
+the code; each says where its rationale is not recorded. Decision 4 was made
+and recorded the same day.
 
 - [1. Ship netcheck as a single static Go binary](decisions/0001-ship-a-single-static-go-binary.md)
 - [2. Gate active checks behind explicit authorisation at the entry points](decisions/0002-gate-active-checks-at-the-entry-points.md)
 - [3. Serve the web workbench from the binary, bound to loopback by default](decisions/0003-embed-the-workbench-and-bind-to-loopback.md)
+- [4. Require a token when the web server is reachable beyond this machine](decisions/0004-require-a-token-when-reachable-beyond-this-machine.md)
 
 New ADRs start from [templates/adr.md](templates/adr.md).
 
@@ -84,6 +86,6 @@ New ADRs start from [templates/adr.md](templates/adr.md).
 
 See the [risk register](risks/architecture-risks.md). RISK-001 and RISK-002
 are resolved: the local web server refuses cross-origin requests and unknown
-host names, and caps the scan concurrency an API caller can ask for. Open:
-RISK-003, the server has no authentication, so any non-browser client that
-reaches its port can use it.
+host names, and caps the scan concurrency an API caller can ask for. RISK-003
+is mitigated by decision 4: a token is required whenever the server is
+reachable beyond this machine.

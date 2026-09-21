@@ -29,10 +29,11 @@ including active scans when the request carries the authorisation flag.
 The server refuses cross-origin requests (by `Sec-Fetch-Site` and `Origin`),
 answers only to IP addresses, `localhost` and names allowed with
 `--allowed-host`, which stops DNS rebinding, and accepts only JSON request
-bodies (RISK-001 and RISK-002, resolved). It still has no authentication: a
-non-browser client that can reach its port, such as another local process or a
-LAN host when the container image is published there, can use it, including
-active scans with the authorisation flag (RISK-003).
+bodies (RISK-001 and RISK-002, resolved). When it is reachable beyond this
+machine, through the container image, a LAN bind or a reverse proxy on a
+subdomain, its API also requires a token (RISK-003, mitigated; decision 4).
+On a plain `netcheck app` it stays open to local processes, which could run
+`netcheck` directly anyway.
 
 ![An authorised port scan from the workbench](embed:ActiveScanFlow)
 

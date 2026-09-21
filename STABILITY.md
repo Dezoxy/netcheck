@@ -56,6 +56,7 @@ In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`
 | `--max-runs <n>` | watch | Stop after N iterations (0 = forever) |
 | `--quiet` | watch, diff | Suppress non-essential messages |
 | `--listen <addr>` | app | HTTP listen address (default `127.0.0.1:8787`) |
+| `--auth` | app | Require the start-up token even on a loopback-only bind (always required on a non-loopback bind or with `--allowed-host`) |
 | `--allowed-host <name>` | app | Extra hostname the server answers to, e.g. behind a reverse proxy (repeatable or comma-separated). IP addresses and `localhost` always work. |
 
 ### Subcommands
@@ -162,7 +163,7 @@ Keys named in `config.example.yaml` are stable. New keys may be added; existing 
 
 ### Environment variables
 
-`NETCHECK_CONFIG`, `NETCHECK_TIMEOUT`, `NETCHECK_USER_AGENT`, `NETCHECK_AUTHORIZED` — stable. New `NETCHECK_*` variables may be added.
+`NETCHECK_CONFIG`, `NETCHECK_TIMEOUT`, `NETCHECK_USER_AGENT`, `NETCHECK_AUTHORIZED`, `NETCHECK_APP_TOKEN` — stable. New `NETCHECK_*` variables may be added.
 
 ## What's NOT covered
 

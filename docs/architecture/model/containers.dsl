@@ -11,7 +11,7 @@ netcheck = softwareSystem "Netcheck" "Explains what happens between the user's m
 
     group "User's machine" {
         cli = container "CLI" "Runs one diagnostic or scan per invocation, an interval watch, or an interactive menu; prints text, JSON, Markdown or HTML." "Go, static binary (CGO disabled)" "Layer Interface"
-        appServer = container "Local Web Server" "netcheck app: serves the embedded workbench and a JSON/SSE API over the same probe engine as the CLI. Binds 127.0.0.1:8787 by default, 0.0.0.0:8787 in the container image; no authentication." "Go net/http, same binary" "Layer Engine,Unauthenticated"
+        appServer = container "Local Web Server" "netcheck app: serves the embedded workbench and a JSON/SSE API over the same probe engine as the CLI. Binds 127.0.0.1:8787 by default, 0.0.0.0:8787 in the container image; requires a token when reachable beyond this machine." "Go net/http, same binary" "Layer Engine,Unauthenticated"
         savedReports = container "Saved Reports" "One JSON file per saved report under $XDG_DATA_HOME or ~/.config, in netcheck/saved-reports; directory 0700, files 0600." "JSON files" "Layer Data,Storage"
     }
 }
