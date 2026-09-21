@@ -1,13 +1,22 @@
-# NetCheck / WebPath Project Plan
+# Project plan (May 2026, archived)
+
+> **Archived.** This is the pre-implementation plan netcheck started from on
+> 2026-05-20, kept for its original reasoning. It is no longer maintained: the
+> current architecture is in `docs/architecture/`, release history in
+> [CHANGELOG.md](../../CHANGELOG.md), and compatibility rules in
+> [STABILITY.md](../../STABILITY.md). Its durable design rationale is being
+> carried into the architecture documents.
+
+Original title: *NetCheck / WebPath Project Plan*.
 
 > **How to read this.** This started as the pre-implementation planning
 > document and has been kept alive as the architecture note. Sections 7-9,
 > 15-17 have been rewritten to describe what actually shipped; the rest is
 > the original reasoning, preserved because *why* a choice was made ages
 > better than *what* was chosen. Where the two disagree, the code wins,
-> then [README.md](../README.md) and [STABILITY.md](../STABILITY.md).
+> then [README.md](../../README.md) and [STABILITY.md](../../STABILITY.md).
 >
-> Current release: see [CHANGELOG.md](../CHANGELOG.md).
+> Current release: see [CHANGELOG.md](../../CHANGELOG.md).
 
 ## 1. Project Goal
 
@@ -399,7 +408,7 @@ source). Each `pkg/` subpackage has a single responsibility and its own tests.
 
 The engines lived under `internal/` until v2.0.0, which moved them to `pkg/`
 and changed the module path to `github.com/Dezoxy/netcheck` so external code
-could import them at all. See [MIGRATING.md](../MIGRATING.md).
+could import them at all. See [MIGRATING.md](../../MIGRATING.md).
 
 ```text
 netcheck/
@@ -470,7 +479,7 @@ netcheck/
 | `.github/workflows/` | CI, release automation, and the weekly Trivy scan. |
 
 The split is a stability boundary, not just tidiness: `pkg/` is frozen for
-`v2.x` per [STABILITY.md](../STABILITY.md), while `internal/` is
+`v2.x` per [STABILITY.md](../../STABILITY.md), while `internal/` is
 enforced-unimportable by Go itself — so the config format and the asset bundle
 stay free to change.
 
@@ -1050,7 +1059,7 @@ The pentest direction graduates to commands that actually probe the
 target. All four require explicit user confirmation (`--i-have-authorization`
 flag or `NETCHECK_AUTHORIZED=1` env var) before doing anything. The
 refusal banner names the command, both opt-in mechanisms, and points
-the user at [docs/ETHICS.md](ETHICS.md) for what "authorized" means.
+the user at [docs/ETHICS.md](../ETHICS.md) for what "authorized" means.
 
 | Command | What it does | Probe shape |
 |---|---|---|
@@ -1120,8 +1129,8 @@ Verified during implementation:
 The breaking release. Engines moved `internal/` → `pkg/`, module path became
 `github.com/Dezoxy/netcheck`, two JSON fields were renamed for consistency,
 and `-j` / `-o` shortcuts landed. Everything netcheck promises for `v2.x` is
-written down in [STABILITY.md](../STABILITY.md); the upgrade path is in
-[MIGRATING.md](../MIGRATING.md).
+written down in [STABILITY.md](../../STABILITY.md); the upgrade path is in
+[MIGRATING.md](../../MIGRATING.md).
 
 ## v2.1 – v2.9 (shipped)
 
@@ -1177,7 +1186,7 @@ Two details worth keeping in mind:
 - **release-please owns the version**, derived from conventional-commit
   subjects (`feat:` → minor, `fix:` → patch, `!` → major). goreleaser only
   attaches artifacts to the release it already created (`mode: append`).
-- **The pre-push hooks mirror CI** (see [CONTRIBUTING.md](../CONTRIBUTING.md)),
+- **The pre-push hooks mirror CI** (see [CONTRIBUTING.md](../../CONTRIBUTING.md)),
   so a green `lefthook run pre-push` means a green CI run.
 
 ---

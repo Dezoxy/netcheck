@@ -90,9 +90,9 @@ dockers:
 #
 # CURRENTLY DOES NOT PUSH. `skip_upload: true` makes goreleaser build the
 # Cask file into ./dist/ for inspection without trying to commit it to the
-# tap repo. To flip it live, follow docs/PUBLISHING.md (TL;DR: create the
-# Dezoxy/homebrew-netcheck repo, add a `GORELEASER_PAT` secret, wire it into
-# release-please.yml, set skip_upload: false).
+# tap repo. To flip it live, follow docs/operations/release-and-distribution.md
+# (TL;DR: create the Dezoxy/homebrew-netcheck repo, add a `GORELEASER_PAT`
+# secret, wire it into release-please.yml, set skip_upload: false).
 homebrew_casks:
   - name: netcheck
     repository:
@@ -131,7 +131,7 @@ homebrew_casks:
 
 # Scoop bucket — generates a netcheck.json manifest for Windows users.
 #
-# Same activation flow as the tap (see docs/PUBLISHING.md): create
+# Same activation flow as the tap (see docs/operations/release-and-distribution.md): create
 # Dezoxy/scoop-netcheck, reuse the GORELEASER_PAT secret, flip skip_upload.
 scoops:
   - name: netcheck

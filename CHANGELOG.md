@@ -225,7 +225,7 @@ Per-release notes are also generated automatically by `goreleaser` and attached 
 * **enum:** `netcheck enum <url>` — HTTP path enumeration against a ~70-entry builtin wordlist (or `--wordlist`). Categorizes by status: found / redirect / blocked / auth-required / server-error.
 * v1.5 active scanning (tls, takeover, ports, enum) behind --i-have-authorization gate ([#34](https://github.com/Dezoxy/netcheck/issues/34)) ([1eadaae](https://github.com/Dezoxy/netcheck/commit/1eadaaeea1681425f139c4808d46ed278633d87b))
 
-> **Note on the version number:** This release bundles what the roadmap and PRs called "v1.4 passive recon" AND "v1.5 active scanning" under a single `v1.4.0` tag. The split was a planning artefact — release-please cut one minor version for everything because the passive-recon PR (#32) squash-merged with a `docs:` title that didn't trigger an auto-bump. See [STABILITY.md](STABILITY.md) and [`docs/netcheck_tool_project_plan.md`](docs/netcheck_tool_project_plan.md) for the corrected timeline.
+> **Note on the version number:** This release bundles what the roadmap and PRs called "v1.4 passive recon" AND "v1.5 active scanning" under a single `v1.4.0` tag. The split was a planning artefact — release-please cut one minor version for everything because the passive-recon PR (#32) squash-merged with a `docs:` title that didn't trigger an auto-bump. See [STABILITY.md](STABILITY.md) and [`docs/history/2026-05-project-plan.md`](docs/history/2026-05-project-plan.md) for the corrected timeline.
 
 ## [1.3.3](https://github.com/Dezoxy/netcheck/compare/v1.3.2...v1.3.3) (2026-05-23)
 
