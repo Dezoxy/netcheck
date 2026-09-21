@@ -19,7 +19,7 @@ env:
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Expose release-please's outputs so the downstream job can decide whether
     # to run goreleaser and which tag to check out.
     outputs:
@@ -42,7 +42,7 @@ jobs:
   goreleaser:
     needs: release-please
     if: needs.release-please.outputs.releases_created == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # contents: write → upload release assets; packages: write → push the
     # container image to GHCR (ghcr.io/dezoxy/netcheck).
     permissions:
