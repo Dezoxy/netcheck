@@ -45,7 +45,8 @@ except Shodan, which is used only when a key is configured.
 ### Where it runs
 
 On the user's workstation (macOS, Linux or Windows; amd64 or arm64), or as
-the `ghcr.io/dezoxy/netcheck` container image (linux/amd64), which runs only
+the `ghcr.io/dezoxy/netcheck` container image (linux/amd64 and linux/arm64),
+which runs only
 the web server.
 
 ![Netcheck on a workstation](embed:WorkstationDeployment)

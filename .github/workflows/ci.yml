@@ -21,10 +21,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Runners are pinned to ubuntu-26.04 in every workflow, not ubuntu-latest
+# (still 24.04 in September 2026): the OS under CI and releases changes only
+# when a pull request changes this label, across all workflows at once.
 jobs:
   test:
     name: lint + test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
 
@@ -69,7 +72,7 @@ jobs:
 
   web:
     name: web (lint + build)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # The web/ tree was previously validated only by the lefthook pre-commit
     # hook, which Dependabot doesn't run. That's how #91 (@eslint/js 9→10)
     # merged green: CI never installed npm deps, so the peer-dep conflict
@@ -120,7 +123,7 @@ jobs:
 
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # Gate cross-compile on tests passing. Avoids burning 6× CI minutes when
     # the code already fails locally, and makes the failure flow read
     # sequentially: tests first, then platform-specific build problems. Also
