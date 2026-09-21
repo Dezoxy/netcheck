@@ -67,6 +67,12 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "typescript-eslint"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 is blocked on typescript-eslint, whose latest
+      # release (8.70.0) caps its peer dep at typescript <6.1.0. #149
+      # (6.0.3 → 7.0.2) merged red and broke `npm ci` for every web PR.
+      # Drop this once typescript-eslint supports TS 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # ─── GitHub Actions ──────────────────────────────────────────────────────
   # Action versions are pinned in workflow files — Dependabot keeps the

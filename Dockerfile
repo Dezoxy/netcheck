@@ -16,6 +16,9 @@ COPY netcheck /netcheck
 # The `app` server binds 127.0.0.1:8787 by default; inside a container it must
 # listen on all interfaces to be reachable. Runs as the distroless `nonroot`
 # user (uid 65532); 8787 is unprivileged so no extra capabilities are needed.
+# The base image already defaults to nonroot, but state it explicitly so
+# static scanners (Trivy DS-0002) can see it from the Dockerfile alone.
+USER 65532:65532
 EXPOSE 8787
 ENTRYPOINT ["/netcheck"]
 CMD ["app", "--listen", "0.0.0.0:8787"]
