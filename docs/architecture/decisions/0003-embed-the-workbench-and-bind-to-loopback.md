@@ -45,15 +45,16 @@ Positive:
 
 Negative / accepted trade-offs:
 
-- The server has no authentication and, as built, no cross-origin or `Host`
-  checks. Loopback keeps other machines out but not web pages in the user's
-  own browser (RISK-001).
+- The server has no authentication. As first built it had no cross-origin or
+  `Host` checks either, so loopback kept other machines out but not web pages
+  in the user's own browser (RISK-001); those checks were added on 2026-09-21
+  (#162). Local non-browser clients can still use it (RISK-003).
 - The built UI is committed and can drift from `web/` (TD-001).
 - The container image is reachable from wherever its port is published.
 
 ## Risks
 
-- RISK-001
+- RISK-001 (resolved), RISK-003
 
 ## Related
 

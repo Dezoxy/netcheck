@@ -5,9 +5,9 @@ for first; everything else is unscheduled, as the original plan left it.
 
 ### Next
 
-- Close RISK-001 and RISK-002: cross-origin protection, a `Host` allowlist
-  and a JSON content-type requirement on the local web server, plus a
-  server-side concurrency cap or a corrected policy.
+- Decide whether the local web server needs authentication (RISK-003), for
+  example a per-session token printed at start-up. Worth it once the server
+  is meant to be reached from other machines.
 
 ### Unscheduled
 

@@ -3,8 +3,8 @@
 
 systemContext netcheck "SystemContext" "What does netcheck talk to, and who uses it?" {
     include *
-    // The cross-site path is a security finding, not context; it lives in the
-    // Security view.
+    // The (refused) cross-site path is a security concern, not context; it
+    // lives in the Security view.
     exclude otherSites
     autoLayout lr
 }

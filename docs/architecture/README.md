@@ -82,6 +82,8 @@ New ADRs start from [templates/adr.md](templates/adr.md).
 
 ## Known risks
 
-See the [risk register](risks/architecture-risks.md). Open now: RISK-001, the
-local web server accepting cross-site requests, and RISK-002, the missing
-concurrency cap that the responsible-use policy says exists.
+See the [risk register](risks/architecture-risks.md). RISK-001 and RISK-002
+are resolved: the local web server refuses cross-origin requests and unknown
+host names, and caps the scan concurrency an API caller can ask for. Open:
+RISK-003, the server has no authentication, so any non-browser client that
+reaches its port can use it.

@@ -56,6 +56,7 @@ In the table below, "every check" means: `full`, `dns`, `route`, `ip`, `headers`
 | `--max-runs <n>` | watch | Stop after N iterations (0 = forever) |
 | `--quiet` | watch, diff | Suppress non-essential messages |
 | `--listen <addr>` | app | HTTP listen address (default `127.0.0.1:8787`) |
+| `--allowed-host <name>` | app | Extra hostname the server answers to, e.g. behind a reverse proxy (repeatable or comma-separated). IP addresses and `localhost` always work. |
 
 ### Subcommands
 

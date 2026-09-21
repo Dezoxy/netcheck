@@ -146,6 +146,15 @@ func RunApp(args []string) int {
 	fs := flag.NewFlagSet("netcheck app", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	listen := fs.String("listen", "127.0.0.1:8787", "HTTP listen address")
+	var allowedHosts []string
+	fs.Func(allowedHostFlagName, "extra hostname the server answers to, e.g. for a reverse proxy (repeatable or comma-separated; IP addresses and localhost are always allowed)", func(v string) error {
+		for _, h := range strings.Split(v, ",") {
+			if h = strings.TrimSpace(h); h != "" {
+				allowedHosts = append(allowedHosts, h)
+			}
+		}
+		return nil
+	})
 	fs.Usage = func() {
 		fmt.Fprintln(os.Stderr, "usage: netcheck app [flags]")
 		fmt.Fprintln(os.Stderr)
@@ -174,7 +183,7 @@ func RunApp(args []string) int {
 
 	srv := &http.Server{
 		Addr:              *listen,
-		Handler:           newAppHandler(bus, tel, topo),
+		Handler:           protectLocalAPI(newAppHandler(bus, tel, topo), allowedHosts),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -810,7 +819,7 @@ func handlePortsCheck(w http.ResponseWriter, r *http.Request) {
 func portsOptionsFromRequest(req portsCheckRequest) (portscan.Options, error) {
 	opts := portscan.Options{
 		Top:         req.Top,
-		Concurrency: req.Concurrency,
+		Concurrency: clampConcurrency(req.Concurrency, maxAPIPortsConcurrency),
 	}
 	if req.PerPortMS > 0 {
 		opts.PerPortTimeout = time.Duration(req.PerPortMS) * time.Millisecond
@@ -1000,7 +1009,7 @@ func handleEnumCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	opts := pathenum.Options{
 		Wordlist:        req.Wordlist,
-		Concurrency:     req.Concurrency,
+		Concurrency:     clampConcurrency(req.Concurrency, maxAPIEnumConcurrency),
 		Insecure:        req.Insecure,
 		FollowRedirects: req.FollowRedirects,
 	}

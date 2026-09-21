@@ -50,13 +50,14 @@ Positive:
 Negative / accepted trade-offs:
 
 - The gate proves intent, not authorisation: it trusts whoever sets the flag.
-  Through the local web server, that can currently be any web page
-  (RISK-001).
+  Through the local web server that was, until 2026-09-21, any web page
+  (RISK-001, resolved by #162); it is still any non-browser client that
+  reaches the port (RISK-003).
 - Go programs importing `pkg/` get no gate at all, by design.
 
 ## Risks
 
-- RISK-001, RISK-002
+- RISK-001, RISK-002 (resolved), RISK-003
 
 ## Related
 

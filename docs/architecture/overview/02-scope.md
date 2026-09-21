@@ -26,11 +26,13 @@ including active scans when the request carries the authorisation flag.
 
 ![Security view](embed:Security)
 
-As of this edition the server checks no `Origin`, `Host` or `Content-Type`, so
-any web page open in the same browser can send it requests, and the container
-image binds every interface. Treat this as a known gap, not a design: it is
-RISK-001 in the risk register, tracked for a fix, and this page changes when
-that lands. RISK-002 covers the related missing concurrency cap.
+The server refuses cross-origin requests (by `Sec-Fetch-Site` and `Origin`),
+answers only to IP addresses, `localhost` and names allowed with
+`--allowed-host`, which stops DNS rebinding, and accepts only JSON request
+bodies (RISK-001 and RISK-002, resolved). It still has no authentication: a
+non-browser client that can reach its port, such as another local process or a
+LAN host when the container image is published there, can use it, including
+active scans with the authorisation flag (RISK-003).
 
 ![An authorised port scan from the workbench](embed:ActiveScanFlow)
 

@@ -12,9 +12,9 @@ Security view is on the Scope page.
 | Boundary | What crosses it | Control today |
 |---|---|---|
 | User → CLI | Commands typed or scripted by the user | The operating system's user account. Anything the user can run, netcheck runs. |
-| Browser → local web server | HTTP/JSON and SSE requests to `127.0.0.1:8787` | Loopback bind only (decision 3). No authentication, `Origin`, `Host` or `Content-Type` check, so any page in the same browser gets through (RISK-001). |
+| Browser → local web server | HTTP/JSON and SSE requests to `127.0.0.1:8787` | Loopback bind (decision 3); cross-origin requests refused, `Host` allowlisted, JSON bodies only (`cmd/app_security.go`). No authentication (RISK-003). |
 | netcheck → targets and lookup services | DNS, TCP, UDP, TLS and HTTP(S) from the user's source IP | Active checks need authorisation (decision 2). Passive checks are unrestricted by design. |
-| Container host → container | Requests to the published port | Whatever the `docker run -p` mapping allows. The image binds `0.0.0.0:8787`. |
+| Container host → container | Requests to the published port | Whatever the `docker run -p` mapping allows. The image binds `0.0.0.0:8787`; the same request filtering applies. |
 
 ### The authorisation gate
 
@@ -26,8 +26,9 @@ it the CLI exits 2 and the API answers 403; both behaviours are tested
 
 The policy is explicit that the flag is **not a security boundary**: anyone
 can pass it. It is a deliberation boundary, a point where a person stops and
-checks. That is why RISK-001 matters beyond the scan itself: a web page
-sending the flag skips the deliberation the gate exists for.
+checks. That is why cross-site requests were refused (RISK-001, resolved): a
+web page sending the flag would skip the deliberation the gate exists for.
+Scan parallelism an API caller can request is capped (RISK-002, resolved).
 
 ### What netcheck sends and keeps
 
@@ -40,6 +41,5 @@ sending the flag skips the deliberation the gate exists for.
 
 ### Open items
 
-- RISK-001: cross-site requests and DNS rebinding against the local server.
-- RISK-002: the policy promises probe rate limiting that the API does not
-  enforce.
+- RISK-003: the local web server has no authentication, so non-browser
+  clients that reach its port can use it.
