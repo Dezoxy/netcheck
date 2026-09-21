@@ -29,3 +29,17 @@ rsrc_windows_*.syso
 .env
 .env.*
 !.env.example
+
+# Structurizr: regenerated on every load while all views use autoLayout.
+# Authoring uses automatic layout; do not introduce maintained coordinates.
+docs/architecture/workspace.json
+docs/architecture/.structurizr/
+docs/architecture/generated/
+__pycache__/
+
+# Claude Code: .claude/skills/ is tracked (architecture skills); everything
+# else under .claude/ is per-machine. worktrees/ holds whole session checkouts
+# that break with absolute paths when the repo folder moves.
+.claude/worktrees/
+.claude/settings.local.json
+.claude/launch.json

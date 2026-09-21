@@ -100,3 +100,58 @@ clean:
 ## help: list available targets
 help:
 	@grep -E '^## ' Makefile | sed 's/^## /  /'
+
+# ── Architecture (docs/architecture, from Dezoxy/architecture-base) ─────────
+# Every target runs locally with Docker. Prefixed `arch-` because this Makefile
+# already owns test, clean and help. The PDF workflow runs `make arch-pdf`, so
+# these pins apply on GitHub too. STRUCTURIZR_IMAGE matches architecture-base
+# and the sibling models (Hopin, Argus, Notification Digest); keep it equal to
+# the Structurizr viewer you render this workspace in.
+STRUCTURIZR_IMAGE ?= structurizr/structurizr:2026.09.19
+# Pandoc with LaTeX and the Eisvogel template, for arch-pdf (~2 GB).
+PANDOC_IMAGE      ?= pandoc/extra:3.11.0.0-debian
+ARCH_DIR  ?= docs/architecture
+GENERATED := $(ARCH_DIR)/generated
+PORT      ?= 8080
+STRUCTURIZR := docker run --rm -v "$(CURDIR)/$(ARCH_DIR):/w:ro"
+
+.PHONY: arch-validate arch-inspect arch-check arch-docs arch-view arch-export arch-pdf arch-clean
+
+## arch-validate: parse the architecture workspace with the pinned Structurizr image
+arch-validate:
+	$(STRUCTURIZR) $(STRUCTURIZR_IMAGE) validate -workspace /w/workspace.dsl
+
+## arch-inspect: list model findings; fails on any ERROR line
+arch-inspect:
+	@out="$$($(STRUCTURIZR) $(STRUCTURIZR_IMAGE) inspect -workspace /w/workspace.dsl 2>&1)"; \
+	printf '%s\n' "$$out"; \
+	if printf '%s\n' "$$out" | grep -q 'ERROR'; then echo "inspect: errors found" >&2; exit 1; fi
+
+## arch-check: arch-validate + arch-inspect; run before committing a model change
+arch-check: arch-validate arch-inspect
+
+## arch-docs: fail when documentation contradicts the tree (links, indexes, ADRs, views, IDs, headings, 80-col prose)
+arch-docs:
+	python3 scripts/check_docs_consistency.py
+
+## arch-view: browse the model at http://localhost:8080/workspace/1 (PORT=... to change)
+arch-view:
+	docker run --rm -p $(PORT):8080 -v "$(CURDIR)/$(ARCH_DIR):/usr/local/structurizr" $(STRUCTURIZR_IMAGE) local
+
+## arch-export: every view as SVG, PNG and Mermaid, plus workspace JSON, into docs/architecture/generated
+arch-export:
+	mkdir -p $(GENERATED)
+	chmod 777 $(GENERATED)
+	$(STRUCTURIZR) -v "$(CURDIR)/$(GENERATED):/out" $(STRUCTURIZR_IMAGE) export -workspace /w/workspace.dsl -format json -output /out
+	$(STRUCTURIZR) -v "$(CURDIR)/$(GENERATED):/out" $(STRUCTURIZR_IMAGE) export -workspace /w/workspace.dsl -format mermaid -output /out
+	$(STRUCTURIZR) -v "$(CURDIR)/$(GENERATED):/out" $(STRUCTURIZR_IMAGE)-playwright export -workspace /w/workspace.dsl -format svg -output /out
+	$(STRUCTURIZR) -v "$(CURDIR)/$(GENERATED):/out" $(STRUCTURIZR_IMAGE)-playwright export -workspace /w/workspace.dsl -format png -output /out
+	@echo "exported $$(ls $(GENERATED) | wc -l | tr -d ' ') files to $(GENERATED)"
+
+## arch-pdf: the Documentation tab and every view as one PDF in docs/architecture/generated
+arch-pdf:
+	STRUCTURIZR_IMAGE=$(STRUCTURIZR_IMAGE) PANDOC_IMAGE=$(PANDOC_IMAGE) ARCH_DIR=$(ARCH_DIR) scripts/architecture-pdf.sh
+
+## arch-clean: delete docs/architecture/generated (exports and PDFs; gitignored)
+arch-clean:
+	rm -rf $(GENERATED)
