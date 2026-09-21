@@ -54,7 +54,7 @@ Allowed types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`,
 | Hook              | Scope              | Action                                  |
 | ----------------- | ------------------ | --------------------------------------- |
 | `go test -race`   | whole module       | mirrors CI exactly                      |
-| `tsc --noEmit`    | web                | full TypeScript typecheck               |
+| `npm run typecheck` | web              | full TypeScript typecheck (TS 7)        |
 | `go mod tidy -diff` | go.mod / go.sum  | error if a `go mod tidy` would change anything |
 
 ### Emergency override
