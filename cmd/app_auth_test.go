@@ -3,6 +3,8 @@ package cmd
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -136,23 +138,54 @@ func TestSignInSetsCookieAndDropsTokenFromURL(t *testing.T) {
 
 func TestAppToken(t *testing.T) {
 	t.Setenv(appTokenEnvVar, "")
-	a, err := appToken()
-	if err != nil {
-		t.Fatal(err)
+	t.Setenv(appTokenFileEnvVar, "")
+	a, src, err := appToken()
+	if err != nil || src != "" {
+		t.Fatalf("random token: source %q, err %v", src, err)
 	}
-	b, _ := appToken()
+	b, _, _ := appToken()
 	if len(a) < 40 || a == b {
 		t.Errorf("random tokens: %q, %q; want two different tokens of 256 bits", a, b)
 	}
 
 	t.Setenv(appTokenEnvVar, "  pinned-token-for-compose  ")
-	if got, err := appToken(); err != nil || got != "pinned-token-for-compose" {
-		t.Errorf("env token = %q, %v; want the trimmed value", got, err)
+	if got, src, err := appToken(); err != nil || got != "pinned-token-for-compose" || src != appTokenEnvVar {
+		t.Errorf("env token = %q from %q, %v; want the trimmed value from %s", got, src, err, appTokenEnvVar)
+	}
+	t.Setenv(appTokenEnvVar, "short")
+	if _, _, err := appToken(); err == nil {
+		t.Error("a token under 16 characters should be rejected")
+	}
+	t.Setenv(appTokenEnvVar, "")
+
+	dir := t.TempDir()
+	good := filepath.Join(dir, "token")
+	if err := os.WriteFile(good, []byte("token-from-a-secret-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(appTokenFileEnvVar, good)
+	if got, src, err := appToken(); err != nil || got != "token-from-a-secret-file" || src != appTokenFileEnvVar {
+		t.Errorf("file token = %q from %q, %v; want the trimmed file contents from %s", got, src, err, appTokenFileEnvVar)
 	}
 
-	t.Setenv(appTokenEnvVar, "short")
-	if _, err := appToken(); err == nil {
-		t.Error("a token under 16 characters should be rejected")
+	t.Setenv(appTokenEnvVar, "pinned-token-for-compose")
+	if _, _, err := appToken(); err == nil {
+		t.Error("setting both the variable and the file should be an error, not a silent precedence")
+	}
+	t.Setenv(appTokenEnvVar, "")
+
+	short := filepath.Join(dir, "short")
+	if err := os.WriteFile(short, []byte("tiny"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(appTokenFileEnvVar, short)
+	if _, _, err := appToken(); err == nil {
+		t.Error("a file token under 16 characters should be rejected")
+	}
+
+	t.Setenv(appTokenFileEnvVar, filepath.Join(dir, "missing"))
+	if _, _, err := appToken(); err == nil {
+		t.Error("a missing token file should be an error, not a fallback to a random token")
 	}
 }
 

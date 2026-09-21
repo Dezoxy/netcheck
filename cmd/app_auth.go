@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -22,8 +23,8 @@ import (
 // A browser authenticates once by opening the URL printed at start-up
 // (/?token=...): the server answers with an HttpOnly, SameSite=Strict cookie
 // that lasts 30 days, and redirects to the same page without the token. Scripts send
-// `Authorization: Bearer <token>`. NETCHECK_APP_TOKEN fixes the token across
-// restarts (docker-compose, homelab).
+// `Authorization: Bearer <token>`. NETCHECK_APP_TOKEN or NETCHECK_APP_TOKEN_FILE
+// fixes the token across restarts (docker-compose, homelab).
 //
 // Only /api/ is protected. The static workbench is the same bundle as in the
 // public repository and holds no data; keeping it public lets the browser
@@ -31,11 +32,12 @@ import (
 // /api/healthz stays open for container and uptime health checks.
 
 const (
-	authFlagName     = "auth"
-	appTokenEnvVar   = "NETCHECK_APP_TOKEN"
-	tokenCookieName  = "netcheck_token"
-	tokenQueryParam  = "token"
-	minAppTokenBytes = 16
+	authFlagName       = "auth"
+	appTokenEnvVar     = "NETCHECK_APP_TOKEN"
+	appTokenFileEnvVar = "NETCHECK_APP_TOKEN_FILE"
+	tokenCookieName    = "netcheck_token"
+	tokenQueryParam    = "token"
+	minAppTokenBytes   = 16
 	// tokenCookieMaxAge keeps a browser signed in across restarts. Behind an
 	// identity-aware proxy (Cloudflare Access) the token is the second lock,
 	// and re-entering it after every browser restart would only add friction.
@@ -64,26 +66,41 @@ func loopbackListen(listen string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// appToken returns NETCHECK_APP_TOKEN if set, otherwise a fresh random token.
-func appToken() (string, error) {
-	if v := strings.TrimSpace(os.Getenv(appTokenEnvVar)); v != "" {
-		if len(v) < minAppTokenBytes {
-			return "", errShortAppToken
+// appToken returns the token and where it came from: the file named by
+// NETCHECK_APP_TOKEN_FILE (the Docker-secrets pattern, which keeps the token
+// out of the container's environment and `docker inspect`), NETCHECK_APP_TOKEN,
+// or, with neither set, a fresh random token (source ""). A pinned token is
+// never printed; the source is.
+func appToken() (token, source string, err error) {
+	file := strings.TrimSpace(os.Getenv(appTokenFileEnvVar))
+	env := strings.TrimSpace(os.Getenv(appTokenEnvVar))
+	switch {
+	case file != "" && env != "":
+		return "", "", appTokenError("set " + appTokenEnvVar + " or " + appTokenFileEnvVar + ", not both")
+	case file != "":
+		b, err := os.ReadFile(file)
+		if err != nil {
+			return "", "", fmt.Errorf("%s: %w", appTokenFileEnvVar, err)
 		}
-		return v, nil
+		token, source = strings.TrimSpace(string(b)), appTokenFileEnvVar
+	case env != "":
+		token, source = env, appTokenEnvVar
+	default:
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			return "", "", err
+		}
+		return base64.RawURLEncoding.EncodeToString(b), "", nil
 	}
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
+	if len(token) < minAppTokenBytes {
+		return "", "", appTokenError("the token from " + source + " must be at least 16 characters")
 	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	return token, source, nil
 }
 
 type appTokenError string
 
 func (e appTokenError) Error() string { return string(e) }
-
-const errShortAppToken = appTokenError(appTokenEnvVar + " must be at least 16 characters")
 
 func requireToken(next http.Handler, token string) http.Handler {
 	want := []byte(token)

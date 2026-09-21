@@ -50,7 +50,9 @@ considered and rejected in favour of a sign-in URL that sets a cookie.
 ## Decision
 
 `netcheck app` generates a random 256-bit token at start-up, or takes
-`NETCHECK_APP_TOKEN` (at least 16 characters) so the token survives restarts.
+a pinned token so it survives restarts: `NETCHECK_APP_TOKEN_FILE` (a file,
+the Docker-secrets pattern, which keeps it out of the container's environment)
+or `NETCHECK_APP_TOKEN`, at least 16 characters, not both.
 It is required on `/api/*` when the server binds a non-loopback address or
 has any `--allowed-host`; `--auth` requires it on loopback too.
 
@@ -75,7 +77,8 @@ Positive:
 Negative / accepted trade-offs:
 
 - Anyone who can read the start-up output has the token: `docker logs`, a
-  shared terminal. A token from `NETCHECK_APP_TOKEN` is not printed.
+  shared terminal. A pinned token is not printed. The maintainer's instance
+  keeps its token in Azure Key Vault and receives it as a file at deploy time.
 - One token for everyone; there are no per-user identities or revocation
   other than restarting with a new token.
 - On a shared multi-user machine the loopback default stays open to other
