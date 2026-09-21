@@ -11,6 +11,7 @@ Security view is on the Scope page.
 
 | Boundary | What crosses it | Control today |
 |---|---|---|
+| Internet → published instance | HTTPS to a public hostname | An identity-aware proxy first: on the maintainer's instance, Cloudflare Access signs the user in at the edge, and a Cloudflare Tunnel means no inbound port is open. Then netcheck's own token (decision 4). |
 | User → CLI | Commands typed or scripted by the user | The operating system's user account. Anything the user can run, netcheck runs. |
 | Browser → local web server | HTTP/JSON and SSE requests to `127.0.0.1:8787` | Loopback bind (decision 3); cross-origin requests refused, `Host` allowlisted, JSON bodies only (`cmd/app_security.go`). Token required when reachable beyond this machine (decision 4). |
 | netcheck → targets and lookup services | DNS, TCP, UDP, TLS and HTTP(S) from the user's source IP | Active checks need authorisation (decision 2). Passive checks are unrestricted by design. |

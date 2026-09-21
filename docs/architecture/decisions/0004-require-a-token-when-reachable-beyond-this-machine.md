@@ -55,7 +55,7 @@ It is required on `/api/*` when the server binds a non-loopback address or
 has any `--allowed-host`; `--auth` requires it on loopback too.
 
 A browser opens the start-up URL once (`/?token=…`). The server sets an
-`HttpOnly`, `SameSite=Strict` cookie, `Secure` when the request arrived over
+`HttpOnly`, `SameSite=Strict` cookie that lasts 30 days, `Secure` when the request arrived over
 HTTPS directly or per `X-Forwarded-Proto`, and redirects to the same page
 without the token. Scripts send `Authorization: Bearer <token>`. The static
 workbench and `/api/healthz` stay public: the workbench is the same bundle as

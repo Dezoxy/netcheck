@@ -21,7 +21,7 @@ import (
 //
 // A browser authenticates once by opening the URL printed at start-up
 // (/?token=...): the server answers with an HttpOnly, SameSite=Strict cookie
-// and redirects to the same page without the token. Scripts send
+// that lasts 30 days, and redirects to the same page without the token. Scripts send
 // `Authorization: Bearer <token>`. NETCHECK_APP_TOKEN fixes the token across
 // restarts (docker-compose, homelab).
 //
@@ -36,6 +36,12 @@ const (
 	tokenCookieName  = "netcheck_token"
 	tokenQueryParam  = "token"
 	minAppTokenBytes = 16
+	// tokenCookieMaxAge keeps a browser signed in across restarts. Behind an
+	// identity-aware proxy (Cloudflare Access) the token is the second lock,
+	// and re-entering it after every browser restart would only add friction.
+	// Restarting netcheck without NETCHECK_APP_TOKEN rotates the token and
+	// invalidates every cookie.
+	tokenCookieMaxAge = 30 * 24 * 60 * 60
 )
 
 // authRequired decides whether the token is enforced for this server.
@@ -96,6 +102,7 @@ func requireToken(next http.Handler, token string) http.Handler {
 				Name:     tokenCookieName,
 				Value:    token,
 				Path:     "/",
+				MaxAge:   tokenCookieMaxAge,
 				HttpOnly: true,
 				SameSite: http.SameSiteStrictMode,
 				Secure:   requestIsHTTPS(r),

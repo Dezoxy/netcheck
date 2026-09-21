@@ -117,6 +117,9 @@ func TestSignInSetsCookieAndDropsTokenFromURL(t *testing.T) {
 			if c.Name != tokenCookieName || c.Value != tok || !c.HttpOnly || c.SameSite != http.SameSiteStrictMode || c.Path != "/" {
 				t.Errorf("cookie = %+v, want HttpOnly SameSite=Strict Path=/ with the token", c)
 			}
+			if c.MaxAge != 30*24*60*60 {
+				t.Errorf("cookie MaxAge = %d, want 30 days so a browser stays signed in across restarts", c.MaxAge)
+			}
 			if c.Secure != tt.wantSecure {
 				t.Errorf("cookie Secure = %v, want %v", c.Secure, tt.wantSecure)
 			}

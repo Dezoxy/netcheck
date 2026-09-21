@@ -52,6 +52,13 @@ the web server.
 
 ![Netcheck from the container image](embed:ContainerDeployment)
 
+Published on the internet, netcheck sits behind an identity-aware proxy. The
+maintainer's instance is reached through Cloudflare Access, which signs users
+in at Cloudflare's edge, then a Cloudflare Tunnel and a reverse proxy; netcheck
+itself requires its token on top (decision 4).
+
+![A published instance behind Cloudflare Access](embed:PublishedDeployment)
+
 ### Compatibility promise
 
 For v2.x, CLI flags, subcommands, `/api/*` shapes, exit codes, the JSON

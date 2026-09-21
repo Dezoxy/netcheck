@@ -37,7 +37,7 @@ styles {
         stroke ${PURPLE_STROKE}
         background ${PURPLE_FRAME}
     }
-    element "Group:User's machine" {
+    element "Group:Host running netcheck" {
         color ${SLATE_LABEL}
         stroke ${SLATE_STROKE}
         background ${SLATE_FRAME}

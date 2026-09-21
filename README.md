@@ -196,12 +196,14 @@ your browser cannot drive it.
 When the workbench is reachable from other machines (a non-loopback
 `--listen`, the container image, or any `--allowed-host`), its API also needs
 a token. netcheck prints a sign-in URL at start-up; open it once and the
-browser keeps an `HttpOnly` cookie. Scripts send
+browser keeps an `HttpOnly` cookie for 30 days. Scripts send
 `Authorization: Bearer <token>`. Set `NETCHECK_APP_TOKEN` to keep the same
 token across restarts, or pass `--auth` to require it on a laptop too.
 
 #### Behind a reverse proxy or tunnel
 
+Put an identity-aware proxy in front if the name is public, for example
+Cloudflare Access; netcheck's token is then a second lock, not the only one.
 Run netcheck on loopback with your public name allowed, then point the proxy
 at it. The token turns on automatically; open
 `https://netcheck.example.com/?token=<token>` once.

@@ -7,6 +7,7 @@ targets = softwareSystem "Target Hosts" "Hosts and URLs the user names. Receive 
 resolvers = softwareSystem "DNS Resolvers" "The system resolver plus Cloudflare 1.1.1.1, Google 8.8.8.8 and Quad9 9.9.9.9 by default; DoT and DoH resolvers only from config or flags." "External"
 registries = softwareSystem "Internet Registries" "RDAP via rdap.org, WHOIS on TCP 43 (whois.iana.org, then the TLD's server) and Team Cymru IP-to-ASN over DNS." "External"
 reconServices = softwareSystem "Passive Recon Services" "Certificate Transparency search (crt.sh, Cert Spotter), reverse IP (HackerTarget; Shodan only when an API key is configured) and the Wayback Machine CDX API." "External"
+cfAccess = softwareSystem "Cloudflare Access" "Identity-aware proxy at Cloudflare's edge. In front of a published instance, it signs the user in against its access policies before any request reaches netcheck." "External"
 googleFonts = softwareSystem "Google Fonts" "Serves the Inter and JetBrains Mono web fonts that the workbench's index.html requests." "External"
 
 // Not a dependency: any page open in the same browser. Modelled because the

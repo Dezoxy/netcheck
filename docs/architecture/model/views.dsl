@@ -23,8 +23,8 @@ container netcheck "ProbeDependencies" "Which external services do the CLI and t
     autoLayout tb 400 300
 }
 
-container netcheck "Security" "Who can reach the unauthenticated local web server, and what can it do on their behalf?" {
-    include user netcheck.workbench netcheck.appServer netcheck.savedReports otherSites targets
+container netcheck "Security" "Who can reach the local web server, where is sign-in enforced, and what can it do on their behalf?" {
+    include user netcheck.workbench netcheck.appServer netcheck.savedReports otherSites targets cfAccess
     autoLayout tb
 }
 
@@ -44,5 +44,15 @@ deployment netcheck "Workstation" "WorkstationDeployment" "Where does netcheck r
 
 deployment netcheck "Container" "ContainerDeployment" "Where does netcheck run when started from the GHCR image?" {
     include *
+    autoLayout lr
+}
+
+// The published instance. The implied browser -> server and Access -> server
+// arrows are excluded: here every request goes through Access, the Tunnel
+// and the reverse proxy, and a direct arrow would hide exactly that.
+deployment netcheck "Published" "PublishedDeployment" "How is a published instance reached from the internet, and where is sign-in enforced?" {
+    include *
+    exclude "published.device.workbench -> published.private.appHost.ctr.appServer"
+    exclude "published.edge.access -> published.private.appHost.ctr.appServer"
     autoLayout lr
 }
