@@ -1,6 +1,6 @@
 module github.com/Dezoxy/netcheck
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/miekg/dns v1.1.73
