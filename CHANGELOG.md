@@ -4,6 +4,13 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.9.2](https://github.com/Dezoxy/netcheck/compare/v2.9.1...v2.9.2) (2026-09-21)
+
+
+### Bug fixes
+
+* **ci:** revert TypeScript 7 + explicit USER for Trivy DS-0002 ([#153](https://github.com/Dezoxy/netcheck/issues/153)) ([bb3be7a](https://github.com/Dezoxy/netcheck/commit/bb3be7a5b379c18ab412eba6fd02f949da2d3165))
+
 ## [2.9.1](https://github.com/Dezoxy/netcheck/compare/v2.9.0...v2.9.1) (2026-08-25)
 
 
