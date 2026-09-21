@@ -1,0 +1,9 @@
+## Architecture risks
+
+Current, evidenced risks. The owner is the maintainer throughout: netcheck is a
+single-maintainer project.
+
+| ID | Risk | Evidence | Impact | Likelihood basis | Mitigation | Remaining exposure | Status | Review trigger |
+|---|---|---|---|---|---|---|---|---|
+| RISK-001 | The local web server accepts cross-site requests. It checks no `Origin`, `Host` or `Content-Type`, so any page open in the same browser can make it run checks, including active scans with the authorisation flag set, and a DNS-rebinding page can read the results. | No such checks in `cmd/app.go`; `decodeJSONWithLimit` accepts any content type, which makes the request a CORS "simple request" with no preflight. | The user's machine scans third parties they never chose, from their IP address; saved reports can be read, written or deleted. | Needs only that `netcheck app` is running while the user visits a hostile page. No authentication stands in the way. | Planned: `http.CrossOriginProtection` (Go 1.25, C-02), a `Host` allowlist for loopback binds and a required JSON content type. | Until fixed: stop `netcheck app` when not in use. The container image binds every interface, so publish it to `127.0.0.1` only. | Open, fix tracked | The fix merges; any change to the server's bind or middleware. |
+| RISK-002 | The responsible-use policy says netcheck rate-limits its own active probes, but nothing does. The API passes a caller's `concurrency` value through without an upper bound. | `docs/ETHICS.md` states the limit; `cmd/app.go` forwards `concurrency`; defaults are 50 for ports and 10 for enum. | A caller (or, through RISK-001, any web page) can run very wide scans; the documented safeguard misleads users. | Reachable through the API today. | Cap concurrency server-side, or correct the policy. Tracked with RISK-001. | As RISK-001. | Open | The same fix; any change to scan defaults. |

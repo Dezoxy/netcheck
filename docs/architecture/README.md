@@ -20,10 +20,22 @@ The Documentation tab and the PDF are built from [overview/](overview/):
 2. [Scope](overview/02-scope.md): what is in and out, the trust boundary and
    the known limits.
 3. [Glossary](overview/03-glossary.md).
+4. [Security architecture](security/security-architecture.md): trust
+   boundaries and how the authorisation gate enforces the
+   [responsible-use policy](../ETHICS.md), which stays at its published path.
+5. Registers, each authored once in its own folder and symlinked into
+   `overview/`: [constraints](requirements/constraints.md) (C-),
+   [quality attributes](requirements/quality-attributes.md) (QA-),
+   [principles](principles/architecture-principles.md) (P-),
+   [risks](risks/architecture-risks.md) (RISK-),
+   [technical debt](risks/technical-debt.md) (TD-) and the
+   [roadmap](roadmap/target-state.md).
 
-Per-audience reading paths, requirements, decisions and the risk register are
-not written yet; they follow in a separate change once each has evidence
-behind it.
+By audience: a stakeholder reads 1, 2 and the roadmap; a CTO adds security, the
+risks and the decisions below; an engineer adds the constraints, principles and the
+Containers, ProbeDependencies and ActiveScanFlow views; an operator adds the
+deployment views and the
+[release runbook](../operations/release-and-distribution.md).
 
 ## Architecture model
 
@@ -59,14 +71,17 @@ in the root [Makefile](../../Makefile). `workspace.json`, `.structurizr/` and
 
 ## Key decisions
 
-No ADRs yet. The first ones (single static binary with the UI embedded,
-loopback-by-default local server, consent flag for active checks) need their
-original rationale confirmed before they are written; where it was never
-recorded, the ADR will say so.
+Written on 2026-09-21 from the archived project plan and the code; each says
+where its rationale is not recorded.
+
+- [1. Ship netcheck as a single static Go binary](decisions/0001-ship-a-single-static-go-binary.md)
+- [2. Gate active checks behind explicit authorisation at the entry points](decisions/0002-gate-active-checks-at-the-entry-points.md)
+- [3. Serve the web workbench from the binary, bound to loopback by default](decisions/0003-embed-the-workbench-and-bind-to-loopback.md)
+
+New ADRs start from [templates/adr.md](templates/adr.md).
 
 ## Known risks
 
-Recorded in the Scope page until the risk register exists: the local web
-server accepts cross-site requests (no `Origin`, `Host` or `Content-Type`
-check), and `docs/ETHICS.md` says active probes are rate-limited while the API
-passes a caller's concurrency through unbounded.
+See the [risk register](risks/architecture-risks.md). Open now: RISK-001, the
+local web server accepting cross-site requests, and RISK-002, the missing
+concurrency cap that the responsible-use policy says exists.

@@ -29,7 +29,8 @@ including active scans when the request carries the authorisation flag.
 As of this edition the server checks no `Origin`, `Host` or `Content-Type`, so
 any web page open in the same browser can send it requests, and the container
 image binds every interface. Treat this as a known gap, not a design: it is
-tracked for a fix, and this page changes when that lands.
+RISK-001 in the risk register, tracked for a fix, and this page changes when
+that lands. RISK-002 covers the related missing concurrency cap.
 
 ![An authorised port scan from the workbench](embed:ActiveScanFlow)
 
