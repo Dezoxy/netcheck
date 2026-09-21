@@ -108,7 +108,9 @@ pre-push:
 
     tsc:
       glob: "web/**/*.{ts,tsx}"
-      run: cd web && npx --no-install tsc --noEmit
+      # Goes through the npm script so it uses the TS 7 checker, not
+      # `.bin/tsc` (which is TS 6, kept for typescript-eslint).
+      run: cd web && npm run --silent typecheck
 
     go-mod-tidy:
       glob: "go.{mod,sum}"
