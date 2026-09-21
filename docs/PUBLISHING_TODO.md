@@ -1,30 +1,49 @@
 # PUBLISHING — outstanding steps
 
-Status as of this commit: **container image live on GHCR (public, since v2.9.0); brew/scoop scaffolding shipped, tap + bucket repos created, not yet pushing.**
+Status as of this commit: **container image live on GHCR (public, since v2.9.0);
+brew/scoop scaffolding shipped, tap + bucket repos created, not yet pushing.**
 
-Full walkthrough in [PUBLISHING.md](PUBLISHING.md); this file is the minimal checklist of what's still required to make `brew install netcheck` and `scoop install netcheck` work.
+Full walkthrough in [PUBLISHING.md](PUBLISHING.md); this file is the minimal
+checklist of what's still required to make `brew install netcheck` and
+`scoop install netcheck` work.
 
 ## Done
 
-- [x] Container image: `dockers:` block in `.goreleaser.yml` + GHCR login step in `release-please.yml`. Pushes `ghcr.io/dezoxy/netcheck:{version,major.minor,latest}` on every release using the built-in `GITHUB_TOKEN`.
-- [x] GHCR package made public — verified with an anonymous pull token against `ghcr.io/v2/dezoxy/netcheck/tags/list` (v2.9.0 published `2.9.0`, `2.9`, `latest`).
-- [x] Empty repos exist: [Dezoxy/homebrew-netcheck](https://github.com/Dezoxy/homebrew-netcheck), [Dezoxy/scoop-netcheck](https://github.com/Dezoxy/scoop-netcheck).
+- [x] Container image: `dockers:` block in `.goreleaser.yml` + GHCR login step
+      in `release-please.yml`. Pushes
+      `ghcr.io/dezoxy/netcheck:{version,major.minor,latest}` on every release
+      using the built-in `GITHUB_TOKEN`.
+- [x] GHCR package made public — verified with an anonymous pull token against
+      `ghcr.io/v2/dezoxy/netcheck/tags/list` (v2.9.0 published `2.9.0`, `2.9`,
+      `latest`).
+- [x] Empty repos exist:
+      [Dezoxy/homebrew-netcheck](https://github.com/Dezoxy/homebrew-netcheck),
+      [Dezoxy/scoop-netcheck](https://github.com/Dezoxy/scoop-netcheck).
 - [x] `.goreleaser.yml` has `homebrew_casks:` and `scoops:` blocks pointing at those repos.
-- [x] `release-please.yml` and `release.yml` thread `GORELEASER_PAT` into the goreleaser step env, with a `|| ''` fallback so the pipeline stays green while the secret doesn't exist.
-- [x] Both publishers default to `skip_upload: true` — every release builds artefacts into `./dist/` for inspection but doesn't push.
-- [x] Local dry-run verified: `goreleaser release --snapshot --clean --skip=publish` produces a valid `dist/homebrew/Casks/netcheck.rb` and `dist/scoop/bucket/netcheck.json`.
+- [x] `release-please.yml` and `release.yml` thread `GORELEASER_PAT` into the
+      goreleaser step env, with a `|| ''` fallback so the pipeline stays green
+      while the secret doesn't exist.
+- [x] Both publishers default to `skip_upload: true` — every release builds
+      artefacts into `./dist/` for inspection but doesn't push.
+- [x] Local dry-run verified:
+      `goreleaser release --snapshot --clean --skip=publish` produces a valid
+      `dist/homebrew/Casks/netcheck.rb` and `dist/scoop/bucket/netcheck.json`.
 
 ## TODO (~10 minutes total)
 
 ### 1. Create the cross-repo Personal Access Token
 
-The workflow's default `GITHUB_TOKEN` can only push to `Dezoxy/netcheck`. The tap and bucket repos need a different token.
+The workflow's default `GITHUB_TOKEN` can only push to `Dezoxy/netcheck`. The
+tap and bucket repos need a different token.
 
 1. Open https://github.com/settings/tokens (Tokens (classic), **not** fine-grained).
 2. **Generate new token (classic)**.
 3. Note: `netcheck goreleaser tap+bucket`.
-4. Expiration: no expiration, or set a reminder to rotate. Single-purpose token, low risk if you keep it long-lived.
-5. **Scopes: `repo`** (the whole repo group). Both tap repos are public so `public_repo` would technically suffice, but `repo` covers any future private-repo work.
+4. Expiration: no expiration, or set a reminder to rotate. Single-purpose token,
+   low risk if you keep it long-lived.
+5. **Scopes: `repo`** (the whole repo group). Both tap repos are public so
+   `public_repo` would technically suffice, but `repo` covers any future
+   private-repo work.
 6. **Generate** → copy the token (you only see it once).
 
 ### 2. Add it as a repo secret
@@ -59,7 +78,8 @@ Open a tiny PR editing `.goreleaser.yml`:
 +    skip_upload: false
 ```
 
-Use a `feat(release):` subject (so release-please bumps the version + cuts a release that includes the change). Merge.
+Use a `feat(release):` subject (so release-please bumps the version + cuts a
+release that includes the change). Merge.
 
 ### 4. Watch the next release populate the repos
 
@@ -82,16 +102,20 @@ scoop install netcheck
 netcheck version
 ```
 
-When both work, edit `README.md` to remove the "_(coming once activated)_" qualifiers next to the install commands.
+When both work, edit `README.md` to remove the "_(coming once activated)_"
+qualifiers next to the install commands.
 
 ## If something goes wrong
 
-The repos are public and empty. If the first goreleaser push produces a bad commit, revert it in the tap/bucket repo directly:
+The repos are public and empty. If the first goreleaser push produces a bad
+commit, revert it in the tap/bucket repo directly:
 
 ```bash
 git -C path/to/homebrew-netcheck revert HEAD && git -C path/to/homebrew-netcheck push
 ```
 
-Or just delete the cask/manifest file. Users fall through to the direct-download path on the release page.
+Or just delete the cask/manifest file. Users fall through to the direct-download
+path on the release page.
 
-Bigger emergency: re-set `skip_upload: true`, merge that as a hotfix, take stock without a publishing pipeline biting you on every release.
+Bigger emergency: re-set `skip_upload: true`, merge that as a hotfix, take stock
+without a publishing pipeline biting you on every release.
