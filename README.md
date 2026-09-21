@@ -1,8 +1,12 @@
 # netcheck
 
-[![CI](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/Dezoxy/netcheck?sort=semver)](https://github.com/Dezoxy/netcheck/releases/latest) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/Dezoxy/netcheck/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Dezoxy/netcheck?sort=semver)](https://github.com/Dezoxy/netcheck/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> A single command that explains what actually happens between your machine and a URL — DNS, TCP, TLS, HTTP, redirects, timing, IP ownership, CDN, traceroute, and resolver disagreements.
+> A single command that explains what actually happens between your machine and
+> a URL — DNS, TCP, TLS, HTTP, redirects, timing, IP ownership, CDN, traceroute,
+> and resolver disagreements.
 
 ```
 $ netcheck google.com
@@ -63,9 +67,17 @@ docker run --rm -p 127.0.0.1:8787:8787 ghcr.io/dezoxy/netcheck
 docker run --rm ghcr.io/dezoxy/netcheck dns google.com
 ```
 
-Tags: `latest`, `<major>.<minor>` (e.g. `2.9`), and the exact version (`2.9.0`). `linux/amd64` only. The image is `distroless/static:nonroot` wrapped around the static binary — no shell, no package manager, and **no `traceroute`**, so `netcheck route` is the one command that doesn't work in the container (see [Caveats](#caveats)). The default command binds `0.0.0.0:8787` because a container-local loopback bind would be unreachable; publish it to `127.0.0.1` as above unless you actually want it on the LAN.
+Tags: `latest`, `<major>.<minor>` (e.g. `2.9`), and the exact version (`2.9.0`).
+`linux/amd64` only. The image is `distroless/static:nonroot` wrapped around the
+static binary — no shell, no package manager, and **no `traceroute`**, so
+`netcheck route` is the one command that doesn't work in the container (see
+[Caveats](#caveats)). The default command binds `0.0.0.0:8787` because a
+container-local loopback bind would be unreachable; publish it to `127.0.0.1` as
+above unless you actually want it on the LAN.
 
-**Pre-built binary** — download the archive for your platform from the [latest release](https://github.com/Dezoxy/netcheck/releases/latest), or curl one-liner (set `V` to the release you want):
+**Pre-built binary** — download the archive for your platform from the [latest
+release](https://github.com/Dezoxy/netcheck/releases/latest), or curl one-liner
+(set `V` to the release you want):
 
 ```bash
 V=2.9.0
@@ -81,9 +93,12 @@ sudo mv netcheck /usr/local/bin/
 # Windows: download netcheck_${V}_windows_amd64.zip, unzip, run netcheck.exe
 ```
 
-Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, `windows_amd64`, `windows_arm64`. Each archive bundles `README.md`, `LICENSE`, and `config.example.yaml`. SHA256s in `checksums.txt`.
+Available platforms: `linux_amd64`, `linux_arm64`, `darwin_amd64`,
+`darwin_arm64`, `windows_amd64`, `windows_arm64`. Each archive bundles
+`README.md`, `LICENSE`, and `config.example.yaml`. SHA256s in `checksums.txt`.
 
-**From source** (requires Go 1.25+ — the `go` directive in [go.mod](go.mod) is the source of truth):
+**From source** (requires Go 1.25+ — the `go` directive in [go.mod](go.mod) is
+the source of truth):
 
 ```bash
 git clone https://github.com/Dezoxy/netcheck.git
@@ -94,7 +109,8 @@ make install    # → $GOBIN (usually ~/go/bin)
 
 ### Shell completions (optional)
 
-`netcheck completion <shell>` prints a completion script to stdout. Pipe it into the right place for your shell:
+`netcheck completion <shell>` prints a completion script to stdout. Pipe it into
+the right place for your shell:
 
 ```bash
 # bash (per-user — works on Linux and macOS with bash-completion installed)
@@ -110,7 +126,8 @@ netcheck completion fish > ~/.config/fish/completions/netcheck.fish
 netcheck completion powershell | Out-String | Invoke-Expression
 ```
 
-Completes subcommand names and a few flag values (`--output text|json|markdown|html`). Open a new shell after installing.
+Completes subcommand names and a few flag values
+(`--output text|json|markdown|html`). Open a new shell after installing.
 
 ## What it does
 
@@ -142,7 +159,13 @@ start `netcheck app` for the browser UI.
 | `netcheck app` | Local web workbench — every check above, from the same Go engine, in a browser. |
 | `netcheck config show` | What config is netcheck actually using right now? |
 
-Every command accepts `--output text|json|markdown|html` (or `-j` for json) and `--out <file>` (or `-o`; `-` means stdout). Text output is written for humans and its exact wording and spacing can shift between releases — if you're parsing, use `--output json`: the JSON schema is versioned (`"netcheck_version"`, currently `1.0.0`) and stable per [STABILITY.md](STABILITY.md). Upgrading from v1? See [MIGRATING.md](MIGRATING.md) — two JSON field renames + a Go import-path change.
+Every command accepts `--output text|json|markdown|html` (or `-j` for json) and
+`--out <file>` (or `-o`; `-` means stdout). Text output is written for humans
+and its exact wording and spacing can shift between releases — if you're
+parsing, use `--output json`: the JSON schema is versioned
+(`"netcheck_version"`, currently `1.0.0`) and stable per
+[STABILITY.md](STABILITY.md). Upgrading from v1? See
+[MIGRATING.md](MIGRATING.md) — two JSON field renames + a Go import-path change.
 
 ## Examples
 
@@ -388,13 +411,16 @@ netcheck ip --output html -o /tmp/report.html 1.1.1.1 && open /tmp/report.html
 netcheck dns --output markdown cloudflare.com | pbcopy
 ```
 
-The `-j` / `-o` shortcuts are equivalent to `--output json` / `--out`. The long forms still work; the short forms exist to keep one-liners terse.
+The `-j` / `-o` shortcuts are equivalent to `--output json` / `--out`. The long
+forms still work; the short forms exist to keep one-liners terse.
 
-> Flags come before the positional argument: `netcheck dns -j cloudflare.com`, not `netcheck dns cloudflare.com -j`.
+> Flags come before the positional argument: `netcheck dns -j cloudflare.com`,
+> not `netcheck dns cloudflare.com -j`.
 
 ## Config file
 
-Optional YAML at `~/.config/netcheck/config.yaml`. Every key is optional — missing files and missing keys fall back to compiled-in defaults.
+Optional YAML at `~/.config/netcheck/config.yaml`. Every key is optional —
+missing files and missing keys fall back to compiled-in defaults.
 
 ```yaml
 timeout: 10s
@@ -412,15 +438,20 @@ resolvers:
     type: dot
 ```
 
-**Search order:** `--config <path>` flag → `NETCHECK_CONFIG` env → `$XDG_CONFIG_HOME/netcheck/config.yaml` → `~/.config/netcheck/config.yaml`.
+**Search order:** `--config <path>` flag → `NETCHECK_CONFIG` env →
+`$XDG_CONFIG_HOME/netcheck/config.yaml` → `~/.config/netcheck/config.yaml`.
 
-**Env overrides:** `NETCHECK_TIMEOUT` and `NETCHECK_USER_AGENT` win over the file when set — handy for CI/ops.
+**Env overrides:** `NETCHECK_TIMEOUT` and `NETCHECK_USER_AGENT` win over the
+file when set — handy for CI/ops.
 
-Run `netcheck config show` to see what's actually loaded. See [config.example.yaml](config.example.yaml) for the full schema.
+Run `netcheck config show` to see what's actually loaded. See
+[config.example.yaml](config.example.yaml) for the full schema.
 
 ## Use as a library
 
-Every check engine lives under `netcheck/pkg/` and is importable from your own Go programs. The JSON schema types in `pkg/report` are the same ones the CLI emits — the wire format is the contract.
+Every check engine lives under `netcheck/pkg/` and is importable from your own
+Go programs. The JSON schema types in `pkg/report` are the same ones the CLI
+emits — the wire format is the contract.
 
 ```bash
 go get github.com/Dezoxy/netcheck@latest
@@ -470,27 +501,53 @@ Public packages:
 | `pkg/diff` | Structured diff between two saved reports |
 | `pkg/target` | URL / host normalization |
 
-Stability: exported names are stable across `v2.x`. Catalogue-style packages (`pkg/techdetect`, `pkg/secheaders`) keep stable result *shapes*, but the set of detections they emit grows over time — don't pin tests to "exactly these matches." Active-scanning packages still require the same `i_have_authorization` boundary as the CLI; see [docs/ETHICS.md](docs/ETHICS.md).
+Stability: exported names are stable across `v2.x`. Catalogue-style packages
+(`pkg/techdetect`, `pkg/secheaders`) keep stable result *shapes*, but the set of
+detections they emit grows over time — don't pin tests to "exactly these
+matches." Active-scanning packages still require the same `i_have_authorization`
+boundary as the CLI; see [docs/ETHICS.md](docs/ETHICS.md).
 
-`internal/config` and `internal/webui` are deliberately not part of the public API — they're the CLI's config-file format and embedded web-app bundle.
+`internal/config` and `internal/webui` are deliberately not part of the public
+API — they're the CLI's config-file format and embedded web-app bundle.
 
 ## Caveats
 
-- **DNS results aren't universal.** GeoDNS, anycast, ECS, and CDN load-balancing all mean different resolvers (and different clients) legitimately get different IPs for the same hostname. `netcheck dns` makes that visible — disagreement isn't an error.
-- **Traceroute is heuristic.** Routers can drop, rate-limit, or reorder ICMP/UDP probes. A missing hop doesn't always mean a broken route, and the path for TCP traffic may differ from what traceroute shows.
-- **Browser behavior may differ.** netcheck doesn't use HSTS cache, HTTP/3, cookies, browser extensions, or VPN settings. It tells you what a fresh `curl` would see, not what your Chrome will do.
-- **macOS `/etc/resolv.conf`** points at internal loopback resolvers; `netcheck dns` uses just the first one for table readability.
-- **`netcheck route` shells out.** It wraps the system `traceroute` (`tracert` on Windows) and parses its output, so it needs that binary on `PATH` — it exits 2 if there isn't one. That's also why `route` is the one command the container image can't run.
+- **DNS results aren't universal.** GeoDNS, anycast, ECS, and CDN load-balancing
+  all mean different resolvers (and different clients) legitimately get
+  different IPs for the same hostname. `netcheck dns` makes that visible —
+  disagreement isn't an error.
+- **Traceroute is heuristic.** Routers can drop, rate-limit, or reorder ICMP/UDP
+  probes. A missing hop doesn't always mean a broken route, and the path for TCP
+  traffic may differ from what traceroute shows.
+- **Browser behavior may differ.** netcheck doesn't use HSTS cache, HTTP/3,
+  cookies, browser extensions, or VPN settings. It tells you what a fresh `curl`
+  would see, not what your Chrome will do.
+- **macOS `/etc/resolv.conf`** points at internal loopback resolvers;
+  `netcheck dns` uses just the first one for table readability.
+- **`netcheck route` shells out.** It wraps the system `traceroute` (`tracert`
+  on Windows) and parses its output, so it needs that binary on `PATH` — it
+  exits 2 if there isn't one. That's also why `route` is the one command the
+  container image can't run.
 
 ## Stability
 
-`v2.0.0` commits to backward compatibility for the entire `v2.x` series: CLI flags, exit codes, JSON schema, config file keys, **and the public `pkg/` Go API** are frozen. See [STABILITY.md](STABILITY.md) for the full contract.
+`v2.0.0` commits to backward compatibility for the entire `v2.x` series: CLI
+flags, exit codes, JSON schema, config file keys, **and the public `pkg/` Go
+API** are frozen. See [STABILITY.md](STABILITY.md) for the full contract.
 
-If you're using netcheck in a script, pin the major version (`v2.x.y`) and `--output json` against the schema version (`"netcheck_version": "1.0.0"`) in the output. Migrating from v1.x? See [MIGRATING.md](MIGRATING.md) — the breakage is contained to two JSON field renames and a Go import-path change.
+If you're using netcheck in a script, pin the major version (`v2.x.y`) and
+`--output json` against the schema version (`"netcheck_version": "1.0.0"`) in
+the output. Migrating from v1.x? See [MIGRATING.md](MIGRATING.md) — the breakage
+is contained to two JSON field renames and a Go import-path change.
 
 ## Contributing
 
-PRs welcome. Roughly 35k lines of Go (plus the React front-end under `web/`), unit-tested wherever the logic isn't network-bound, with `make verify` / `make coverage` for local checks. CI runs `golangci-lint`, `go test -race` with a coverage summary, an ESLint + Prettier + `tsc` + Vite pass over `web/`, and a cross-platform build matrix on every PR; a weekly Trivy scan covers vulns, secrets, and config.
+PRs welcome. Roughly 35k lines of Go (plus the React front-end under `web/`),
+unit-tested wherever the logic isn't network-bound, with `make verify` /
+`make coverage` for local checks. CI runs `golangci-lint`, `go test -race` with
+a coverage summary, an ESLint + Prettier + `tsc` + Vite pass over `web/`, and a
+cross-platform build matrix on every PR; a weekly Trivy scan covers vulns,
+secrets, and config.
 
 ```bash
 make verify     # gofmt + vet + build + version
@@ -501,7 +558,12 @@ make app        # rebuild the React/PWA assets and run the local web app
 The released binary already embeds the web assets. Building the app UI from
 source also needs Node.js/npm for the frontend under `web/`.
 
-Commit messages follow [conventional commits](https://www.conventionalcommits.org/) — release-please reads them to pick the next version and write the changelog. Local git hooks (lefthook) run the same linters CI does; setup is in [CONTRIBUTING.md](CONTRIBUTING.md). Architecture notes live in [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
+Commit messages follow [conventional
+commits](https://www.conventionalcommits.org/) — release-please reads them to
+pick the next version and write the changelog. Local git hooks (lefthook) run
+the same linters CI does; setup is in [CONTRIBUTING.md](CONTRIBUTING.md).
+Architecture notes live in
+[docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
 
 ## License
 
@@ -512,7 +574,9 @@ MIT — see [LICENSE](LICENSE).
 <details>
 <summary>Roadmap and project history</summary>
 
-The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes and feature plans live in [docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
+The full release history is in [CHANGELOG.md](CHANGELOG.md). Architecture notes
+and feature plans live in
+[docs/netcheck_tool_project_plan.md](docs/netcheck_tool_project_plan.md).
 
 | Version | Status | Highlights |
 |---|---|---|

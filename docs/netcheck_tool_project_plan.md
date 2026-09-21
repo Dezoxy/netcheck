@@ -11,7 +11,8 @@
 
 ## 1. Project Goal
 
-Build a CLI tool that analyzes a website or domain and explains what happens between your machine and the target.
+Build a CLI tool that analyzes a website or domain and explains what happens
+between your machine and the target.
 
 Example usage:
 
@@ -468,7 +469,10 @@ netcheck/
 | `web/` | React/PWA source for the local browser workbench. |
 | `.github/workflows/` | CI, release automation, and the weekly Trivy scan. |
 
-The split is a stability boundary, not just tidiness: `pkg/` is frozen for `v2.x` per [STABILITY.md](../STABILITY.md), while `internal/` is enforced-unimportable by Go itself — so the config format and the asset bundle stay free to change.
+The split is a stability boundary, not just tidiness: `pkg/` is frozen for
+`v2.x` per [STABILITY.md](../STABILITY.md), while `internal/` is
+enforced-unimportable by Go itself — so the config format and the asset bundle
+stay free to change.
 
 ---
 
@@ -817,7 +821,8 @@ Important choices:
 ## v0.5 — Export (shipped)
 
 - `--output text|json|markdown|html` on all four commands (default `text`)
-- Versioned JSON schema with `netcheck_version` + `kind` discriminator (`"full"`, `"dns"`, `"route"`, `"ip"`)
+- Versioned JSON schema with `netcheck_version` + `kind` discriminator
+  (`"full"`, `"dns"`, `"route"`, `"ip"`)
 - Markdown renders with GitHub-flavored tables and inline code spans
 - HTML is single-file self-contained with inline CSS (no external requests)
 - Conversion functions live in `internal/report/jsonschema.go` so internal
@@ -830,19 +835,25 @@ Important choices:
 ## v0.6 — Config file + DoH/DoT (shipped)
 
 - `~/.config/netcheck/config.yaml` per section 10
-- Override-able defaults: `timeout`, `user_agent`, `follow_redirects`, `max_redirects`, `prefer_ipv6`, `resolvers`
-- Env vars: `NETCHECK_CONFIG`, `NETCHECK_TIMEOUT`, `NETCHECK_USER_AGENT` (the last two override config-file values)
+- Override-able defaults: `timeout`, `user_agent`, `follow_redirects`,
+  `max_redirects`, `prefer_ipv6`, `resolvers`
+- Env vars: `NETCHECK_CONFIG`, `NETCHECK_TIMEOUT`, `NETCHECK_USER_AGENT` (the
+  last two override config-file values)
 - `--config /path/to/file` flag on every subcommand for ad-hoc overrides
-- Resolver types delivered as `--resolver` URL syntax (`udp://`, `tcp://`, `tls://`, `dot://`, `https://`, `doh://`) rather than separate `netcheck doh`/`netcheck dot` subcommands — fewer commands, same functionality
+- Resolver types delivered as `--resolver` URL syntax (`udp://`, `tcp://`,
+  `tls://`, `dot://`, `https://`, `doh://`) rather than separate
+  `netcheck doh`/`netcheck dot` subcommands — fewer commands, same functionality
 - DoT via miekg/dns `tcp-tls` net; DoH via RFC 8484 wire-format POST
 - Config-defined resolvers added to every `netcheck dns` run; `--no-config-resolvers` skips them
-- User-Agent now consistently applied across both check.HTTP (was hardcoded `netcheck/0.1` before) and ipinfo.RDAP
+- User-Agent now consistently applied across both check.HTTP (was hardcoded
+  `netcheck/0.1` before) and ipinfo.RDAP
 - `config.example.yaml` ships in repo
 - New dependency: `gopkg.in/yaml.v3` (BSD-licensed, small)
 
 ## v0.7 — Tests + CI (shipped)
 
-- Unit tests: `target.Parse` / `target.NormalizeHost` (87.8% coverage), `route.ParseHopLine` (35%), `dnscompare.Verdict` (27.3%), `cmd.ParseFormat`
+- Unit tests: `target.Parse` / `target.NormalizeHost` (87.8% coverage),
+  `route.ParseHopLine` (35%), `dnscompare.Verdict` (27.3%), `cmd.ParseFormat`
 - GitHub Actions workflow at `.github/workflows/ci.yml` running on push and PR:
   - `gofmt -l` check (fails if any file needs formatting)
   - `go vet ./...`
@@ -856,14 +867,22 @@ Important choices:
 
 ## v0.8 — Release automation (shipped)
 
-- `.goreleaser.yml` builds 6 binaries on every tag push (linux/darwin/windows × amd64/arm64), packs them into `tar.gz`/`zip` archives with `README.md` + `LICENSE` + `config.example.yaml`, and computes a `checksums.txt` (SHA256)
-- `.github/workflows/release.yml` runs goreleaser when a `v*` tag is pushed; uploads all artifacts to the matching GitHub release page
-- `cmd.Version` switched from `const` to `var` so build-time `-X` ldflags inject the version. Makefile uses `git describe`; goreleaser uses the tag. Local `go build` defaults to `"dev"`
-- Auto-generated release notes from commits since the previous tag, with `feat:`/`fix:` grouping and noise filters (merge commits, docs/test/chore commits)
+- `.goreleaser.yml` builds 6 binaries on every tag push (linux/darwin/windows ×
+  amd64/arm64), packs them into `tar.gz`/`zip` archives with `README.md` +
+  `LICENSE` + `config.example.yaml`, and computes a `checksums.txt` (SHA256)
+- `.github/workflows/release.yml` runs goreleaser when a `v*` tag is pushed;
+  uploads all artifacts to the matching GitHub release page
+- `cmd.Version` switched from `const` to `var` so build-time `-X` ldflags inject
+  the version. Makefile uses `git describe`; goreleaser uses the tag. Local
+  `go build` defaults to `"dev"`
+- Auto-generated release notes from commits since the previous tag, with
+  `feat:`/`fix:` grouping and noise filters (merge commits, docs/test/chore
+  commits)
 - `LICENSE` file (MIT) added — bundled into every archive
 - **Skipped (separate features later):**
   - Homebrew tap — needs a separate repo and ongoing maintenance; defer to v0.8.1
-  - Code signing (Windows SmartScreen, macOS Gatekeeper) — requires paid certs; v1.0+ concern
+  - Code signing (Windows SmartScreen, macOS Gatekeeper) — requires paid certs;
+    v1.0+ concern
   - SBOM generation — low demand for a CLI utility; goreleaser can add later via plugins
 
 ## v0.9 — Release candidate (shipped)
@@ -925,7 +944,8 @@ The "stop adding things and ship what you have" release.
 **Documentation:**
 - `STABILITY.md` — the full backward-compatibility contract
 - `CHANGELOG.md` — Keep-a-Changelog format snapshot of v0.1 → v1.0
-- `README.md` — rewritten for first-time visitors: stronger pitch, demo above the install section, roadmap moved to a collapsible at the bottom
+- `README.md` — rewritten for first-time visitors: stronger pitch, demo above
+  the install section, roadmap moved to a collapsible at the bottom
 - Release badge added next to the CI badge
 
 **Deferred (post-v1.0):**
@@ -1181,7 +1201,8 @@ This project teaches:
 - Cross-platform tooling
 - Testable DevOps-style code
 
-This is a very strong portfolio project because it combines networking, system tooling, and practical troubleshooting.
+This is a very strong portfolio project because it combines networking, system
+tooling, and practical troubleshooting.
 
 ---
 
