@@ -41,6 +41,5 @@ On a plain `netcheck app` it stays open to local processes, which could run
 
 - `netcheck route` shells out to the operating system's `traceroute` or
   `tracert`; it does not work in the container image, which has none.
-- The container image is linux/amd64 only.
 - The workbench loads its fonts from Google Fonts, so opening it contacts a
   third party even when no check runs.

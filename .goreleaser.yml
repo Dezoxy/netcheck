@@ -52,34 +52,46 @@ archives:
 
 # Container image — published to GitHub Container Registry (GHCR).
 #
-# The homelab (01-myapps-vm) pulls from GHCR. Single-arch (linux/amd64) so no
-# buildx/manifest is needed; goreleaser packages the prebuilt static binary
-# with the repo Dockerfile and pushes during `goreleaser release`.
+# dockers_v2 (GoReleaser >= 2.12) replaces the deprecated dockers +
+# docker_manifests: one `docker buildx build --push` produces a multi-arch
+# image for every platform below. GoReleaser lays the prebuilt static binaries
+# out as <os>/<arch>/netcheck in the build context and the Dockerfile copies
+# $TARGETPLATFORM/netcheck. The Dockerfile has no RUN step, so building arm64
+# on an amd64 runner needs no QEMU emulation. Images are built in the publish
+# phase: `--snapshot` builds per-platform images locally (tagged -amd64 /
+# -arm64) and `--skip=publish` skips them.
 #
-# Docker Hub is intentionally NOT wired yet — add a second image_templates
-# entry (docker.io/{{ .Env.DOCKERHUB_USERNAME }}/netcheck) plus the
-# DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets + a docker login step when ready.
+# The homelab (01-myapps-vm) pulls from GHCR. Docker Hub is intentionally not
+# wired yet — add "docker.io/{{ .Env.DOCKERHUB_USERNAME }}/netcheck" to images
+# plus the DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets + a login step when ready.
 #
 # Auth: the release-please.yml goreleaser job logs in to ghcr.io with the
-# built-in GITHUB_TOKEN (needs `packages: write`). The GHCR package starts
-# private — make it public once, or give the pulling host a registry login.
-dockers:
+# built-in GITHUB_TOKEN (needs `packages: write`) and sets up a buildx builder.
+dockers_v2:
   - id: netcheck
-    goos: linux
-    goarch: amd64
     dockerfile: Dockerfile
-    use: docker
-    image_templates:
-      - "ghcr.io/dezoxy/netcheck:{{ .Version }}"
-      - "ghcr.io/dezoxy/netcheck:{{ .Major }}.{{ .Minor }}"
-      - "ghcr.io/dezoxy/netcheck:latest"
-    build_flag_templates:
-      - "--label=org.opencontainers.image.source=https://github.com/Dezoxy/netcheck"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.revision={{ .FullCommit }}"
-      - "--label=org.opencontainers.image.created={{ .Date }}"
-      - "--label=org.opencontainers.image.licenses=MIT"
+    images:
+      - ghcr.io/dezoxy/netcheck
+    tags:
+      - "{{ .Version }}"
+      - "{{ .Major }}.{{ .Minor }}"
+      - latest
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.source: https://github.com/Dezoxy/netcheck
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.licenses: MIT
+    # GHCR reads these from the multi-arch index to link the package to this
+    # repository and show its description.
+    annotations:
+      "index:org.opencontainers.image.source": https://github.com/Dezoxy/netcheck
+      "index:org.opencontainers.image.description": netcheck — network diagnostic toolkit (web UI)
+      "index:org.opencontainers.image.licenses": MIT
 
 # Homebrew Cask — distributes the prebuilt macOS binary via Homebrew.
 #

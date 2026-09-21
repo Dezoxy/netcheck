@@ -61,6 +61,15 @@ jobs:
           go-version: 'stable'
           cache: true
 
+      # dockers_v2 builds the multi-arch image with buildx; the default docker
+
+      # driver cannot push a multi-platform manifest, so create a builder.
+
+      - name: Set up Docker Buildx
+
+        uses: docker/setup-buildx-action@v4
+
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:

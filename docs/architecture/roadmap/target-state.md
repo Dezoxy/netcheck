@@ -11,7 +11,6 @@ for first; everything else is unscheduled, as the original plan left it.
 ### Unscheduled
 
 - Native TCP traceroute, removing the dependency on the system tool (TD-002).
-- Multi-arch container images with `linux/arm64` (TD-004).
 - HTTP/3 and QUIC checks.
 - A browser-like mode (HSTS cache, cookies, HTTP/3) that narrows the gap
   principle P-02 describes.

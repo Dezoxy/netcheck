@@ -68,9 +68,10 @@ docker run --rm -p 127.0.0.1:8787:8787 ghcr.io/dezoxy/netcheck
 docker run --rm ghcr.io/dezoxy/netcheck dns google.com
 ```
 
-Tags: `latest`, `<major>.<minor>` (e.g. `2.9`), and the exact version (`2.9.0`).
-`linux/amd64` only. The image is `distroless/static:nonroot` wrapped around the
-static binary — no shell, no package manager, and **no `traceroute`**, so
+Tags: `latest`, `<major>.<minor>` (e.g. `2.9`), and the exact version (`2.9.0`),
+for `linux/amd64` and `linux/arm64` (from the release after 2.10.0). The image
+is `distroless/static:nonroot` wrapped around the static binary — no shell, no
+package manager, and **no `traceroute`**, so
 `netcheck route` is the one command that doesn't work in the container (see
 [Caveats](#caveats)). The default command binds `0.0.0.0:8787` because a
 container-local loopback bind would be unreachable; publish it to `127.0.0.1` as

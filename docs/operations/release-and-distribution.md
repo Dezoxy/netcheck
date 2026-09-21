@@ -47,12 +47,14 @@ Last verified 2026-08-25; update this list, not a separate TODO file.
 ## Container image (GHCR)
 
 Unlike the tap and bucket, this one is on. `goreleaser release` packages the
-prebuilt `linux/amd64` binary with the repo [`Dockerfile`](../../Dockerfile) and
-pushes to GHCR during the release job.
+prebuilt `linux/amd64` and `linux/arm64` binaries with the repo
+[`Dockerfile`](../../Dockerfile) into one multi-arch image, built and pushed by
+buildx during the release job's publish phase.
 
 | Piece | Where |
 |---|---|
-| goreleaser config | `dockers:` block in [`.goreleaser.yml`](../../.goreleaser.yml) |
+| goreleaser config | `dockers_v2:` block in [`.goreleaser.yml`](../../.goreleaser.yml) |
+| Builder | `docker/setup-buildx-action` step in the same workflow |
 | Registry login | `docker/login-action` step in [`.github/workflows/release-please.yml`](../../.github/workflows/release-please.yml) |
 | Credentials | The workflow's built-in `GITHUB_TOKEN` — no PAT needed, because GHCR lives in the same org. The job declares `packages: write`. |
 
@@ -107,11 +109,15 @@ docker run --rm -p 127.0.0.1:8787:8787 ghcr.io/dezoxy/netcheck   # then open htt
 
 ### Not wired: Docker Hub
 
-Deliberately skipped. To add it: a second entry under `image_templates`
+Deliberately skipped. To add it: a second entry under `images`
 (`docker.io/{{ .Env.DOCKERHUB_USERNAME }}/netcheck`), `DOCKERHUB_USERNAME` /
-`DOCKERHUB_TOKEN` secrets, and a second `docker/login-action` step. Multi-arch
-(`linux/arm64`) would need `docker_manifests:` plus a per-arch build — not worth
-it until something actually needs ARM.
+`DOCKERHUB_TOKEN` secrets, and a second `docker/login-action` step.
+
+### Backfills skip images
+
+`release.yml` (manual backfill for an old tag) runs with `--skip=docker`:
+rebuilding images there would re-push `:latest` from the old tag and roll every
+consumer back.
 
 ---
 

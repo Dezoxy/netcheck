@@ -43,7 +43,11 @@ jobs:
         uses: goreleaser/goreleaser-action@v7
         with:
           version: '~> v2'
-          args: release --clean
+          # --skip=docker: a backfill re-uploads missing binaries only. Building
+          # images here would re-push :latest (and :MAJOR.MINOR) from an old
+          # tag and roll every consumer back; this job also has no registry
+          # login or packages: write.
+          args: release --clean --skip=docker
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # See release-please.yml for context. Empty fallback keeps backfills

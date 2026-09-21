@@ -27,7 +27,7 @@ workstation.computer.process.cli -> workstation.computer.egress "Sends probes, D
 workstation.computer.process.appServer -> workstation.computer.egress "Sends probes, DNS queries and lookups through" "TCP, UDP, TLS, HTTP(S)" "Layer Engine"
 
 container = deploymentEnvironment "Container" {
-    host = deploymentNode "Docker Host" "Any host running the published image." "Docker, linux/amd64 only" {
+    host = deploymentNode "Docker Host" "Any host running the published image." "Docker, linux/amd64 or linux/arm64" {
         egress = infrastructureNode "Network Egress" "The Docker host's network path to the internet; probes carry the host's source IP." "Docker bridge network"
         image = deploymentNode "netcheck Container" "ghcr.io/dezoxy/netcheck. Runs as UID 65532, binds 0.0.0.0:8787 and so always requires the start-up token; no traceroute binary inside." "distroless/static:nonroot" {
             appServer = containerInstance netcheck.appServer
