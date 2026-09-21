@@ -61,22 +61,25 @@ in the root [Makefile](../../Makefile). `workspace.json`, `.structurizr/` and
 
 | Key | Audience | Question | Scope / abstraction | Selection rule | Omitted on purpose | Source evidence | Update trigger | Visual check |
 |---|---|---|---|---|---|---|---|---|
-| SystemContext | Everyone | What does netcheck talk to, and who uses it? | System context | `include *` | Other Websites (a security finding, shown in Security) | `cmd/root.go`, `pkg/*` clients, `web/index.html` | A new external service, user type or dependency | Checked 2026-09-21 (PNG, 2026.09.19): readable, no overlaps |
+| SystemContext | Everyone | What does netcheck talk to, and who uses it? | System context | `include *` | Other Websites (a security finding, shown in Security) | `cmd/root.go`, `pkg/*` clients, `web/index.html` | A new external service, user type or dependency | Checked 2026-09-21 (PNG, 2026.09.19): 8 elements, one over the 7-element overview budget after adding Cloudflare Access; readable, one crossing (Google Fonts over the Access arrows), none through a box |
 | Containers | Engineers | What are the building blocks, and how does the workbench reach the probe engine? | Containers + user + Google Fonts | Named elements | Probe targets and lookup services (ProbeDependencies) | `main.go`, `cmd/app.go`, `internal/webui/assets.go`, `web/` | A new runtime mode, store or API transport | Checked 2026-09-21 (PNG, 2026.09.19): readable after rank spacing fix |
 | ProbeDependencies | Engineers | Which external services do the CLI and the local web server query or probe? | CLI, server and external systems | Named elements | Workbench, saved reports, users | `pkg/dnscompare`, `pkg/ipinfo`, `pkg/subenum`, `pkg/reverseip`, `pkg/wayback` | An external endpoint added or removed | Checked 2026-09-21 (PNG, 2026.09.19): readable; server and CLI arrows cross between rows, none through a box |
-| Security | CTO, engineers | Who can reach the unauthenticated local web server, and what can it do on their behalf? | Containers across the browser and machine boundary | Named elements | Lookup services (no trust decision there) | `cmd/app.go` routes, `requireAuthInBody`, `cmd/authz.go` | Any auth, Origin/Host or bind-address change | Checked 2026-09-21 (PNG, 2026.09.19): readable, no overlaps |
+| Security | CTO, engineers | Who can reach the local web server, where is sign-in enforced, and what can it do on their behalf? | Containers across the browser and host boundary, plus Cloudflare Access | Named elements | Lookup services (no trust decision there) | `cmd/app_security.go`, `cmd/app_auth.go`, `cmd/authz.go` | Any auth, Origin/Host, bind-address or proxy change | Checked 2026-09-21 (PNG, 2026.09.19): readable; Access and cross-site arrows cross once, none through a box |
 | ActiveScanFlow | Engineers, stakeholders | What happens when the user runs an authorised port scan and saves it? | Runtime, 5 steps | Model relationships in order | The CLI path (same engine, same gate) | `cmd/app.go` ports stream handler, `web/src/api.ts` | A change to the scan gate, streaming or save path | Checked 2026-09-21 (PNG, 2026.09.19): readable, no overlaps |
 | WorkstationDeployment | CTO, operators | Where does netcheck run when installed on the user's machine? | Workstation environment | `include *` | Homebrew/Scoop (not publishing) | `.goreleaser.yml` builds, `cmd/app.go` bind default | New OS/arch target or install channel | Checked 2026-09-21 (PNG, 2026.09.19): readable, no overlaps |
 | ContainerDeployment | CTO, operators | Where does netcheck run when started from the GHCR image? | Container environment | `include *` | Other architectures (image is amd64 only) | `Dockerfile`, `.goreleaser.yml` dockers | Image, base, user or bind change | Checked 2026-09-21 (PNG, 2026.09.19): readable, no overlaps |
+| PublishedDeployment | CTO, operators | How is a published instance reached from the internet, and where is sign-in enforced? | Published environment: Cloudflare edge, private network, app host | `include *`, minus the implied direct browser/Access → server arrows | Real hostnames and internal names (public repo); egress | The maintainer's Cloudflare and homelab infrastructure code (2026-06), described by role | A change to Access, the tunnel, the reverse proxy or the app host | Checked 2026-09-21 (PNG, 2026.09.19): readable single chain |
 
 ## Key decisions
 
-Written on 2026-09-21 from the archived project plan and the code; each says
-where its rationale is not recorded.
+Decisions 1–3 were written on 2026-09-21 from the archived project plan and
+the code; each says where its rationale is not recorded. Decision 4 was made
+and recorded the same day.
 
 - [1. Ship netcheck as a single static Go binary](decisions/0001-ship-a-single-static-go-binary.md)
 - [2. Gate active checks behind explicit authorisation at the entry points](decisions/0002-gate-active-checks-at-the-entry-points.md)
 - [3. Serve the web workbench from the binary, bound to loopback by default](decisions/0003-embed-the-workbench-and-bind-to-loopback.md)
+- [4. Require a token when the web server is reachable beyond this machine](decisions/0004-require-a-token-when-reachable-beyond-this-machine.md)
 
 New ADRs start from [templates/adr.md](templates/adr.md).
 
@@ -84,6 +87,6 @@ New ADRs start from [templates/adr.md](templates/adr.md).
 
 See the [risk register](risks/architecture-risks.md). RISK-001 and RISK-002
 are resolved: the local web server refuses cross-origin requests and unknown
-host names, and caps the scan concurrency an API caller can ask for. Open:
-RISK-003, the server has no authentication, so any non-browser client that
-reaches its port can use it.
+host names, and caps the scan concurrency an API caller can ask for. RISK-003
+is mitigated by decision 4: a token is required whenever the server is
+reachable beyond this machine.

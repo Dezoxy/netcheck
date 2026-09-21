@@ -5,9 +5,8 @@ for first; everything else is unscheduled, as the original plan left it.
 
 ### Next
 
-- Decide whether the local web server needs authentication (RISK-003), for
-  example a per-session token printed at start-up. Worth it once the server
-  is meant to be reached from other machines.
+- Nothing scheduled. RISK-003 was mitigated by decision 4; per-user access
+  would be the next step if netcheck is ever shared between people.
 
 ### Unscheduled
 

@@ -193,6 +193,50 @@ The API refuses cross-origin requests and answers only to IP addresses,
 `localhost` and names passed with `--allowed-host`, so other web pages open in
 your browser cannot drive it.
 
+When the workbench is reachable from other machines (a non-loopback
+`--listen`, the container image, or any `--allowed-host`), its API also needs
+a token. netcheck prints a sign-in URL at start-up; open it once and the
+browser keeps an `HttpOnly` cookie for 30 days. Scripts send
+`Authorization: Bearer <token>`. Set `NETCHECK_APP_TOKEN` to keep the same
+token across restarts, or pass `--auth` to require it on a laptop too.
+
+#### Behind a reverse proxy or tunnel
+
+Put an identity-aware proxy in front if the name is public, for example
+Cloudflare Access; netcheck's token is then a second lock, not the only one.
+Run netcheck on loopback with your public name allowed, then point the proxy
+at it. The token turns on automatically; open
+`https://netcheck.example.com/?token=<token>` once.
+
+```bash
+netcheck app --listen 127.0.0.1:8787 --allowed-host netcheck.example.com
+```
+
+```text
+# Caddy (Caddyfile) — streams server-sent events by default
+netcheck.example.com {
+    reverse_proxy 127.0.0.1:8787
+}
+
+# nginx — keep the Host header and turn buffering off for live events
+location / {
+    proxy_pass http://127.0.0.1:8787;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+}
+
+# Traefik (Docker labels)
+traefik.http.routers.netcheck.rule=Host(`netcheck.example.com`)
+traefik.http.services.netcheck.loadbalancer.server.port=8787
+
+# Cloudflare Tunnel (cloudflared config.yml)
+ingress:
+  - hostname: netcheck.example.com
+    service: http://localhost:8787
+  - service: http_status:404
+```
+
 What's in it:
 
 - **All fifteen checks**, grouped as Network / Passive recon / Active scanning

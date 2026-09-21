@@ -11,10 +11,11 @@ Security view is on the Scope page.
 
 | Boundary | What crosses it | Control today |
 |---|---|---|
+| Internet → published instance | HTTPS to a public hostname | An identity-aware proxy first: on the maintainer's instance, Cloudflare Access signs the user in at the edge, and a Cloudflare Tunnel means no inbound port is open. Then netcheck's own token (decision 4). |
 | User → CLI | Commands typed or scripted by the user | The operating system's user account. Anything the user can run, netcheck runs. |
-| Browser → local web server | HTTP/JSON and SSE requests to `127.0.0.1:8787` | Loopback bind (decision 3); cross-origin requests refused, `Host` allowlisted, JSON bodies only (`cmd/app_security.go`). No authentication (RISK-003). |
+| Browser → local web server | HTTP/JSON and SSE requests to `127.0.0.1:8787` | Loopback bind (decision 3); cross-origin requests refused, `Host` allowlisted, JSON bodies only (`cmd/app_security.go`). Token required when reachable beyond this machine (decision 4). |
 | netcheck → targets and lookup services | DNS, TCP, UDP, TLS and HTTP(S) from the user's source IP | Active checks need authorisation (decision 2). Passive checks are unrestricted by design. |
-| Container host → container | Requests to the published port | Whatever the `docker run -p` mapping allows. The image binds `0.0.0.0:8787`; the same request filtering applies. |
+| Container host → container | Requests to the published port | Whatever the `docker run -p` mapping allows. The image binds `0.0.0.0:8787`, so the token is always required; the same request filtering applies. |
 
 ### The authorisation gate
 
@@ -39,7 +40,16 @@ Scan parallelism an API caller can request is capped (RISK-002, resolved).
 - The optional Shodan API key lives in the local config file.
 - Saved reports are local JSON files, directory `0700`, files `0600`.
 
+### Authentication
+
+The server has one token, not user accounts (decision 4). It is required on
+`/api/*` whenever the server is reachable beyond this machine: a non-loopback
+bind or any `--allowed-host` name, which is how a reverse proxy or tunnel on a
+subdomain is configured. A browser signs in once with the start-up URL and
+gets an `HttpOnly`, `SameSite=Strict` cookie; scripts send a Bearer token. The
+workbench shell and `/api/healthz` stay public and hold no data.
+
 ### Open items
 
-- RISK-003: the local web server has no authentication, so non-browser
-  clients that reach its port can use it.
+- RISK-003 is mitigated, not closed: the loopback default stays open to local
+  processes, and on a shared machine `--auth` is needed.

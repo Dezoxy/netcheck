@@ -29,7 +29,7 @@ workstation.computer.process.appServer -> workstation.computer.egress "Sends pro
 container = deploymentEnvironment "Container" {
     host = deploymentNode "Docker Host" "Any host running the published image." "Docker, linux/amd64 only" {
         egress = infrastructureNode "Network Egress" "The Docker host's network path to the internet; probes carry the host's source IP." "Docker bridge network"
-        image = deploymentNode "netcheck Container" "ghcr.io/dezoxy/netcheck. Runs as UID 65532 and binds 0.0.0.0:8787; no traceroute binary inside." "distroless/static:nonroot" {
+        image = deploymentNode "netcheck Container" "ghcr.io/dezoxy/netcheck. Runs as UID 65532, binds 0.0.0.0:8787 and so always requires the start-up token; no traceroute binary inside." "distroless/static:nonroot" {
             appServer = containerInstance netcheck.appServer
             containerInstance netcheck.savedReports
         }
@@ -42,3 +42,33 @@ container = deploymentEnvironment "Container" {
 }
 
 container.host.image.appServer -> container.host.egress "Sends probes, DNS queries and lookups through" "TCP, UDP, TLS, HTTP(S)" "Layer Engine"
+
+// One supported way to publish netcheck on the internet: the maintainer's own
+// setup, described by role. Access enforces sign-in at the edge, the Tunnel
+// means no inbound port is open, and netcheck requires its token because it
+// has an --allowed-host for the public name (decision 4). Declared from the
+// maintainer's infrastructure code (2026-06), not from this repository.
+published = deploymentEnvironment "Published" {
+    device = deploymentNode "Web Browser" "On the user's device, anywhere on the internet." "Any current browser" {
+        workbench = containerInstance netcheck.workbench
+    }
+    edge = deploymentNode "Cloudflare" "Cloudflare's edge network." "Cloudflare" {
+        access = softwareSystemInstance cfAccess
+        tunnel = infrastructureNode "Cloudflare Tunnel" "Carries requests from the edge into the private network; no inbound port is open there." "cloudflared"
+    }
+    private = deploymentNode "Private Network" "A homelab network behind the tunnel." "Proxmox" {
+        proxyHost = deploymentNode "Reverse-Proxy Host" "Terminates the tunnel's traffic for every published app." "LXC container" {
+            proxy = infrastructureNode "Reverse Proxy" "Routes the public netcheck name to the app host, keeping the Host header." "Traefik"
+        }
+        appHost = deploymentNode "App Host" "Runs published apps with Docker Compose." "VM" {
+            ctr = deploymentNode "netcheck Container" "Pinned image version, started with --allowed-host for the public name, so the token is required." "ghcr.io/dezoxy/netcheck" {
+                appServer = containerInstance netcheck.appServer
+                containerInstance netcheck.savedReports
+            }
+        }
+    }
+}
+
+published.edge.access -> published.edge.tunnel "Forwards signed-in requests through" "HTTPS"
+published.edge.tunnel -> published.private.proxyHost.proxy "Delivers requests to" "HTTP, private network"
+published.private.proxyHost.proxy -> published.private.appHost.ctr.appServer "Forwards requests to" "HTTP :8787"
