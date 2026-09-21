@@ -4,6 +4,14 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.9.1](https://github.com/Dezoxy/netcheck/compare/v2.9.0...v2.9.1) (2026-08-25)
+
+
+### Documentation
+
+* align README and docs with shipped v2.9 reality ([#144](https://github.com/Dezoxy/netcheck/issues/144)) ([6e32cb4](https://github.com/Dezoxy/netcheck/commit/6e32cb45bb5cbc785240d5663907766c10c3dacc))
+* README's Go floor is 1.25, not 1.24 ([#147](https://github.com/Dezoxy/netcheck/issues/147)) ([70ed352](https://github.com/Dezoxy/netcheck/commit/70ed352e9aa3212cf60ac1f6235d90fba82eb053))
+
 ## [2.9.0](https://github.com/Dezoxy/netcheck/compare/v2.8.0...v2.9.0) (2026-05-29)
 
 
