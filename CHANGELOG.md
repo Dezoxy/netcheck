@@ -4,6 +4,27 @@ All notable changes are documented here. Format follows [Keep a Changelog](https
 
 Per-release notes are also generated automatically by `goreleaser` and attached to each [GitHub release](https://github.com/Dezoxy/netcheck/releases).
 
+## [2.10.0](https://github.com/Dezoxy/netcheck/compare/v2.9.2...v2.10.0) (2026-09-21)
+
+
+### Features
+
+* **app:** require a token when the web server is reachable beyond this machine ([#166](https://github.com/Dezoxy/netcheck/issues/166)) ([112ba26](https://github.com/Dezoxy/netcheck/commit/112ba262c0fa1d59b3a1566227c99775a00b9fb1))
+
+
+### Bug fixes
+
+* **app:** refuse cross-origin requests and foreign Host names ([#162](https://github.com/Dezoxy/netcheck/issues/162)) ([bc37713](https://github.com/Dezoxy/netcheck/commit/bc3771320524775c6ed804fd8d042a9476a7ded4))
+* **portscan:** don't report cross-connected local dials as open ([#164](https://github.com/Dezoxy/netcheck/issues/164)) ([02d2121](https://github.com/Dezoxy/netcheck/commit/02d212111b57bf4412be5136191c57eb8dc48da6))
+
+
+### Documentation
+
+* **architecture:** add requirements, principles, security, risks, roadmap and ADRs ([#161](https://github.com/Dezoxy/netcheck/issues/161)) ([4d97460](https://github.com/Dezoxy/netcheck/commit/4d974603f69c12874ffc9aed049d4f53741fe96c))
+* **architecture:** adopt architecture-base kit and model netcheck ([#158](https://github.com/Dezoxy/netcheck/issues/158)) ([7e4aaaf](https://github.com/Dezoxy/netcheck/commit/7e4aaaf9184006deb3fac0d2557c048adaa3d231))
+* organise docs/ into policy, operations and history ([#160](https://github.com/Dezoxy/netcheck/issues/160)) ([33f733c](https://github.com/Dezoxy/netcheck/commit/33f733cd57c9eba595275c78de94fb1e5ccad30f))
+* wrap prose at 80 columns ahead of architecture-base adoption ([#157](https://github.com/Dezoxy/netcheck/issues/157)) ([09c7dcf](https://github.com/Dezoxy/netcheck/commit/09c7dcfd104ac459d7de92ef60f180af423fe680))
+
 ## [2.9.2](https://github.com/Dezoxy/netcheck/compare/v2.9.1...v2.9.2) (2026-09-21)
 
 
