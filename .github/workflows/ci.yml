@@ -86,7 +86,10 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          node-version: 'lts/*'
+          # Pinned by major in web/.nvmrc, not lts/*: the committed UI bundle
+          # is checked byte-for-byte below, so a Node upgrade should arrive
+          # as its own reviewed change.
+          node-version-file: web/.nvmrc
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
@@ -101,6 +104,19 @@ jobs:
 
       - name: build (tsc + vite)
         run: npm run build
+
+      # internal/webui/dist is committed because go:embed and `go install`
+      # need it at Go build time, and nothing else kept it in step with web/
+      # (TD-001). The build is byte-identical across macOS and Linux on the
+      # same Node major, so any difference here means the commit is stale.
+      - name: committed UI bundle matches web/
+        run: |
+          changes="$(git status --porcelain -- ../internal/webui/dist)"
+          if [ -n "$changes" ]; then
+            echo "::error::internal/webui/dist is out of date. Run 'make web-build' and commit the result."
+            echo "$changes"
+            exit 1
+          fi
 
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}
