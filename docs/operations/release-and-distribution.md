@@ -67,7 +67,10 @@ Every other command works.
 **The default `CMD` is `app --listen 0.0.0.0:8787`.** The CLI defaults to
 `127.0.0.1` — correct for a laptop, useless in a container where loopback is the
 container's own. Bind the published port to loopback on the host
-(`-p 127.0.0.1:8787:8787`) if you don't want the workbench on your LAN.
+(`-p 127.0.0.1:8787:8787`) if you don't want the workbench on your LAN. The
+server answers to IP addresses and `localhost`; to reach it by a hostname (a
+reverse proxy or a LAN DNS name), append `--allowed-host <name>` to the
+command.
 
 ### Package visibility — already public
 
